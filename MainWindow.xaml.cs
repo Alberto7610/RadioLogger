@@ -16,8 +16,13 @@ namespace RadioLogger;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private RadioLogger.Services.TrayService? _trayService;
+
     public MainWindow()
     {
         InitializeComponent();
+        
+        // Initialize Tray Icon logic
+        _trayService = new RadioLogger.Services.TrayService(this);
     }
 }

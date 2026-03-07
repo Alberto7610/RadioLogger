@@ -91,6 +91,35 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- System Card -->
+                        <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Comportamiento del Sistema" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
+
+                                <CheckBox IsChecked="{Binding IsAutoStartEnabled}" Margin="0,0,0,10">
+                                    <CheckBox.Template>
+                                        <ControlTemplate TargetType="CheckBox">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Grid Width="40" Height="20" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                    <Border x:Name="Track" Background="#333" CornerRadius="10"/>
+                                                    <Ellipse x:Name="Knob" Fill="#888" Width="16" Height="16" HorizontalAlignment="Left" Margin="2,0"/>
+                                                </Grid>
+                                                <TextBlock Text="INICIAR CON WINDOWS" Foreground="White" VerticalAlignment="Center" FontSize="11" FontWeight="Bold"/>
+                                            </StackPanel>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Track" Property="Background" Value="#00AABB"/>
+                                                    <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+                                                    <Setter TargetName="Knob" Property="Fill" Value="White"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </CheckBox.Template>
+                                </CheckBox>
+                                <TextBlock Text="La aplicación se iniciará minimizada en el tray al encender el equipo." Foreground="#555" FontSize="10"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Storage Card -->
                         <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
                             <StackPanel>

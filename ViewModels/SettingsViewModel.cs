@@ -68,6 +68,8 @@ namespace RadioLogger.ViewModels
         [ObservableProperty] private bool _isSignalREnabled;
         [ObservableProperty] private string _signalRHubUrl = string.Empty;
 
+        [ObservableProperty] private bool _isAutoStartEnabled;
+
         [RelayCommand]
         public async System.Threading.Tasks.Task TestConnection()
         {
@@ -148,6 +150,7 @@ namespace RadioLogger.ViewModels
 
             IsSignalREnabled = _configManager.CurrentSettings.IsSignalREnabled;
             SignalRHubUrl = _configManager.CurrentSettings.SignalRHubUrl;
+            IsAutoStartEnabled = _configManager.CurrentSettings.IsAutoStartEnabled;
 
             LoadDevices();
         }
@@ -202,6 +205,10 @@ namespace RadioLogger.ViewModels
             
             _configManager.CurrentSettings.IsSignalREnabled = IsSignalREnabled;
             _configManager.CurrentSettings.SignalRHubUrl = SignalRHubUrl;
+            _configManager.CurrentSettings.IsAutoStartEnabled = IsAutoStartEnabled;
+
+            // Apply auto-start to registry
+            AutoStartService.SetAutoStart(IsAutoStartEnabled);
 
             // Save active devices list
             _configManager.CurrentSettings.ActiveInputDevices = AvailableDevices

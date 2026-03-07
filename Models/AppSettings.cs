@@ -31,6 +31,8 @@ namespace RadioLogger.Models
         public string SignalRHubUrl { get; set; } = "https://localhost:5001/radiohub";
         public int SignalRUpdateIntervalMs { get; set; } = 200; // 5 FPS for remote meters
 
+        public bool IsAutoStartEnabled { get; set; } = false;
+
         // Settings for auto-start recording on launch
         public List<string> AutoRecordDevices { get; set; } = new List<string>();
     }
