@@ -1,0 +1,420 @@
+<Window x:Class="RadioLogger.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:RadioLogger.ViewModels"
+        mc:Ignorable="d"
+        Title="Panel de Control" Height="550" Width="800"
+        Background="#121212" Foreground="White" WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True">
+    
+    <!-- Window Border & Shadow for Chromeless Look -->
+    <Border BorderBrush="#333" BorderThickness="1" Background="#121212">
+        <Border.Effect><DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="5" Opacity="0.8"/></Border.Effect>
+        
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/> <!-- Sidebar -->
+                <ColumnDefinition Width="*"/>   <!-- Content -->
+            </Grid.ColumnDefinitions>
+
+            <!-- SIDEBAR -->
+            <Border Grid.Column="0" Background="#1E1E1E" BorderBrush="#252525" BorderThickness="0,0,1,0">
+                <StackPanel Margin="0,20,0,0">
+                    <TextBlock Text="AJUSTES" Foreground="#666" FontSize="10" FontWeight="Bold" Margin="20,0,0,10"/>
+                    
+                    <!-- Navigation Tabs (Styled as RadioButtons) -->
+                    <StackPanel>
+                        <StackPanel.Resources>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="Foreground" Value="#AAA"/>
+                                <Setter Property="FontSize" Value="14"/>
+                                <Setter Property="Padding" Value="20,12"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="3,0,0,0">
+                                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#252526"/>
+                                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#00AABB"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                    <Setter TargetName="Bd" Property="Background" Value="#222"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </StackPanel.Resources>
+                        
+                        <RadioButton Content="General" IsChecked="True" x:Name="TabGeneral"/>
+                        <RadioButton Content="Audio &amp; Dispositivos" x:Name="TabAudio"/>
+                        <RadioButton Content="Transmisión" x:Name="TabStreaming"/>
+                        <RadioButton Content="Programación" x:Name="TabSchedule"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- CONTENT AREA -->
+            <Grid Grid.Column="1" Background="#181818">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/> <!-- Header -->
+                    <RowDefinition Height="*"/>    <!-- Content -->
+                    <RowDefinition Height="Auto"/> <!-- Footer -->
+                </Grid.RowDefinitions>
+
+                <!-- Header Title -->
+                <TextBlock Text="Configuración del Sistema" FontSize="22" FontWeight="Light" Foreground="#EEE" Margin="30,25,0,20"/>
+
+                <!-- GENERAL TAB -->
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
+                              Visibility="{Binding IsChecked, ElementName=TabGeneral, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <!-- Station Card -->
+                        <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Identidad de la Estación" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
+                                
+                                <TextBlock Text="Nombre (Siglas)" Foreground="#888" FontSize="12" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding StationName}" Height="35" VerticalContentAlignment="Center" Background="#111" Foreground="White" BorderBrush="#444" Padding="5"/>
+                                <TextBlock Text="Este nombre aparecerá en la cabecera y en los reportes." Foreground="#555" FontSize="10" Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Storage Card -->
+                        <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Almacenamiento" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
+                                
+                                <TextBlock Text="Ruta de Grabación" Foreground="#888" FontSize="12" Margin="0,0,0,5"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding RecordingPath}" Height="35" IsReadOnly="True" VerticalContentAlignment="Center" Background="#111" Foreground="#CCC" BorderBrush="#444" Padding="5"/>
+                                    <Button Command="{Binding BrowseFolderCommand}" Grid.Column="1" Width="40" Height="35" Margin="10,0,0,0" Background="#333" BorderBrush="#555" Content="...">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}" CornerRadius="3" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+                                                    <Path Data="M2,2 L10,2 L12,5 L20,5 L20,16 L2,16 Z" Stroke="White" StrokeThickness="1.5" Fill="Transparent" HorizontalAlignment="Center" VerticalAlignment="Center" Width="15" Height="12" Stretch="Fill"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#444"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- AUDIO TAB -->
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
+                              Visibility="{Binding IsChecked, ElementName=TabAudio, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <!-- Quality Card -->
+                        <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Calidad de Audio" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Bitrate MP3:" Foreground="#888" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                                    <ComboBox SelectedValue="{Binding Bitrate}" SelectedValuePath="Content" Width="120" Height="30" Background="#111" Foreground="Black">
+                                        <ComboBoxItem Content="128"/>
+                                        <ComboBoxItem Content="192"/>
+                                        <ComboBoxItem Content="256"/>
+                                        <ComboBoxItem Content="320"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Devices List -->
+                        <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Entradas Activas" FontSize="16" Foreground="#00AABB" Margin="0,0,0,5"/>
+                                <TextBlock Text="Activa solo los dispositivos que deseas monitorear." Foreground="#666" FontSize="11" Margin="0,0,0,15"/>
+
+                                <ListBox ItemsSource="{Binding AvailableDevices}" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <ContentPresenter/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,8" Background="#1A1A1A" CornerRadius="3" Padding="10">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" Foreground="#888" FontSize="10" FontWeight="Bold"/>
+                                                        <TextBlock Text="{Binding Driver}" Foreground="#444" FontSize="9" Margin="0,0,0,5"/>
+                                                        
+                                                        <TextBlock Text="NOMBRE DE ESTACIÓN:" Foreground="#00AABB" FontSize="8" FontWeight="Bold"/>
+                                                        <TextBox Text="{Binding CustomStationName, UpdateSourceTrigger=PropertyChanged}" 
+                                                                 Width="200" Height="25" HorizontalAlignment="Left" Margin="0,2,0,0"
+                                                                 Background="#111" Foreground="White" BorderBrush="#333" FontSize="11" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    
+                                                    <!-- Modern Toggle Switch -->
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="20,0,0,0">
+                                                        <TextBlock Text="ACTIVO" Foreground="#444" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,3"/>
+                                                        <CheckBox IsChecked="{Binding IsActive}" Cursor="Hand">
+                                                            <CheckBox.Template>
+                                                                <ControlTemplate TargetType="CheckBox">
+                                                                    <Grid Width="40" Height="20">
+                                                                        <Border x:Name="Track" Background="#333" CornerRadius="10"/>
+                                                                        <Ellipse x:Name="Knob" Fill="#888" Width="16" Height="16" HorizontalAlignment="Left" Margin="2,0"/>
+                                                                    </Grid>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsChecked" Value="True">
+                                                                            <Setter TargetName="Track" Property="Background" Value="#00AABB"/>
+                                                                            <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+                                                                            <Setter TargetName="Knob" Property="Fill" Value="White"/>
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </CheckBox.Template>
+                                                        </CheckBox>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- STREAMING TAB -->
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
+                              Visibility="{Binding IsChecked, ElementName=TabStreaming, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Left: Device List -->
+                        <Border Grid.Column="0" Background="#222" Margin="0,0,20,0" CornerRadius="4" BorderBrush="#333" BorderThickness="1">
+                            <DockPanel>
+                                <TextBlock Text="SELECCIONA EMISORA" DockPanel.Dock="Top" Foreground="#666" FontSize="10" FontWeight="Bold" Margin="10"/>
+                                <ListBox ItemsSource="{Binding AvailableDevices}" SelectedItem="{Binding SelectedStreamingDevice}" 
+                                         Background="Transparent" BorderThickness="0">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <Border x:Name="bd" Background="Transparent" Padding="10,8" Cursor="Hand">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding CustomStationName}" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                                                                <TextBlock Text="{Binding Name}" Foreground="#666" FontSize="9"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="bd" Property="Background" Value="#00AABB"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="bd" Property="Background" Value="#333"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Right: Form -->
+                        <Border Grid.Column="1" Background="#252526" CornerRadius="4" Padding="20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Configuración de Streaming" FontSize="16" Foreground="#00AABB" Margin="0,0,0,20"/>
+                                
+                                <Grid Margin="0,0,0,15">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="Tipo de Servidor" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                        <ComboBox SelectedValue="{Binding StreamServerType}" SelectedValuePath="Content" Height="30" Background="#111">
+                                            <ComboBoxItem Content="Shoutcast v1"/>
+                                            <ComboBoxItem Content="Shoutcast v2"/>
+                                            <ComboBoxItem Content="Icecast"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Calidad (Bitrate)" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                        <ComboBox SelectedValue="{Binding StreamBitrate}" SelectedValuePath="Content" Height="30" Background="#111">
+                                            <ComboBoxItem Content="64"/>
+                                            <ComboBoxItem Content="96"/>
+                                            <ComboBoxItem Content="128"/>
+                                            <ComboBoxItem Content="192"/>
+                                            <ComboBoxItem Content="320"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+
+                                <StackPanel Margin="0,0,0,15">
+                                    <TextBlock Text="Servidor / Host (IP o Dominio)" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                    <TextBox Text="{Binding StreamHost}" Height="30" Background="#111" Foreground="White" BorderBrush="#444" VerticalContentAlignment="Center" Padding="5"/>
+                                </StackPanel>
+
+                                <Grid Margin="0,0,0,15">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="Puerto" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding StreamPort}" Height="30" Background="#111" Foreground="White" BorderBrush="#444" VerticalContentAlignment="Center" Padding="5"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Contraseña" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding StreamPassword}" Height="30" Background="#111" Foreground="White" BorderBrush="#444" VerticalContentAlignment="Center" Padding="5"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <StackPanel Margin="0,0,0,15">
+                                    <TextBlock Text="Punto de Montaje (Solo Icecast)" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                    <TextBox Text="{Binding StreamMount}" Height="30" Background="#111" Foreground="White" BorderBrush="#444" VerticalContentAlignment="Center" Padding="5"/>
+                                    <TextBlock Text="Ejemplo: /live o /stream" Foreground="#555" FontSize="9"/>
+                                </StackPanel>
+
+                                <!-- Test Connection Section -->
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
+                                    <Button Command="{Binding TestConnectionCommand}" Content="PROBAR CONEXIÓN" Width="120" Height="30" Cursor="Hand">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="#333" CornerRadius="3" BorderBrush="#555" BorderThickness="1">
+                                                    <TextBlock Text="{TemplateBinding Content}" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10" FontWeight="Bold"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Opacity" Value="0.8"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    
+                                    <TextBlock Text="{Binding TestStatus}" Foreground="{Binding TestStatusColor}" 
+                                               VerticalAlignment="Center" Margin="15,0,0,0" FontSize="11" FontWeight="Bold" TextWrapping="Wrap" MaxWidth="250"/>
+                                </StackPanel>
+
+                                <TextBlock Text="Nota: La transmisión requiere que el canal esté 'ON AIR' en la consola principal." Foreground="#666" FontSize="10" FontStyle="Italic" Margin="0,10,0,0"/>
+
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+
+                <!-- SCHEDULE TAB -->
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
+                              Visibility="{Binding IsChecked, ElementName=TabSchedule, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Border Background="#252526" CornerRadius="4" Padding="20" BorderBrush="#333" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="Horario de Operación" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
+                            <TextBlock Text="Define cuándo inicia y termina el bloque de grabación diario (Ej: 06:00 a 06:00)." Foreground="#888" FontSize="12" Margin="0,0,0,20"/>
+                            
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="INICIO (Hora)" Foreground="#AAA" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding StartHour}" Height="40" FontSize="18" FontWeight="Bold" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Background="#111" Foreground="#FFF" BorderBrush="#444"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="➜" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#555"/>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="FIN (Hora)" Foreground="#AAA" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding EndHour}" Height="40" FontSize="18" FontWeight="Bold" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Background="#111" Foreground="#FFF" BorderBrush="#444"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </ScrollViewer>
+
+                <!-- FOOTER (Action Buttons) -->
+                <Border Grid.Row="2" Padding="20" Background="#151515" BorderBrush="#252525" BorderThickness="0,1,0,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <!-- Custom Button Style -->
+                        <Button Content="CANCELAR" IsCancel="True" Cursor="Hand" Margin="0,0,10,0" Background="Transparent" Foreground="#888" BorderThickness="0">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="Transparent" Padding="15,8">
+                                        <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <Button Command="{Binding SaveCommand}" Click="Button_Click" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" Background="#00AABB" CornerRadius="4" Padding="25,10">
+                                        <Grid>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="GUARDAR CAMBIOS" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <Border.Effect>
+                                            <DropShadowEffect Color="#00AABB" BlurRadius="10" ShadowDepth="0" Opacity="0.4"/>
+                                        </Border.Effect>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="#00CCDD"/>
+                                            <Setter TargetName="bd" Property="Effect">
+                                                <Setter.Value><DropShadowEffect Color="#00CCDD" BlurRadius="15" ShadowDepth="0" Opacity="0.6"/></Setter.Value>
+                                            </Setter>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="bd" Property="RenderTransform">
+                                                <Setter.Value><TranslateTransform Y="1"/></Setter.Value>
+                                            </Setter>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

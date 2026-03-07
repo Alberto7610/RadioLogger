@@ -1,0 +1,32 @@
+using System.Collections.Generic;
+using System.IO;
+
+namespace RadioLogger.Models
+{
+    public class AppSettings
+    {
+        public string StationName { get; set; } = "Radio Estación 1";
+        public string RecordingBasePath { get; set; } = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments), "RadioLogger");
+        public int Mp3Bitrate { get; set; } = 128; // Kbps
+        
+        // Recording Schedule (0-23)
+        public int StartHour { get; set; } = 0; // 0 = Medianoche
+        public int EndHour { get; set; } = 24; // 24 = Todo el día
+        
+        public string HeartbeatUrl { get; set; } = "https://api.tuservidor.com/heartbeat";
+        public int HeartbeatIntervalSeconds { get; set; } = 60;
+        
+        // List of Device Names that are ENABLED to appear in the dashboard
+        // If empty, show all available inputs.
+        public List<string> ActiveInputDevices { get; set; } = new List<string>();
+
+        // Map: Hardware Device Name -> Custom Station Name
+        public Dictionary<string, string> DeviceStationNames { get; set; } = new Dictionary<string, string>();
+
+        // Map: Hardware Device Name -> Streaming Configuration
+        public Dictionary<string, StreamingConfig> DeviceStreamingConfigs { get; set; } = new Dictionary<string, StreamingConfig>();
+        
+        // Settings for auto-start recording on launch
+        public List<string> AutoRecordDevices { get; set; } = new List<string>();
+    }
+}

@@ -1,0 +1,349 @@
+<Window x:Class="RadioLogger.Views.PlayerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:RadioLogger.ViewModels"
+        xmlns:local="clr-namespace:RadioLogger"
+        mc:Ignorable="d"
+        Title="Auditor de Testigos" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen"
+        Background="#121212">
+
+    <Border Background="#121212">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Sidebar: File Browser -->
+            <Border Grid.Column="0" Background="#1A1A1A" BorderBrush="#252525" BorderThickness="0,0,1,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Station Label -->
+                        <RowDefinition Height="Auto"/> <!-- Station Combo -->
+                        <RowDefinition Height="Auto"/> <!-- Date Label -->
+                        <RowDefinition Height="Auto"/> <!-- Date Combo -->
+                        <RowDefinition Height="Auto"/> <!-- Files Label -->
+                        <RowDefinition Height="*"/>    <!-- Files List -->
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="EMISORA" Foreground="#00AABB" FontSize="10" FontWeight="Bold" Margin="20,20,20,5"/>
+                    <ComboBox Grid.Row="1" ItemsSource="{Binding Stations}" SelectedItem="{Binding SelectedStation}" 
+                              Margin="20,0,20,15" Height="30"/>
+
+                    <TextBlock Grid.Row="2" Text="FECHA" Foreground="#00AABB" FontSize="10" FontWeight="Bold" Margin="20,0,20,5"/>
+                    <ComboBox Grid.Row="3" ItemsSource="{Binding AvailableDates}" SelectedItem="{Binding SelectedDate}" 
+                              Margin="20,0,20,15" Height="30">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding StringFormat='{}{0:dd MMM yyyy}'}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <TextBlock Grid.Row="4" Text="ARCHIVOS" Foreground="#666" FontSize="10" FontWeight="Bold" Margin="20,0,20,5"/>
+                    
+                    <TextBlock Grid.Row="5" Text="No hay grabaciones" Foreground="#444" HorizontalAlignment="Center" Margin="0,30,0,0" FontStyle="Italic"
+                               Visibility="{Binding RecordingsList.Count, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}"/>
+
+                    <ListBox Grid.Row="5" ItemsSource="{Binding RecordingsList}" SelectedItem="{Binding SelectedRecording}" Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Bd" Padding="15,8" Cursor="Hand" Background="Transparent" BorderBrush="#222" BorderThickness="0,0,0,1">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <Path Data="M0,0 L10,6 L0,12 Z" Fill="#444" Width="8" Height="10" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <!-- Simplified title to just show the hour-min-sec part as the station/date is already selected -->
+                                                        <TextBlock x:Name="FileTitle" Text="{Binding Name}" Foreground="#BBB" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding LastWriteTime, StringFormat='{}{0:HH:mm:ss}'}" Foreground="#555" FontSize="10" Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#252526"/>
+                                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#00AABB"/>
+                                                    <Setter TargetName="FileTitle" Property="Foreground" Value="White"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#222"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                    </Grid>
+                </Border>
+
+            <!-- Main Player Area -->
+            <Grid Grid.Column="1" Background="#121212">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 1. Track Info -->
+                <StackPanel Grid.Row="0" Margin="35,35,35,10">
+                    <TextBlock Text="HORA DE EMISIÓN" Foreground="#444" FontSize="9" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <TextBlock Text="{Binding RealTimeDisplay}" Foreground="#EEE" FontSize="32" FontWeight="Light" FontFamily="Consolas"/>
+                    <TextBlock Text="{Binding TimeDisplay}" Foreground="#00AABB" FontSize="14" Margin="0,5,0,0"/>
+                </StackPanel>
+
+                <!-- 2. WAVEFORM & SEEKER -->
+                <Grid Grid.Row="1" Margin="35,15">
+                    <Border BorderBrush="#252525" BorderThickness="1" CornerRadius="8" Background="#080808" ClipToBounds="True">
+                        <Grid>
+                            <ItemsControl ItemsSource="{Binding WaveformData}" VerticalAlignment="Center">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate><Rectangle Width="6" Height="{Binding}" Fill="#00AABB" Margin="0.5,0" Opacity="0.7" RadiusX="1" RadiusY="1"/></DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Slider Minimum="0" Maximum="{Binding TotalDuration}" Value="{Binding CurrentPosition}" IsMoveToPointEnabled="True" VerticalAlignment="Stretch">
+                                <Slider.Template>
+                                    <ControlTemplate TargetType="Slider">
+                                        <Grid Background="Transparent">
+                                            <Track x:Name="PART_Track">
+                                                <Track.Thumb>
+                                                    <Thumb>
+                                                        <Thumb.Template>
+                                                            <ControlTemplate TargetType="Thumb">
+                                                                <Grid Width="2" Height="300">
+                                                                    <Rectangle Fill="White" Opacity="0.3"/>
+                                                                    <Rectangle Fill="#F00" Width="1"/>
+                                                                    <Path Data="M-4,0 L6,0 L1,8 Z" Fill="#F00" Width="10" Height="8" VerticalAlignment="Top"/>
+                                                                </Grid>
+                                                            </ControlTemplate>
+                                                        </Thumb.Template>
+                                                    </Thumb>
+                                                </Track.Thumb>
+                                            </Track>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Slider.Template>
+                            </Slider>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- 2.5 HORIZONTAL VU METERS -->
+                <Border Grid.Row="2" Margin="30,0,30,15" Background="#0E0E0E" BorderBrush="#222" BorderThickness="1" CornerRadius="4" Padding="10,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="4"/> <!-- Gap -->
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- L Channel -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="L" Foreground="#555" FontSize="9" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Grid Grid.Row="0" Grid.Column="1" Height="6" x:Name="PlayL">
+                            <Border Background="#000" CornerRadius="2"/>
+                            
+                            <!-- Ghost Gradient -->
+                            <Border CornerRadius="2" Opacity="0.2">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#00C853" Offset="0"/>
+                                        <GradientStop Color="#FFEA00" Offset="0.8"/>
+                                        <GradientStop Color="#D50000" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+
+                            <!-- Active Level (Clipped) -->
+                            <Border HorizontalAlignment="Left" ClipToBounds="True" CornerRadius="2">
+                                <Border.Width>
+                                    <MultiBinding Converter="{StaticResource PeakConverter}">
+                                        <Binding Path="PlaybackLevelL"/>
+                                        <Binding ElementName="PlayL" Path="ActualWidth"/>
+                                    </MultiBinding>
+                                </Border.Width>
+                                <Grid Width="{Binding ActualWidth, ElementName=PlayL}">
+                                    <Grid.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#00C853" Offset="0"/>
+                                            <GradientStop Color="#FFEA00" Offset="0.8"/>
+                                            <GradientStop Color="#D50000" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Grid.Background>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <!-- R Channel -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="R" Foreground="#555" FontSize="9" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Grid Grid.Row="2" Grid.Column="1" Height="6" x:Name="PlayR">
+                            <Border Background="#000" CornerRadius="2"/>
+                            
+                            <!-- Ghost Gradient -->
+                            <Border CornerRadius="2" Opacity="0.2">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#00C853" Offset="0"/>
+                                        <GradientStop Color="#FFEA00" Offset="0.8"/>
+                                        <GradientStop Color="#D50000" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+
+                            <!-- Active Level (Clipped) -->
+                            <Border HorizontalAlignment="Left" ClipToBounds="True" CornerRadius="2">
+                                <Border.Width>
+                                    <MultiBinding Converter="{StaticResource PeakConverter}">
+                                        <Binding Path="PlaybackLevelR"/>
+                                        <Binding ElementName="PlayR" Path="ActualWidth"/>
+                                    </MultiBinding>
+                                </Border.Width>
+                                <Grid Width="{Binding ActualWidth, ElementName=PlayR}">
+                                    <Grid.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#00C853" Offset="0"/>
+                                            <GradientStop Color="#FFEA00" Offset="0.8"/>
+                                            <GradientStop Color="#D50000" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Grid.Background>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- 4. TRANSPORT & MONITOR CONTROLS -->
+                <Grid Grid.Row="3" Margin="30,0,30,30">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/> <!-- Monitor Section -->
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Transport (Centered) -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <!-- Rewind Button -->
+                        <Button Command="{Binding RewindCommand}" Width="46" Height="46" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" CornerRadius="23" Background="#1E1E1E" BorderBrush="#333" BorderThickness="1.5">
+                                        <!-- Double Triangle Icon (<<) -->
+                                        <Path x:Name="icon" Data="M22,12 L22,28 L10,20 Z M34,12 L34,28 L22,20 Z" Fill="#666" Stretch="Uniform" Width="16" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="-2,0,0,0"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="BorderBrush" Value="#00AABB"/><Setter TargetName="icon" Property="Fill" Value="#00AABB"/></Trigger>
+                                        <Trigger Property="IsPressed" Value="True"><Setter TargetName="bd" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1"/></Setter.Value></Setter></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Play Button (Big) -->
+                        <Button Command="{Binding PlayPauseCommand}" Width="68" Height="68" Margin="30,0" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" CornerRadius="34" Background="#222" BorderBrush="#444" BorderThickness="2">
+                                        <Path x:Name="icon" Data="M12,8 L28,18 L12,28 Z" Fill="#00AABB" Stretch="Uniform" Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                            <Setter TargetName="icon" Property="Data" Value="M8,8 H14 V28 H8 Z M22,8 H28 V28 H22 Z"/>
+                                            <Setter TargetName="bd" Property="Effect"><Setter.Value><DropShadowEffect Color="#00AABB" BlurRadius="15" ShadowDepth="0"/></Setter.Value></Setter>
+                                        </DataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="#2A2A2A"/><Setter TargetName="bd" Property="BorderBrush" Value="#00CCEE"/></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Stop Button -->
+                        <Button Command="{Binding StopCommand}" Width="46" Height="46" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" CornerRadius="23" Background="#1E1E1E" BorderBrush="#333" BorderThickness="1.5">
+                                        <Rectangle x:Name="icon" Fill="#666" Width="14" Height="14" RadiusX="1" RadiusY="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="BorderBrush" Value="#FF4444"/><Setter TargetName="icon" Property="Fill" Value="#FF4444"/></Trigger>
+                                        <Trigger Property="IsPressed" Value="True"><Setter TargetName="bd" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1"/></Setter.Value></Setter></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- MONITOR SECTION -->
+                    <Border Grid.Column="1" Background="#111" CornerRadius="4" BorderBrush="#222" BorderThickness="1" Padding="10,5">
+                        <StackPanel>
+                            <TextBlock Text="MONITOR OUT" Foreground="#444" FontSize="9" FontWeight="Bold" Margin="0,0,0,5"/>
+                            
+                            <!-- Output Selector (Single Device) -->
+                            <ComboBox ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedOutputDevice}" 
+                                      DisplayMemberPath="Name" Height="25" Width="150" FontSize="10" Margin="0,0,0,10"/>
+                            
+                            <Rectangle Fill="#222" Height="1" Margin="0,0,0,8"/>
+                            
+                            <!-- Volume & Mute -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="30"/> <!-- Mute -->
+                                    <ColumnDefinition Width="*"/>  <!-- Vol -->
+                                </Grid.ColumnDefinitions>
+                                
+                                <Button Command="{Binding ToggleMuteCommand}" Width="25" Height="25" Cursor="Hand">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="#222" CornerRadius="3" BorderBrush="#333" BorderThickness="1">
+                                                <TextBlock Text="DIM" Foreground="#666" FontSize="8" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#CC3300"/>
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="#FF5522"/>
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                                
+                                <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding OutputVolume}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </Grid>
+                            
+                            <CheckBox Content="Controlar Sistema" IsChecked="{Binding IsMasterVolumeControl}" 
+                                      Foreground="#666" FontSize="9" Margin="0,8,0,0" HorizontalAlignment="Right" Cursor="Hand">
+                                <CheckBox.Template>
+                                    <ControlTemplate TargetType="CheckBox">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Border x:Name="bd" Width="10" Height="10" CornerRadius="2" BorderBrush="#555" BorderThickness="1" Background="#1A1A1A" Margin="0,0,5,0">
+                                                <Path x:Name="chk" Data="M2,5 L4,7 L8,2" Stroke="#00AABB" StrokeThickness="1.5" Visibility="Collapsed"/>
+                                            </Border>
+                                            <ContentPresenter VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="chk" Property="Visibility" Value="Visible"/>
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#00AABB"/>
+                                                <Setter Property="Foreground" Value="#00AABB"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </CheckBox.Template>
+                            </CheckBox>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

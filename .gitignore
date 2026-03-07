@@ -1,0 +1,28 @@
+## Visual Studio & C#
+.vs/
+[Bb]in/
+[Ob]j/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Project Specific
+settings.json
+*.log
+DebugLog.txt
+Recordings/
+lame.exe
+bass.dll
+bass_enc.dll
+
+## Build Results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+## Other Tools
+.idea/
+.vscode/
+node_modules/
