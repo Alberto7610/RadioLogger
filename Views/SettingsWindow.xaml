@@ -59,6 +59,7 @@
                         <RadioButton Content="General" IsChecked="True" x:Name="TabGeneral"/>
                         <RadioButton Content="Audio &amp; Dispositivos" x:Name="TabAudio"/>
                         <RadioButton Content="Transmisión" x:Name="TabStreaming"/>
+                        <RadioButton Content="Monitoreo Remoto" x:Name="TabRemote"/>
                         <RadioButton Content="Programación" x:Name="TabSchedule"/>
                     </StackPanel>
                 </StackPanel>
@@ -334,6 +335,46 @@
                             </StackPanel>
                         </Border>
                     </Grid>
+                </ScrollViewer>
+
+                <!-- REMOTE MONITORING TAB -->
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
+                              Visibility="{Binding IsChecked, ElementName=TabRemote, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Monitoreo Remoto (SignalR)" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
+                                <TextBlock Text="Envía los niveles de audio y estados de la consola a un servidor central para monitoreo web." Foreground="#888" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,20"/>
+
+                                <CheckBox IsChecked="{Binding IsSignalREnabled}" Margin="0,0,0,20">
+                                    <CheckBox.Template>
+                                        <ControlTemplate TargetType="CheckBox">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Grid Width="40" Height="20" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                    <Border x:Name="Track" Background="#333" CornerRadius="10"/>
+                                                    <Ellipse x:Name="Knob" Fill="#888" Width="16" Height="16" HorizontalAlignment="Left" Margin="2,0"/>
+                                                </Grid>
+                                                <TextBlock Text="HABILITAR MONITOREO REMOTO" Foreground="White" VerticalAlignment="Center" FontSize="11" FontWeight="Bold"/>
+                                            </StackPanel>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Track" Property="Background" Value="#00AABB"/>
+                                                    <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+                                                    <Setter TargetName="Knob" Property="Fill" Value="White"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </CheckBox.Template>
+                                </CheckBox>
+
+                                <StackPanel IsEnabled="{Binding IsSignalREnabled}">
+                                    <TextBlock Text="URL del Servidor (Hub)" Foreground="#888" FontSize="10" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding SignalRHubUrl}" Height="35" VerticalContentAlignment="Center" Background="#111" Foreground="White" BorderBrush="#444" Padding="8"/>
+                                    <TextBlock Text="Ejemplo: https://tu-servidor.com/radiohub" Foreground="#555" FontSize="9" Margin="0,5,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </ScrollViewer>
 
                 <!-- SCHEDULE TAB -->

@@ -26,6 +26,11 @@ namespace RadioLogger.Models
         // Map: Hardware Device Name -> Streaming Configuration
         public Dictionary<string, StreamingConfig> DeviceStreamingConfigs { get; set; } = new Dictionary<string, StreamingConfig>();
         
+        // SignalR Remote Monitoring
+        public bool IsSignalREnabled { get; set; } = false;
+        public string SignalRHubUrl { get; set; } = "https://localhost:5001/radiohub";
+        public int SignalRUpdateIntervalMs { get; set; } = 200; // 5 FPS for remote meters
+
         // Settings for auto-start recording on launch
         public List<string> AutoRecordDevices { get; set; } = new List<string>();
     }

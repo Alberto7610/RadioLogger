@@ -64,6 +64,10 @@ namespace RadioLogger.ViewModels
         [ObservableProperty] private string _testStatus = "";
         [ObservableProperty] private string _testStatusColor = "#666"; // Default Grey
 
+        // SignalR
+        [ObservableProperty] private bool _isSignalREnabled;
+        [ObservableProperty] private string _signalRHubUrl = string.Empty;
+
         [RelayCommand]
         public async System.Threading.Tasks.Task TestConnection()
         {
@@ -142,6 +146,9 @@ namespace RadioLogger.ViewModels
             StartHour = _configManager.CurrentSettings.StartHour;
             EndHour = _configManager.CurrentSettings.EndHour;
 
+            IsSignalREnabled = _configManager.CurrentSettings.IsSignalREnabled;
+            SignalRHubUrl = _configManager.CurrentSettings.SignalRHubUrl;
+
             LoadDevices();
         }
 
@@ -192,6 +199,9 @@ namespace RadioLogger.ViewModels
             _configManager.CurrentSettings.Mp3Bitrate = Bitrate;
             _configManager.CurrentSettings.StartHour = StartHour;
             _configManager.CurrentSettings.EndHour = EndHour;
+            
+            _configManager.CurrentSettings.IsSignalREnabled = IsSignalREnabled;
+            _configManager.CurrentSettings.SignalRHubUrl = SignalRHubUrl;
 
             // Save active devices list
             _configManager.CurrentSettings.ActiveInputDevices = AvailableDevices

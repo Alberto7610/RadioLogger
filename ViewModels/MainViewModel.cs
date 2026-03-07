@@ -13,6 +13,7 @@ namespace RadioLogger.ViewModels
         private readonly ConfigManager _configManager = null!;
         private readonly AudioEngine _audioEngine = null!;
         private readonly HeartbeatService _heartbeatService = null!;
+        private readonly SignalRService _signalRService = null!;
         private readonly System.Timers.Timer _uiTimer = null!;
         private int _frames = 0;
 
@@ -46,6 +47,9 @@ namespace RadioLogger.ViewModels
             _audioEngine = new AudioEngine(_configManager);
             _heartbeatService = new HeartbeatService(_configManager);
             _heartbeatService.Start();
+            
+            _signalRService = new SignalRService(_configManager.CurrentSettings);
+            _ = _signalRService.StartAsync(); // Fire and forget connection task
 
             StationName = _configManager.CurrentSettings.StationName;
 
@@ -57,12 +61,37 @@ namespace RadioLogger.ViewModels
                 UpdateLevels();
                 UpdateClock();
                 _frames++;
+                
+                // SignalR batch update (Approx every 200ms = 4 frames)
+                if (_frames % 4 == 0)
+                {
+                    SendSignalRUpdates();
+                }
+
                 if (_frames % 200 == 0) // Update disk every ~10 seconds
                 {
                     UpdateStorageInfo();
                 }
             };
             _uiTimer.Start();
+        }
+
+        private void SendSignalRUpdates()
+        {
+            if (!_signalRService.IsConnected) return;
+
+            var updates = InputDevices.Select(d => new
+            {
+                StationName = d.StationName,
+                LeftLevel = Math.Round(d.LeftLevel, 2),
+                RightLevel = Math.Round(d.RightLevel, 2),
+                IsRecording = d.IsRecording,
+                IsStreaming = d.IsStreaming,
+                IsSilence = d.IsSilenceDetected,
+                Timestamp = System.DateTime.UtcNow
+            }).ToList();
+
+            _ = _signalRService.SendBatchUpdateAsync(updates);
         }
 
         private void UpdateLevels()
