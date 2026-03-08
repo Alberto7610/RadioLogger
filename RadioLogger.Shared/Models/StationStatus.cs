@@ -33,4 +33,21 @@ namespace RadioLogger.Shared.Models
         public System.Collections.Generic.List<StationStatusUpdate> Stations { get; set; } = new();
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
+
+    /// <summary>
+    /// Historic record of a silence or disconnection incident.
+    /// </summary>
+    public class IncidentLog
+    {
+        public int Id { get; set; }
+        public string StationName { get; set; } = string.Empty;
+        public string MachineId { get; set; } = string.Empty;
+        
+        public string EventType { get; set; } = "SILENCE"; // SILENCE, DISCONNECT
+        public DateTime StartTime { get; set; }
+        public DateTime? EndTime { get; set; }
+        
+        public double? DurationSeconds { get; set; }
+        public bool IsResolved { get; set; }
+    }
 }

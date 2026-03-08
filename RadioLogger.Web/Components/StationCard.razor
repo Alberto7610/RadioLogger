@@ -1,0 +1,131 @@
+@using RadioLogger.Shared.Models
+
+<div class="station-card @(Update.IsSilence ? "silence-alert" : "")">
+    <div class="station-header">
+        <span class="status-dot @(Update.IsRecording ? "dot-on" : "dot-off")"></span>
+        <span class="station-name">@Update.StationName</span>
+    </div>
+
+    <div class="meters-container">
+        <!-- L Meter -->
+        <div class="meter-row">
+            <span class="meter-label">L</span>
+            <div class="meter-track">
+                <div class="meter-fill" style="width: @(Update.LeftLevel * 100)%"></div>
+            </div>
+        </div>
+        <!-- R Meter -->
+        <div class="meter-row">
+            <span class="meter-label">R</span>
+            <div class="meter-track">
+                <div class="meter-fill" style="width: @(Update.RightLevel * 100)%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="station-footer">
+        <span class="status-badge @(Update.IsStreaming ? "badge-stream" : "")">
+            @(Update.IsStreaming ? "ON LINE" : "OFF LINE")
+        </span>
+        <span class="timestamp">@Update.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+    </div>
+</div>
+
+<style>
+    .station-card {
+        background: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 15px;
+        color: white;
+        min-width: 250px;
+        transition: all 0.3s ease;
+    }
+
+    .silence-alert {
+        border-color: #ff4444;
+        box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+        background: #2a0000;
+    }
+
+    .station-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+
+    .dot-on { background: #00ff00; box-shadow: 0 0 8px #00ff00; }
+    .dot-off { background: #444; }
+
+    .station-name {
+        font-weight: bold;
+        font-size: 1.1rem;
+        color: #00aabb;
+    }
+
+    .meters-container {
+        margin-bottom: 12px;
+    }
+
+    .meter-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+
+    .meter-label {
+        font-size: 0.7rem;
+        color: #666;
+        width: 15px;
+    }
+
+    .meter-track {
+        flex-grow: 1;
+        background: #000;
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .meter-fill {
+        height: 100%;
+        background: linear-gradient(to right, #00c853, #ffea00 80%, #d50000);
+        transition: width 0.1s linear;
+    }
+
+    .station-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .status-badge {
+        font-size: 0.7rem;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #333;
+        color: #666;
+    }
+
+    .badge-stream {
+        background: #007e33;
+        color: white;
+    }
+
+    .timestamp {
+        font-size: 0.7rem;
+        color: #555;
+    }
+</style>
+
+@code {
+    [Parameter] public StationStatusUpdate Update { get; set; } = new();
+}

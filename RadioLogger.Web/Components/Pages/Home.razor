@@ -1,0 +1,176 @@
+@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+@using RadioLogger.Shared.Models
+@using RadioLogger.Web.Services
+@using RadioLogger.Web.Components
+@inject NavigationManager Navigation
+@inject MonitoringService Monitoring
+@implements IAsyncDisposable
+
+<PageTitle>Dashboard - RadioLogger</PageTitle>
+
+<div class="dashboard-container">
+    <header class="dashboard-header">
+        <div class="header-left">
+            <h1 class="main-title">MONITOREO DE EMISORAS</h1>
+            <span class="online-count">@Monitoring.GetActiveStations().Count Estaciones Activas</span>
+        </div>
+        
+        <div class="header-right">
+            <div class="connection-status @(IsConnected ? "connected" : "disconnected")">
+                @(IsConnected ? "● LIVE" : "○ RECONNECTING...")
+            </div>
+            
+            <div class="alert-toggle" @onclick="ToggleAudioAlert">
+                <span class="icon">@(IsAudioEnabled ? "🔊" : "🔇")</span>
+                <span class="label">Alertas de Audio</span>
+            </div>
+        </div>
+    </header>
+
+    @if (Monitoring.GetActiveStations().Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📻</div>
+            <h2>Esperando datos de la consola...</h2>
+            <p>Asegúrate de que RadioLogger esté abierto y con SignalR habilitado.</p>
+        </div>
+    }
+    else
+    {
+        <div class="stations-grid">
+            @foreach (var station in Monitoring.GetActiveStations())
+            {
+                <StationCard @key="station.StationName" Update="station" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private bool IsAudioEnabled = false;
+
+    public bool IsConnected => hubConnection?.State == HubConnectionState.Connected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/radiohub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<StationStatusUpdate>("ReceiveStationUpdate", (update) =>
+        {
+            Monitoring.UpdateStation(update);
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<BatchStatusUpdate>("ReceiveBatchUpdate", (batch) =>
+        {
+            Monitoring.UpdateBatch(batch);
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private void ToggleAudioAlert()
+    {
+        IsAudioEnabled = !IsAudioEnabled;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}
+
+<style>
+    .dashboard-container {
+        padding: 20px;
+        min-height: 100vh;
+        background: #121212;
+    }
+
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #333;
+    }
+
+    .main-title {
+        color: #eee;
+        font-size: 1.5rem;
+        font-weight: 300;
+        margin: 0;
+        letter-spacing: 2px;
+    }
+
+    .online-count {
+        color: #00aabb;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .connection-status {
+        font-size: 0.8rem;
+        font-weight: bold;
+        padding: 5px 12px;
+        border-radius: 20px;
+        background: #222;
+    }
+
+    .connection-status.connected { color: #00ff00; }
+    .connection-status.disconnected { color: #ff4444; }
+
+    .alert-toggle {
+        cursor: pointer;
+        background: #222;
+        padding: 8px 15px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.2s;
+    }
+
+    .alert-toggle:hover {
+        background: #333;
+    }
+
+    .alert-toggle .label {
+        font-size: 0.8rem;
+        color: #aaa;
+    }
+
+    .stations-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+    }
+
+    .empty-state {
+        text-align: center;
+        margin-top: 100px;
+        color: #555;
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.3;
+    }
+</style>
