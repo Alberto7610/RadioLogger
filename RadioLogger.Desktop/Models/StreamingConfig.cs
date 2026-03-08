@@ -9,5 +9,15 @@ namespace RadioLogger.Models
         public string Password { get; set; } = "changeme";
         public string MountPoint { get; set; } = "/live"; // Only for Icecast
         public int Bitrate { get; set; } = 128;
+
+        public string GetPublicUrl()
+        {
+            if (ServerType == "Shoutcast")
+                return $"http://{Host}:{Port}/;"; // The semicolon is a trick for some Shoutcast versions
+            
+            // Icecast
+            var mount = MountPoint.StartsWith("/") ? MountPoint : "/" + MountPoint;
+            return $"http://{Host}:{Port}{mount}";
+        }
     }
 }

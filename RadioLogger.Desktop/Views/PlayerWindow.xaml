@@ -78,8 +78,9 @@
                                         </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
-                            </ListBox.ItemContainerStyle>
-                        </ListBox>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
                     </Grid>
                 </Border>
 

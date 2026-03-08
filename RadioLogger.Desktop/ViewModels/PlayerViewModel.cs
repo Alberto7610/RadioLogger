@@ -89,6 +89,12 @@ namespace RadioLogger.ViewModels
         private bool _isPlaying;
 
         [ObservableProperty]
+        private double _playbackLevelL;
+
+        [ObservableProperty]
+        private double _playbackLevelR;
+
+        [ObservableProperty]
         private FileSystemInfo _selectedRecording;
 
         public ObservableCollection<double> WaveformData { get; } = new ObservableCollection<double>();
@@ -109,12 +115,138 @@ namespace RadioLogger.ViewModels
         {
             _basePath = basePath;
             LoadOutputDevices();
+            // Don't re-init BASS if already init (it's a global engine)
             if (!Bass.Init(-1, 44100, DeviceInitFlags.Default, IntPtr.Zero)) { }
             
             RefreshStations();
 
             _playbackTimer = new System.Timers.Timer(100);
             _playbackTimer.Elapsed += (s, e) => UpdatePosition();
+        }
+
+        private void LoadOutputDevices()
+        {
+            OutputDevices.Clear();
+            for (int i = 1; i < Bass.DeviceCount; i++)
+            {
+                var info = Bass.GetDeviceInfo(i);
+                if (info.IsEnabled && !info.IsLoopback)
+                {
+                    OutputDevices.Add(new AudioDevice { Id = i, Name = info.Name, Driver = info.Driver });
+                }
+            }
+            if (OutputDevices.Any()) SelectedOutputDevice = OutputDevices.First();
+        }
+
+        private void UpdatePosition()
+        {
+            if (_stream == 0 || !IsPlaying) return;
+
+            var pos = Bass.ChannelGetPosition(_stream);
+            var len = Bass.ChannelGetLength(_stream);
+            
+            CurrentPosition = Bass.ChannelBytes2Seconds(_stream, pos);
+            TotalDuration = Bass.ChannelBytes2Seconds(_stream, len);
+
+            TimeDisplay = $"{FormatTime(CurrentPosition)} / {FormatTime(TotalDuration)}";
+            
+            // Real time display (StartTime + CurrentPosition)
+            if (_fileStartTime != default)
+            {
+                var realTime = _fileStartTime.AddSeconds(CurrentPosition);
+                RealTimeDisplay = realTime.ToString("HH:mm:ss");
+            }
+
+            // Waveform (Simulated for now based on actual level)
+            int level = Bass.ChannelGetLevel(_stream);
+            if (level != -1)
+            {
+                PlaybackLevelL = (level & 0xFFFF) / 32768.0;
+                PlaybackLevelR = (level >> 16) / 32768.0;
+            }
+
+            App.Current.Dispatcher.Invoke(() => {
+                WaveformData.Add(PlaybackLevelL * 50); // Scale for UI
+                if (WaveformData.Count > 100) WaveformData.RemoveAt(0);
+            });
+        }
+
+        private string FormatTime(double seconds)
+        {
+            var t = TimeSpan.FromSeconds(seconds);
+            return $"{(int)t.TotalHours:D2}:{t.Minutes:D2}:{t.Seconds:D2}";
+        }
+
+        [RelayCommand]
+        public void PlayPause()
+        {
+            if (IsPlaying)
+            {
+                Bass.ChannelPause(_stream);
+                IsPlaying = false;
+                _playbackTimer.Stop();
+            }
+            else
+            {
+                if (_stream != 0)
+                {
+                    Bass.ChannelPlay(_stream);
+                    IsPlaying = true;
+                    _playbackTimer.Start();
+                }
+                else if (SelectedRecording != null)
+                {
+                    LoadFile(SelectedRecording.FullName);
+                }
+            }
+        }
+
+        private void LoadFile(string path)
+        {
+            if (_stream != 0) { Bass.StreamFree(_stream); _stream = 0; }
+
+            // Extract start time from filename (e.g., Radio_12-00-00.mp3)
+            try {
+                var nameOnly = Path.GetFileNameWithoutExtension(path);
+                var parts = nameOnly.Split('_');
+                if (parts.Length >= 2 && DateTime.TryParseExact(parts.Last(), "HH-mm-ss", null, System.Globalization.DateTimeStyles.None, out var time))
+                {
+                    _fileStartTime = time;
+                }
+            } catch { }
+
+            _stream = Bass.CreateStream(path, 0, 0, BassFlags.Default);
+            if (_stream != 0)
+            {
+                Bass.ChannelSetAttribute(_stream, ChannelAttribute.Volume, OutputVolume / 100.0);
+                Bass.ChannelPlay(_stream);
+                IsPlaying = true;
+                _playbackTimer.Start();
+            }
+        }
+
+        [RelayCommand]
+        public void Stop()
+        {
+            if (_stream != 0)
+            {
+                Bass.ChannelStop(_stream);
+                Bass.ChannelSetPosition(_stream, 0);
+                IsPlaying = false;
+                _playbackTimer.Stop();
+                CurrentPosition = 0;
+            }
+        }
+
+        [RelayCommand]
+        public void Rewind()
+        {
+            if (_stream != 0)
+            {
+                var pos = Bass.ChannelGetPosition(_stream);
+                double seconds = Bass.ChannelBytes2Seconds(_stream, pos);
+                Bass.ChannelSetPosition(_stream, Bass.ChannelSeconds2Bytes(_stream, Math.Max(0, seconds - 10)));
+            }
         }
 
         private void RefreshStations()

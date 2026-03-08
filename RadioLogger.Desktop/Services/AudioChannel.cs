@@ -33,6 +33,7 @@ namespace RadioLogger.Services
         public bool IsRecording { get; private set; }
         public bool IsStreaming { get; private set; }
         public bool IsReconnecting { get; private set; }
+        public string? StreamUrl => _currentConfig?.GetPublicUrl();
         public DateTime StartTime { get; private set; }
         
         public AudioDevice DeviceInfo { get; private set; }

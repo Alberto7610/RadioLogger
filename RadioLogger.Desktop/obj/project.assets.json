@@ -318,6 +318,16 @@
             "related": ".xml"
           }
         }
+      },
+      "RadioLogger.Shared/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/RadioLogger.Shared.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/RadioLogger.Shared.dll": {}
+        }
       }
     }
   },
@@ -850,6 +860,11 @@
         "newtonsoft.json.nuspec",
         "packageIcon.png"
       ]
+    },
+    "RadioLogger.Shared/1.0.0": {
+      "type": "project",
+      "path": "../RadioLogger.Shared/RadioLogger.Shared.csproj",
+      "msbuildProject": "../RadioLogger.Shared/RadioLogger.Shared.csproj"
     }
   },
   "projectFileDependencyGroups": {
@@ -859,7 +874,8 @@
       "ManagedBass.Enc >= 4.0.2",
       "ManagedBass.Mix >= 4.0.2",
       "Microsoft.AspNetCore.SignalR.Client >= 10.0.3",
-      "Newtonsoft.Json >= 13.0.4"
+      "Newtonsoft.Json >= 13.0.4",
+      "RadioLogger.Shared >= 1.0.0"
     ]
   },
   "packageFolders": {
@@ -869,11 +885,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\alber\\source\\repos\\RadioLogger\\RadioLogger.csproj",
+      "projectUniqueName": "C:\\Users\\alber\\source\\repos\\RadioLogger\\RadioLogger.Desktop\\RadioLogger.csproj",
       "projectName": "RadioLogger",
-      "projectPath": "C:\\Users\\alber\\source\\repos\\RadioLogger\\RadioLogger.csproj",
+      "projectPath": "C:\\Users\\alber\\source\\repos\\RadioLogger\\RadioLogger.Desktop\\RadioLogger.csproj",
       "packagesPath": "C:\\Users\\alber\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\alber\\source\\repos\\RadioLogger\\obj\\",
+      "outputPath": "C:\\Users\\alber\\source\\repos\\RadioLogger\\RadioLogger.Desktop\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -894,7 +910,11 @@
       "frameworks": {
         "net10.0-windows7.0": {
           "targetAlias": "net10.0-windows",
-          "projectReferences": {}
+          "projectReferences": {
+            "C:\\Users\\alber\\source\\repos\\RadioLogger\\RadioLogger.Shared\\RadioLogger.Shared.csproj": {
+              "projectPath": "C:\\Users\\alber\\source\\repos\\RadioLogger\\RadioLogger.Shared\\RadioLogger.Shared.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
