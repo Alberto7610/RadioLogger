@@ -18,6 +18,7 @@ namespace RadioLogger.Shared.Models
         // Status Flags
         public bool IsRecording { get; set; }
         public bool IsStreaming { get; set; }
+        public string? StreamUrl { get; set; } // URL for the web player
         public bool IsSilence { get; set; }
         
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;

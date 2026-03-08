@@ -154,6 +154,13 @@ namespace RadioLogger.Services
             return _activeChannels.ContainsKey(deviceId) && _activeChannels[deviceId].IsReconnecting;
         }
 
+        public string? GetDeviceStreamUrl(int deviceId)
+        {
+            if (_activeChannels.ContainsKey(deviceId))
+                return _activeChannels[deviceId].StreamUrl;
+            return null;
+        }
+
         public DateTime? GetDeviceStartTime(int deviceId)
         {
             if (_activeChannels.ContainsKey(deviceId))

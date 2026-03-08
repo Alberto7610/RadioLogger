@@ -91,6 +91,7 @@ namespace RadioLogger.ViewModels
                     RightLevel = Math.Round(d.RightLevel, 2),
                     IsRecording = d.IsRecording,
                     IsStreaming = d.IsStreaming,
+                    StreamUrl = d.StreamUrl,
                     IsSilence = d.IsSilenceDetected,
                     Timestamp = System.DateTime.UtcNow
                 });

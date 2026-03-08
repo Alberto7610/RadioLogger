@@ -32,6 +32,9 @@ namespace RadioLogger.ViewModels
         private bool _isReconnecting;
 
         [ObservableProperty]
+        private string? _streamUrl;
+
+        [ObservableProperty]
         private System.DateTime? _recordingStartTime;
 
         [ObservableProperty]
@@ -183,6 +186,9 @@ namespace RadioLogger.ViewModels
             {
                 IsReconnecting = realReconnectState;
             }
+
+            // Sync Stream URL
+            StreamUrl = _audioEngine.GetDeviceStreamUrl(Device.Id);
 
             // Update Timer
             if (IsRecording && RecordingStartTime.HasValue)
