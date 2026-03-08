@@ -80,18 +80,23 @@ namespace RadioLogger.ViewModels
         {
             if (!_signalRService.IsConnected) return;
 
-            var updates = InputDevices.Select(d => new
+            var batch = new RadioLogger.Shared.Models.BatchStatusUpdate();
+            
+            foreach (var d in InputDevices)
             {
-                StationName = d.StationName,
-                LeftLevel = Math.Round(d.LeftLevel, 2),
-                RightLevel = Math.Round(d.RightLevel, 2),
-                IsRecording = d.IsRecording,
-                IsStreaming = d.IsStreaming,
-                IsSilence = d.IsSilenceDetected,
-                Timestamp = System.DateTime.UtcNow
-            }).ToList();
+                batch.Stations.Add(new RadioLogger.Shared.Models.StationStatusUpdate
+                {
+                    StationName = d.StationName,
+                    LeftLevel = Math.Round(d.LeftLevel, 2),
+                    RightLevel = Math.Round(d.RightLevel, 2),
+                    IsRecording = d.IsRecording,
+                    IsStreaming = d.IsStreaming,
+                    IsSilence = d.IsSilenceDetected,
+                    Timestamp = System.DateTime.UtcNow
+                });
+            }
 
-            _ = _signalRService.SendBatchUpdateAsync(updates);
+            _ = _signalRService.SendBatchUpdateAsync(batch);
         }
 
         private void UpdateLevels()

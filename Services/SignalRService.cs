@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using RadioLogger.Models;
+using RadioLogger.Shared.Models; // Import Shared Models
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -53,22 +54,16 @@ namespace RadioLogger.Services
             }
         }
 
-        public async Task SendStatusUpdateAsync(string stationName, double leftLevel, double rightLevel, bool isRecording, bool isStreaming, bool isSilence)
+        /// <summary>
+        /// Individual station update using shared model
+        /// </summary>
+        public async Task SendStatusUpdateAsync(StationStatusUpdate update)
         {
             if (!IsConnected) return;
 
             try
             {
-                await _connection!.InvokeAsync("UpdateStationStatus", new
-                {
-                    StationName = stationName,
-                    LeftLevel = leftLevel,
-                    RightLevel = rightLevel,
-                    IsRecording = isRecording,
-                    IsStreaming = isStreaming,
-                    IsSilence = isSilence,
-                    Timestamp = DateTime.UtcNow
-                });
+                await _connection!.InvokeAsync("UpdateStationStatus", update);
             }
             catch (Exception ex)
             {
@@ -76,13 +71,16 @@ namespace RadioLogger.Services
             }
         }
 
-        public async Task SendBatchUpdateAsync(IEnumerable<object> updates)
+        /// <summary>
+        /// Batch update for performance using shared model
+        /// </summary>
+        public async Task SendBatchUpdateAsync(BatchStatusUpdate batch)
         {
             if (!IsConnected) return;
 
             try
             {
-                await _connection!.InvokeAsync("UpdateBatchStatus", updates);
+                await _connection!.InvokeAsync("UpdateBatchStatus", batch);
             }
             catch (Exception ex)
             {
