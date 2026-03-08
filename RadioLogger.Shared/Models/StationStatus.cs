@@ -14,6 +14,8 @@ namespace RadioLogger.Shared.Models
         // Audio levels (0.0 to 1.0)
         public double LeftLevel { get; set; }
         public double RightLevel { get; set; }
+        public double LeftPeak { get; set; }
+        public double RightPeak { get; set; }
         
         // Status Flags
         public bool IsRecording { get; set; }

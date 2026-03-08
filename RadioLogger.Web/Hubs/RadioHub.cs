@@ -16,12 +16,14 @@ namespace RadioLogger.Web.Hubs
 
         public async Task UpdateStationStatus(StationStatusUpdate update)
         {
+            System.Diagnostics.Debug.WriteLine($"SignalR Hub: Received update for {update.StationName}");
             _monitoringService.UpdateStation(update);
             await Clients.All.SendAsync("ReceiveStationUpdate", update);
         }
 
         public async Task UpdateBatchStatus(BatchStatusUpdate batch)
         {
+            System.Diagnostics.Debug.WriteLine($"SignalR Hub: Received batch with {batch.Stations.Count} stations");
             _monitoringService.UpdateBatch(batch);
             await Clients.All.SendAsync("ReceiveBatchUpdate", batch);
         }

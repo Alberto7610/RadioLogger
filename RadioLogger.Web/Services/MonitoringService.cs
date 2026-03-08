@@ -15,6 +15,8 @@ namespace RadioLogger.Web.Services
         private readonly ConcurrentDictionary<string, int> _activeIncidentIds = new();
         private readonly IServiceProvider _serviceProvider;
 
+        public event Action? OnUpdated;
+
         public MonitoringService(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
@@ -22,36 +24,41 @@ namespace RadioLogger.Web.Services
 
         public void UpdateStation(StationStatusUpdate update)
         {
-            _stations.TryGetValue(update.StationName, out var previous);
-            _stations[update.StationName] = update;
+            string key = $"{update.MachineId}:{update.StationName}";
+            _stations.TryGetValue(key, out var previous);
+            _stations[key] = update;
 
             // Detect Silence Transitions
             if (previous != null)
             {
                 if (update.IsSilence && !previous.IsSilence)
                 {
-                    // START of Silence
                     _ = LogIncidentStart(update, "SILENCE");
                 }
                 else if (!update.IsSilence && previous.IsSilence)
                 {
-                    // END of Silence
-                    _ = LogIncidentEnd(update.StationName);
+                    _ = LogIncidentEnd(key);
                 }
             }
+
+            OnUpdated?.Invoke();
         }
 
         public void UpdateBatch(BatchStatusUpdate batch)
         {
             foreach (var station in batch.Stations)
             {
+                // Ensure MachineId is set from the batch if not set in individual station
+                if (string.IsNullOrEmpty(station.MachineId))
+                    station.MachineId = batch.MachineId;
+                    
                 UpdateStation(station);
             }
         }
 
         public List<StationStatusUpdate> GetActiveStations()
         {
-            return _stations.Values.OrderBy(s => s.StationName).ToList();
+            return _stations.Values.OrderBy(s => s.MachineId).ThenBy(s => s.StationName).ToList();
         }
 
         private async Task LogIncidentStart(StationStatusUpdate update, string type)
@@ -73,7 +80,8 @@ namespace RadioLogger.Web.Services
                 db.Incidents.Add(log);
                 await db.SaveChangesAsync();
 
-                _activeIncidentIds[update.StationName] = log.Id;
+                string key = $"{update.MachineId}:{update.StationName}";
+                _activeIncidentIds[key] = log.Id;
             }
             catch (Exception ex)
             {
@@ -81,11 +89,11 @@ namespace RadioLogger.Web.Services
             }
         }
 
-        private async Task LogIncidentEnd(string stationName)
+        private async Task LogIncidentEnd(string key)
         {
             try
             {
-                if (_activeIncidentIds.TryRemove(stationName, out int logId))
+                if (_activeIncidentIds.TryRemove(key, out int logId))
                 {
                     using var scope = _serviceProvider.CreateScope();
                     var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();

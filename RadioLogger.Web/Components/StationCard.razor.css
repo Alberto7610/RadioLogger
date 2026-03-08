@@ -1,0 +1,223 @@
+.station-card {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 18px;
+    color: white;
+    min-width: 320px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+.silence-alert {
+    border-color: #ff0000;
+    background: #200;
+    box-shadow: 0 0 30px rgba(255, 0, 0, 0.3);
+}
+
+.station-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 12px;
+}
+
+.dot-on { 
+    background: #0f0; 
+    box-shadow: 0 0 15px #0f0, 0 0 25px rgba(0, 255, 0, 0.5); 
+}
+
+.dot-off { 
+    background: #f00; 
+    box-shadow: 0 0 15px #f00, 0 0 25px rgba(255, 0, 0, 0.5); 
+}
+
+.station-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #eee;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.meters-container {
+    margin-bottom: 15px;
+    background: #000;
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid #222;
+}
+
+.meter-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.meter-label {
+    font-size: 0.7rem;
+    color: #666;
+    width: 18px;
+    font-weight: bold;
+}
+
+.meter-track {
+    flex-grow: 1;
+    background: #0a0a0a;
+    height: 18px;
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid #1a1a1a;
+}
+
+/* GRADIENTE HORIZONTAL FIJO - NO SE ESTIRA */
+.meter-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%; /* Siempre ocupa el 100% */
+    background: linear-gradient(90deg, 
+        #008000 0%, 
+        #00ff00 65%, 
+        #ffff00 80%, 
+        #ffaa00 90%, 
+        #ff0000 100%);
+    transition: none; /* Respuesta instantánea */
+}
+
+/* BRILLO CRISTAL 3D */
+.meter-shine {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 45%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 100%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* MARCA DE PICO (PEAK HOLD) */
+.peak-marker {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: #fff;
+    box-shadow: 0 0 10px #fff;
+    z-index: 5;
+    transition: left 0.08s linear;
+}
+
+/* REJILLA DE SEGMENTOS HARDWARE */
+.meter-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: linear-gradient(90deg, transparent 92%, rgba(0,0,0,0.9) 92%);
+    background-size: 4% 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.station-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footer-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    font-weight: 900;
+    padding: 5px 15px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    text-align: center;
+    min-width: 90px;
+}
+
+/* EFECTOS NEON */
+.badge-online {
+    background: #030;
+    color: #0f0;
+    border: 2px solid #0f0;
+    text-shadow: 0 0 10px #0f0;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), inset 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.badge-offline {
+    background: #300;
+    color: #f44;
+    border: 2px solid #f44;
+    text-shadow: 0 0 10px #f44;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.5), inset 0 0 10px rgba(255, 0, 0, 0.3);
+}
+
+.stream-tag {
+    font-size: 0.6rem;
+    color: #0cf;
+    border: 1px solid #0cf;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    text-shadow: 0 0 5px #0cf;
+}
+
+.footer-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-listen {
+    background: #222;
+    border: 1px solid #444;
+    color: #fff;
+    font-size: 0.8rem;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-listen.active {
+    background: #00ccff;
+    border-color: #fff;
+    box-shadow: 0 0 15px #0cf;
+}
+
+.timestamp {
+    font-size: 0.7rem;
+    color: #444;
+    font-family: 'Consolas', monospace;
+}
+
+.mini-player {
+    margin-top: 15px;
+}
+
+.mini-player audio {
+    width: 100%;
+    height: 28px;
+    filter: invert(1) hue-rotate(180deg) brightness(1.5);
+}

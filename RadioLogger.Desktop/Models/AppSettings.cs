@@ -28,7 +28,7 @@ namespace RadioLogger.Models
         
         // SignalR Remote Monitoring
         public bool IsSignalREnabled { get; set; } = false;
-        public string SignalRHubUrl { get; set; } = "https://localhost:5001/radiohub";
+        public string SignalRHubUrl { get; set; } = "https://localhost:7250/radiohub";
         public int SignalRUpdateIntervalMs { get; set; } = 200; // 5 FPS for remote meters
 
         public bool IsAutoStartEnabled { get; set; } = false;

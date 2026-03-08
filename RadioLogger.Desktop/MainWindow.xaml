@@ -660,8 +660,10 @@
         </ScrollViewer>
 
         <!-- Footer -->
-        <StatusBar Grid.Row="2" Background="#007ACC" Foreground="White" Padding="5">
-            <StatusBarItem><TextBlock Text="{Binding StatusMessage}" FontSize="11"/></StatusBarItem>
+        <StatusBar Grid.Row="2" Background="#007ACC" Foreground="White" Padding="10,2">
+            <StatusBarItem><TextBlock Text="{Binding StatusMessage}" FontSize="11" FontWeight="Bold"/></StatusBarItem>
+            <Separator Background="#44FFFFFF"/>
+            <StatusBarItem><TextBlock Text="{Binding SignalRStatus}" FontSize="11" FontWeight="SemiBold"/></StatusBarItem>
             <Separator Background="#44FFFFFF"/>
             <StatusBarItem HorizontalAlignment="Right"><TextBlock Text="{Binding StorageInfo}" FontSize="11" FontWeight="Bold"/></StatusBarItem>
         </StatusBar>

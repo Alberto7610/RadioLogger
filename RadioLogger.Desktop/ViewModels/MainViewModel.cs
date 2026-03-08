@@ -4,7 +4,8 @@ using RadioLogger.Services;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Timers;
-using RadioLogger.Views; // Fix Views namespace
+using RadioLogger.Views;
+using System;
 
 namespace RadioLogger.ViewModels
 {
@@ -32,6 +33,11 @@ namespace RadioLogger.ViewModels
         [ObservableProperty]
         private string _currentRecDuration = "00:00:00";
 
+        [ObservableProperty]
+        private string _signalRStatus = "Monitoreo: Desactivado";
+
+        public string DashboardUrl => _configManager.CurrentSettings.SignalRHubUrl.Replace("/radiohub", "");
+
         public ObservableCollection<DeviceViewModel> InputDevices { get; } = new ObservableCollection<DeviceViewModel>();
 
         public MainViewModel()
@@ -49,6 +55,9 @@ namespace RadioLogger.ViewModels
             _heartbeatService.Start();
             
             _signalRService = new SignalRService(_configManager.CurrentSettings);
+            _signalRStatus = _configManager.CurrentSettings.IsSignalREnabled ? "Monitoreo: Iniciando..." : "Monitoreo: Desactivado";
+            _signalRService.ConnectionStatusChanged += (msg, connected) => SignalRStatus = msg;
+            
             _ = _signalRService.StartAsync(); // Fire and forget connection task
 
             StationName = _configManager.CurrentSettings.StationName;
@@ -80,20 +89,23 @@ namespace RadioLogger.ViewModels
         {
             if (!_signalRService.IsConnected) return;
 
-            var batch = new RadioLogger.Shared.Models.BatchStatusUpdate();
+            var batch = new RadioLogger.Shared.Models.BatchStatusUpdate { MachineId = Environment.MachineName };
             
             foreach (var d in InputDevices)
             {
                 batch.Stations.Add(new RadioLogger.Shared.Models.StationStatusUpdate
                 {
+                    MachineId = Environment.MachineName,
                     StationName = d.StationName,
-                    LeftLevel = Math.Round(d.LeftLevel, 2),
-                    RightLevel = Math.Round(d.RightLevel, 2),
+                    LeftLevel = Math.Round(d.LeftLevel / 100.0, 3),
+                    RightLevel = Math.Round(d.RightLevel / 100.0, 3),
+                    LeftPeak = Math.Round(d.LeftPeak / 100.0, 3),
+                    RightPeak = Math.Round(d.RightPeak / 100.0, 3),
                     IsRecording = d.IsRecording,
                     IsStreaming = d.IsStreaming,
                     StreamUrl = d.StreamUrl,
                     IsSilence = d.IsSilenceDetected,
-                    Timestamp = System.DateTime.UtcNow
+                    Timestamp = DateTime.UtcNow
                 });
             }
 
@@ -110,17 +122,14 @@ namespace RadioLogger.ViewModels
 
         private void UpdateClock()
         {
-            CurrentTime = System.DateTime.Now.ToString("HH:mm:ss");
+            CurrentTime = DateTime.Now.ToString("HH:mm:ss");
             
-            // Logic for Recording Duration (Sync with ON AIR)
-            // Finds the earliest start time among all recording devices
             var activeDevices = InputDevices.Where(d => d.IsRecording && d.RecordingStartTime.HasValue).ToList();
             
             if (activeDevices.Any())
             {
-                var minStart = activeDevices.Min(d => d.RecordingStartTime.Value);
-                var diff = System.DateTime.Now - minStart;
-                
+                var minStart = activeDevices.Min(d => d.RecordingStartTime!.Value);
+                var diff = DateTime.Now - minStart;
                 CurrentRecDuration = $"{diff.Days:D2}d {diff.Hours:D2}h {diff.Minutes:D2}m {diff.Seconds:D2}s";
             }
             else
@@ -156,7 +165,26 @@ namespace RadioLogger.ViewModels
         {
             var vm = new PlayerViewModel(_configManager.CurrentSettings.RecordingBasePath);
             var win = new RadioLogger.Views.PlayerWindow { DataContext = vm };
-            win.Show(); // Non-modal so you can audit while recording
+            win.Show();
+        }
+
+        [RelayCommand]
+        public void OpenDashboard()
+        {
+            try
+            {
+                var url = DashboardUrl;
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "No se pudo abrir el dashboard web.";
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
         }
 
         [RelayCommand]
@@ -175,13 +203,10 @@ namespace RadioLogger.ViewModels
         public void ToggleDevice(DeviceViewModel device)
         {
             device.UpdateState();
-            
-            // Sync AutoRecord list with currently selected devices
             _configManager.CurrentSettings.AutoRecordDevices = InputDevices
                 .Where(d => d.IsSelected)
                 .Select(d => d.Device.Name)
                 .ToList();
-                
             SaveConfig();
         }
 
@@ -217,7 +242,6 @@ namespace RadioLogger.ViewModels
                         customName = dev.Name;
                     }
 
-                    // Constructor will auto-sync state from Engine
                     var vm = new DeviceViewModel(dev, _audioEngine, _configManager, customName, false);
                     InputDevices.Add(vm);
                 }

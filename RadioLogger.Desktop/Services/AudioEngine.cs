@@ -42,8 +42,9 @@ namespace RadioLogger.Services
             int i = 1; 
             while (Bass.RecordGetDeviceInfo(i, out var info))
             {
-                // Filter: Must be Enabled AND NOT a Loopback (Speakers/What U Hear)
-                if (info.IsEnabled && !info.IsLoopback)
+                // Must be Enabled. We removed the Loopback filter because some real inputs
+                // are sometimes flagged as loopbacks by certain drivers.
+                if (info.IsEnabled)
                 {
                     devices.Add(new AudioDevice
                     {

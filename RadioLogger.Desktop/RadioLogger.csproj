@@ -21,6 +21,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="bass.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="bass_enc.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="bassenc.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="lame.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\RadioLogger.Shared\RadioLogger.Shared.csproj" />
   </ItemGroup>
 

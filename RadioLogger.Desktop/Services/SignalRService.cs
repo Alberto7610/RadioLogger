@@ -13,6 +13,8 @@ namespace RadioLogger.Services
         private readonly AppSettings _settings;
         private bool _isDisposed;
 
+        public event Action<string, bool>? ConnectionStatusChanged;
+
         public bool IsConnected => _connection?.State == HubConnectionState.Connected;
 
         public SignalRService(AppSettings settings)
@@ -29,18 +31,53 @@ namespace RadioLogger.Services
                 await StopAsync();
 
             _connection = new HubConnectionBuilder()
-                .WithUrl(_settings.SignalRHubUrl)
+                .WithUrl(_settings.SignalRHubUrl.Replace("5046", "5000"), options => {
+                    options.HttpMessageHandlerFactory = (handler) =>
+                    {
+                        if (handler is System.Net.Http.HttpClientHandler clientHandler)
+                        {
+                            clientHandler.ServerCertificateCustomValidationCallback = 
+                                (System.Net.Http.HttpRequestMessage m, 
+                                 System.Security.Cryptography.X509Certificates.X509Certificate2? c, 
+                                 System.Security.Cryptography.X509Certificates.X509Chain? ch, 
+                                 System.Net.Security.SslPolicyErrors e) => true;
+                        }
+                        return handler;
+                    };
+                })
                 .WithAutomaticReconnect()
                 .Build();
 
-            try
+            _connection.Closed += async (error) =>
             {
-                await _connection.StartAsync();
-                System.Diagnostics.Debug.WriteLine("SignalR Connected.");
-            }
-            catch (Exception ex)
+                System.Diagnostics.Debug.WriteLine($"SignalR Connection Closed: {error?.Message}");
+                await Task.Delay(new Random().Next(0, 5) * 1000);
+                await StartAsync();
+            };
+
+            // PERSISTENT RETRY LOOP
+            bool connected = false;
+            int attempts = 0;
+            
+            while (!connected && !_isDisposed)
             {
-                System.Diagnostics.Debug.WriteLine($"SignalR Connection Error: {ex.Message}");
+                try
+                {
+                    attempts++;
+                    System.Diagnostics.Debug.WriteLine($"SignalR Connection Attempt {attempts}...");
+                    await _connection.StartAsync();
+                    System.Diagnostics.Debug.WriteLine("SignalR Connected Successfully.");
+                    ConnectionStatusChanged?.Invoke("Monitoreo Web Conectado", true);
+                    connected = true;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SignalR Connection Error (Attempt {attempts}): {ex.Message}");
+                    ConnectionStatusChanged?.Invoke($"Esperando servidor ({attempts})...", false);
+                    
+                    // Wait 5 seconds before trying again
+                    await Task.Delay(5000);
+                }
             }
         }
 

@@ -1,11 +1,10 @@
 @page "/"
-@using Microsoft.AspNetCore.SignalR.Client
+@rendermode InteractiveServer
 @using RadioLogger.Shared.Models
 @using RadioLogger.Web.Services
 @using RadioLogger.Web.Components
-@inject NavigationManager Navigation
 @inject MonitoringService Monitoring
-@implements IAsyncDisposable
+@implements IDisposable
 
 <PageTitle>Dashboard - RadioLogger</PageTitle>
 
@@ -38,41 +37,33 @@
     }
     else
     {
-        <div class="stations-grid">
-            @foreach (var station in Monitoring.GetActiveStations())
-            {
-                <StationCard @key="station.StationName" Update="station" />
-            }
-        </div>
+        @foreach (var group in Monitoring.GetActiveStations().GroupBy(s => s.MachineId))
+        {
+            <div class="machine-section">
+                <h2 class="machine-title">💻 SERVIDOR: @group.Key</h2>
+                <div class="stations-grid">
+                    @foreach (var station in group)
+                    {
+                        <StationCard @key="@($"{station.MachineId}:{station.StationName}")" Update="station" />
+                    }
+                </div>
+            </div>
+        }
     }
 </div>
 
 @code {
-    private HubConnection? hubConnection;
     private bool IsAudioEnabled = false;
+    private bool IsConnected = true; // In Blazor Server, the service is local, so it's always "connected" to the data
 
-    public bool IsConnected => hubConnection?.State == HubConnectionState.Connected;
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/radiohub"))
-            .WithAutomaticReconnect()
-            .Build();
+        Monitoring.OnUpdated += OnMonitoringUpdate;
+    }
 
-        hubConnection.On<StationStatusUpdate>("ReceiveStationUpdate", (update) =>
-        {
-            Monitoring.UpdateStation(update);
-            InvokeAsync(StateHasChanged);
-        });
-
-        hubConnection.On<BatchStatusUpdate>("ReceiveBatchUpdate", (batch) =>
-        {
-            Monitoring.UpdateBatch(batch);
-            InvokeAsync(StateHasChanged);
-        });
-
-        await hubConnection.StartAsync();
+    private async void OnMonitoringUpdate()
+    {
+        await InvokeAsync(StateHasChanged);
     }
 
     private void ToggleAudioAlert()
@@ -80,16 +71,27 @@
         IsAudioEnabled = !IsAudioEnabled;
     }
 
-    public async ValueTask DisposeAsync()
+    public void Dispose()
     {
-        if (hubConnection is not null)
-        {
-            await hubConnection.DisposeAsync();
-        }
+        Monitoring.OnUpdated -= OnMonitoringUpdate;
     }
 }
 
 <style>
+    .machine-section {
+        margin-bottom: 40px;
+    }
+
+    .machine-title {
+        color: #888;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 15px;
+        border-left: 3px solid #00aabb;
+        padding-left: 10px;
+    }
+
     .dashboard-container {
         padding: 20px;
         min-height: 100vh;
