@@ -8,6 +8,7 @@ namespace RadioLogger.Models
         public string StationName { get; set; } = "Radio Estación 1";
         public string RecordingBasePath { get; set; } = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments), "RadioLogger");
         public int Mp3Bitrate { get; set; } = 128; // Kbps
+        public int SegmentDurationMinutes { get; set; } = 60; // Default 1 hour
         
         // Recording Schedule (0-23)
         public int StartHour { get; set; } = 0; // 0 = Medianoche

@@ -195,6 +195,7 @@ namespace RadioLogger.ViewModels
             if (win.ShowDialog() == true)
             {
                 StationName = _configManager.CurrentSettings.StationName;
+                _audioEngine.UpdateAllSettings(_configManager.CurrentSettings);
                 LoadDevices();
             }
         }

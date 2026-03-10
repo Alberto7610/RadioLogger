@@ -433,29 +433,58 @@
                 <!-- SCHEDULE TAB -->
                 <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
                               Visibility="{Binding IsChecked, ElementName=TabSchedule, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <Border Background="#252526" CornerRadius="4" Padding="20" BorderBrush="#333" BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock Text="Horario de Operación" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
-                            <TextBlock Text="Define cuándo inicia y termina el bloque de grabación diario (Ej: 06:00 a 06:00)." Foreground="#888" FontSize="12" Margin="0,0,0,20"/>
-                            
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="20"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="INICIO (Hora)" Foreground="#AAA" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
-                                    <TextBox Text="{Binding StartHour}" Height="40" FontSize="18" FontWeight="Bold" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Background="#111" Foreground="#FFF" BorderBrush="#444"/>
+                    <StackPanel>
+                        <!-- Recording Segments Card -->
+                        <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Duración de Archivos" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
+                                <TextBlock Text="Selecciona el intervalo en el que se crearán los segmentos de audio." Foreground="#888" FontSize="12" Margin="0,0,0,15"/>
+                                
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Segmento de:" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                                    <ComboBox SelectedValue="{Binding SegmentDuration}" SelectedValuePath="Tag" Width="150" Height="30" Background="#111" Foreground="Black">
+                                        <ComboBoxItem Content="10 Minutos" Tag="10"/>
+                                        <ComboBoxItem Content="20 Minutos" Tag="20"/>
+                                        <ComboBoxItem Content="30 Minutos" Tag="30"/>
+                                        <ComboBoxItem Content="40 Minutos" Tag="40"/>
+                                        <ComboBoxItem Content="50 Minutos" Tag="50"/>
+                                        <ComboBoxItem Content="1 Hora" Tag="60"/>
+                                        <ComboBoxItem Content="2 Horas" Tag="120"/>
+                                        <ComboBoxItem Content="3 Horas" Tag="180"/>
+                                        <ComboBoxItem Content="4 Horas" Tag="240"/>
+                                        <ComboBoxItem Content="6 Horas" Tag="360"/>
+                                        <ComboBoxItem Content="12 Horas" Tag="720"/>
+                                        <ComboBoxItem Content="24 Horas" Tag="1440"/>
+                                    </ComboBox>
                                 </StackPanel>
-                                <TextBlock Grid.Column="1" Text="➜" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#555"/>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="FIN (Hora)" Foreground="#AAA" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
-                                    <TextBox Text="{Binding EndHour}" Height="40" FontSize="18" FontWeight="Bold" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Background="#111" Foreground="#FFF" BorderBrush="#444"/>
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Operation Schedule Card -->
+                        <Border Background="#252526" CornerRadius="4" Padding="20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Horario de Operación" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
+                                <TextBlock Text="Define cuándo inicia y termina el bloque de grabación diario." Foreground="#888" FontSize="12" Margin="0,0,0,20"/>
+                                
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="INICIO (Hora)" Foreground="#AAA" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding StartHour}" Height="40" FontSize="18" FontWeight="Bold" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Background="#111" Foreground="#FFF" BorderBrush="#444"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="➜" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#555"/>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="FIN (Hora)" Foreground="#AAA" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding EndHour}" Height="40" FontSize="18" FontWeight="Bold" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Background="#111" Foreground="#FFF" BorderBrush="#444"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </ScrollViewer>
 
                 <!-- FOOTER (Action Buttons) -->

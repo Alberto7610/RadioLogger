@@ -46,7 +46,7 @@
                                     <!-- Text Label (Off State) -->
                                     <TextBlock x:Name="BtnText" Text="OFF" Foreground="#555" 
                                                HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                               FontWeight="Black" FontSize="11" FontFamily="Consolas">
+                                               FontWeight="Black" FontSize="12" FontFamily="Consolas">
                                         <TextBlock.Effect>
                                             <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="1" Direction="270" Opacity="0.8"/>
                                         </TextBlock.Effect>
@@ -91,6 +91,8 @@
                                 <Setter TargetName="BtnBody" Property="BorderBrush" Value="#FF7043"/>
                                 <Setter TargetName="InnerGlow" Property="Opacity" Value="0.6"/>
                                 <Setter TargetName="BtnText" Property="Text" Value="ON AIR"/>
+                                <Setter TargetName="BtnText" Property="FontSize" Value="12"/>
+                                <Setter TargetName="BtnText" Property="FontWeight" Value="Black"/>
                                 <Setter TargetName="BtnText" Property="Foreground" Value="White"/>
                                 <Setter TargetName="BtnText" Property="Effect">
                                     <Setter.Value><DropShadowEffect Color="#800000" BlurRadius="2" ShadowDepth="0"/></Setter.Value>
@@ -129,9 +131,9 @@
                                 </Border.BorderBrush>
                                 
                                 <Grid>
-                                    <TextBlock x:Name="BtnText" Text="STREAM" Foreground="#444" 
+                                    <TextBlock x:Name="BtnText" Text="STREAM" Foreground="#555" 
                                                HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                               FontWeight="Bold" FontSize="10" FontFamily="Consolas"/>
+                                               FontWeight="Black" FontSize="11" FontFamily="Consolas"/>
                                     
                                     <!-- Inner Glow -->
                                     <Border x:Name="InnerGlow" CornerRadius="1" Opacity="0" Background="#00FF00">
@@ -149,18 +151,14 @@
                             </Trigger>
                             
                             <!-- State 2: Reconnecting (Project Mandate: Yellow/Black Flashing) -->
-                            <!-- OLD STYLE BACKUP (Vibrant Orange):
-                                 Background: RadialGradient #FF7043 to #BF360C
-                                 BorderBrush: #FFAB91, Text: White
-                            -->
                             <DataTrigger Binding="{Binding IsReconnecting}" Value="True">
                                 <Setter TargetName="BtnBody" Property="Background" Value="#FFD600"/>
                                 <Setter TargetName="BtnBody" Property="BorderBrush" Value="#000000"/>
                                 <Setter TargetName="BtnText" Property="Text" Value="RECONECTANDO..."/>
                                 <Setter TargetName="BtnText" Property="FontSize" Value="9"/>
-                                <Setter TargetName="BtnText" Property="FontWeight" Value="Bold"/>
+                                <Setter TargetName="BtnText" Property="FontWeight" Value="Black"/>
                                 <Setter TargetName="BtnText" Property="Foreground" Value="Black"/>
-                                <Setter TargetName="BtnText" Property="Effect" Value="{x:Null}"/> <!-- Remove shadow for readability on yellow -->
+                                <Setter TargetName="BtnText" Property="Effect" Value="{x:Null}"/>
                                 
                                 <DataTrigger.EnterActions>
                                     <BeginStoryboard Name="PulseGlow">
@@ -195,7 +193,8 @@
                                 <Setter TargetName="InnerGlow" Property="Opacity" Value="0.5"/>
                                 <Setter TargetName="InnerGlow" Property="Background" Value="#00FF00"/>
                                 <Setter TargetName="BtnText" Property="Text" Value="ON LINE"/>
-                                <Setter TargetName="BtnText" Property="FontSize" Value="10"/>
+                                <Setter TargetName="BtnText" Property="FontSize" Value="11"/>
+                                <Setter TargetName="BtnText" Property="FontWeight" Value="Black"/>
                                 <Setter TargetName="BtnText" Property="Foreground" Value="White"/>
                                 <Setter TargetName="BtnText" Property="Effect">
                                     <Setter.Value><DropShadowEffect Color="#00FF00" BlurRadius="4" ShadowDepth="0"/></Setter.Value>
@@ -318,21 +317,53 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     
                     <!-- Digital Info Panel -->
-                    <Border Background="Black" BorderBrush="#444" BorderThickness="2" CornerRadius="4" Padding="10,5" Margin="0,0,15,0">
+                    <Border Background="Black" BorderBrush="#00FFFF" BorderThickness="1" CornerRadius="4" Padding="12,5" Margin="0,0,15,0">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#00FFFF" BlurRadius="10" Opacity="0.2" ShadowDepth="0"/>
+                        </Border.Effect>
                         <StackPanel Orientation="Horizontal">
                             <!-- Rec Timer -->
                             <StackPanel Margin="0,0,15,0" VerticalAlignment="Center">
-                                <TextBlock Text="GRABANDO" FontSize="8" Foreground="#555" HorizontalAlignment="Right"/>
-                                <TextBlock Text="{Binding CurrentRecDuration, TargetNullValue='0d 00h 00m 00s'}" Foreground="#CC3300" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,2">
+                                    <!-- PRO VUMETER-STYLE LED -->
+                                    <Grid Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center">
+                                        <Border x:Name="RecLedBorder" Width="12" Height="12" CornerRadius="6" BorderBrush="#000" BorderThickness="1">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#220000"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding CurrentRecDuration, Converter={StaticResource StringToBoolConverter}}" Value="True">
+                                                            <Setter Property="Background" Value="#F00"/>
+                                                            <Setter Property="Effect">
+                                                                <Setter.Value><DropShadowEffect Color="Red" BlurRadius="10" ShadowDepth="0"/></Setter.Value>
+                                                            </Setter>
+                                                            <DataTrigger.EnterActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.4" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever"/>
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </DataTrigger.EnterActions>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <!-- Glass shine on LED -->
+                                            <Ellipse Width="6" Height="4" Margin="0,1,0,0" VerticalAlignment="Top" Fill="White" Opacity="0.3"/>
+                                        </Border>
+                                    </Grid>
+                                    <TextBlock Text="GRABANDO" FontSize="10" FontWeight="Bold" Foreground="#888" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding CurrentRecDuration, TargetNullValue='0d 00h 00m 00s'}" Foreground="#FF3300" FontFamily="Consolas" FontSize="26" FontWeight="ExtraBold" HorizontalAlignment="Center"/>
                             </StackPanel>
                             
-                            <Rectangle Fill="#333" Width="1" Margin="0,0,15,0"/>
+                            <Rectangle Fill="#333" Width="1" Margin="0,5,15,5"/>
 
                             <!-- MASTER CLOCK -->
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="HORA ACTUAL" FontSize="8" Foreground="#555" HorizontalAlignment="Right"/>
-                                <TextBlock Text="{Binding CurrentTime}" Foreground="#00FFCC" FontFamily="Consolas" FontSize="20" FontWeight="Bold">
-                                    <TextBlock.Effect><DropShadowEffect Color="#00FFCC" BlurRadius="8" ShadowDepth="0" Opacity="0.6"/></TextBlock.Effect>
+                                <TextBlock Text="HORA ACTUAL" FontSize="10" FontWeight="Bold" Foreground="#00FFFF" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                <TextBlock Text="{Binding CurrentTime}" Foreground="#00FFFF" FontFamily="Consolas" FontSize="26" FontWeight="ExtraBold" HorizontalAlignment="Center">
+                                    <TextBlock.Effect><DropShadowEffect Color="#00FFFF" BlurRadius="15" ShadowDepth="0" Opacity="0.8"/></TextBlock.Effect>
                                 </TextBlock>
                             </StackPanel>
                         </StackPanel>
@@ -426,7 +457,7 @@
                                                                                                                                                                                                 Command="{Binding DataContext.ToggleStreamingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                                                                                                                                                 CommandParameter="{Binding}"
                                                                                                                                                                                                 HorizontalAlignment="Center" Margin="0,2,0,0"/>                                                                    
-                                                                                                            <TextBlock Text="{Binding Device.Name}" Foreground="#444" FontSize="7" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,5,0,0"/>                                                                </StackPanel>
+                                                                                                            <TextBlock Text="{Binding Device.Name}" Foreground="#666" FontSize="9" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,5,0,0" FontWeight="SemiBold"/>                                                                </StackPanel>
                                     <!-- Etched Groove Separator -->
                                     <Border Grid.Column="1" Background="#111" Width="1" Margin="5,0">
                                         <Border.Effect><DropShadowEffect Color="White" ShadowDepth="1" BlurRadius="0" Opacity="0.1" Direction="180"/></Border.Effect>

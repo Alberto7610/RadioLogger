@@ -23,6 +23,9 @@ namespace RadioLogger.ViewModels
         private int _bitrate;
 
         [ObservableProperty]
+        private int _segmentDuration;
+
+        [ObservableProperty]
         private int _startHour;
 
         [ObservableProperty]
@@ -145,6 +148,7 @@ namespace RadioLogger.ViewModels
             StationName = _configManager.CurrentSettings.StationName;
             RecordingPath = _configManager.CurrentSettings.RecordingBasePath;
             Bitrate = _configManager.CurrentSettings.Mp3Bitrate;
+            SegmentDuration = _configManager.CurrentSettings.SegmentDurationMinutes;
             StartHour = _configManager.CurrentSettings.StartHour;
             EndHour = _configManager.CurrentSettings.EndHour;
 
@@ -218,6 +222,7 @@ namespace RadioLogger.ViewModels
             _configManager.CurrentSettings.StationName = StationName;
             _configManager.CurrentSettings.RecordingBasePath = RecordingPath;
             _configManager.CurrentSettings.Mp3Bitrate = Bitrate;
+            _configManager.CurrentSettings.SegmentDurationMinutes = SegmentDuration;
             _configManager.CurrentSettings.StartHour = StartHour;
             _configManager.CurrentSettings.EndHour = EndHour;
             

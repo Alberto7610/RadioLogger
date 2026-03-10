@@ -183,5 +183,13 @@ namespace RadioLogger.Services
                 return _activeChannels[deviceId].StartTime;
             return null;
         }
+
+        public void UpdateAllSettings(AppSettings settings)
+        {
+            foreach (var channel in _activeChannels.Values)
+            {
+                channel.UpdateSettings(settings);
+            }
+        }
     }
 }

@@ -17,7 +17,11 @@ namespace RadioLogger.Services
         private readonly System.Timers.Timer _fileRotatorTimer;
         private readonly System.Timers.Timer _reconnectTimer;
         
+        private bool _isClosing = false;
         private int _encoderHandle;
+        private EncodeProcedure _encodeProcedure;
+        private FileStream? _currentFileStream;
+        private object _fileLock = new object();
         
         // Delegates
         private RecordProcedure _recordProcedure;
@@ -49,7 +53,7 @@ namespace RadioLogger.Services
                     _stationName = value;
                     if (IsRecording)
                     {
-                        StartNewFile();
+                        RotateFile();
                     }
                 }
             }
@@ -67,6 +71,7 @@ namespace RadioLogger.Services
 
             _recordProcedure = new RecordProcedure(RecordingCallback);
             _gainDsp = new DSPProcedure(GainCallback);
+            _encodeProcedure = new EncodeProcedure(EncoderCallback);
 
             _levelTimer = new System.Timers.Timer(50); 
             _levelTimer.Elapsed += UpdateLevels;
@@ -77,6 +82,25 @@ namespace RadioLogger.Services
             _reconnectTimer = new System.Timers.Timer(10000); // 10s retry
             _reconnectTimer.AutoReset = false;
             _reconnectTimer.Elapsed += OnReconnectTimerElapsed;
+        }
+
+        private void EncoderCallback(int handle, int channel, IntPtr buffer, int length, IntPtr user)
+        {
+            if (_isClosing) return;
+
+            lock (_fileLock)
+            {
+                if (_currentFileStream != null && length > 0)
+                {
+                    try 
+                    {
+                        byte[] data = new byte[length];
+                        Marshal.Copy(buffer, data, 0, length);
+                        _currentFileStream.Write(data, 0, length);
+                    }
+                    catch { }
+                }
+            }
         }
 
         public void SetGain(float gain)
@@ -118,6 +142,7 @@ namespace RadioLogger.Services
         public void Start()
         {
             if (IsRecording) return;
+            _isClosing = false;
 
             Bass.CurrentRecordingDevice = _deviceId;
 
@@ -128,7 +153,7 @@ namespace RadioLogger.Services
 
             _dspHandle = Bass.ChannelSetDSP(_handle, _gainDsp, IntPtr.Zero, 1);
 
-            StartNewFile();
+            StartEncoder();
 
             Bass.ChannelPlay(_handle);
             
@@ -138,43 +163,53 @@ namespace RadioLogger.Services
             StartTime = DateTime.Now;
         }
 
-        private void StartNewFile()
+        private void StartEncoder()
         {
-            if (_encoderHandle != 0)
-            {
-                BassEnc.EncodeStop(_encoderHandle);
-                _encoderHandle = 0;
-            }
-
-            _currentFileDate = DateTime.Now;
-            // Folder format: ddMMyyyy (Example: 10032026)
-            string dateFolder = _currentFileDate.ToString("ddMMyyyy");
-            string safeStationName = string.Join("_", StationName.Split(Path.GetInvalidFileNameChars()));
-            
-            // Structure: Root \ StationName \ ddMMyyyy
-            string folderPath = Path.Combine(_settings.RecordingBasePath, safeStationName, dateFolder);
-            
-            Directory.CreateDirectory(folderPath);
-
-            // Filename format: STATION-ddMMyy-HHmmss.mp3 (Example: XECO-100326-130000.mp3)
-            string fileName = $"{safeStationName}-{_currentFileDate:ddMMyy-HHmmss}.mp3";
-            _currentFilePath = Path.Combine(folderPath, fileName);
-
             string lamePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
-            string command = $"\"{lamePath}\" -b {_settings.Mp3Bitrate} - \"{_currentFilePath}\"";
+            string command = $"\"{lamePath}\" -b {_settings.Mp3Bitrate} - -";
 
-            _encoderHandle = BassEnc.EncodeStart(_handle, command, EncodeFlags.AutoFree, null, IntPtr.Zero);
+            OpenNewFile();
 
-            if (_encoderHandle == 0)
+            _encoderHandle = BassEnc.EncodeStart(_handle, command, EncodeFlags.AutoFree, _encodeProcedure, IntPtr.Zero);
+        }
+
+        private void OpenNewFile()
+        {
+            lock (_fileLock)
             {
-                System.Diagnostics.Debug.WriteLine($"[CRITICAL] Encoder failed: {Bass.LastError}. Cmd: {command}");
+                _currentFileDate = DateTime.Now;
+                string dateFolder = _currentFileDate.ToString("ddMMyyyy");
+                string safeStationName = string.Join("_", StationName.Split(Path.GetInvalidFileNameChars()));
+                string folderPath = Path.Combine(_settings.RecordingBasePath, safeStationName, dateFolder);
+                
+                Directory.CreateDirectory(folderPath);
+
+                string fileName = $"{safeStationName}-{_currentFileDate:ddMMyy-HHmmss}.mp3";
+                _currentFilePath = Path.Combine(folderPath, fileName);
+
+                _currentFileStream = new FileStream(_currentFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+            }
+        }
+
+        private void RotateFile()
+        {
+            lock (_fileLock)
+            {
+                if (_currentFileStream != null)
+                {
+                    _currentFileStream.Flush();
+                    _currentFileStream.Close();
+                    _currentFileStream.Dispose();
+                    _currentFileStream = null;
+                }
+                OpenNewFile();
             }
         }
 
         public void StartStreaming(StreamingConfig config)
         {
             _currentConfig = config;
-            StopStreaming(false); // No manual stop, just clean up
+            StopStreaming(false);
 
             IsReconnecting = true;
             IsStreaming = false;
@@ -238,12 +273,42 @@ namespace RadioLogger.Services
             }
         }
 
+        public void UpdateSettings(AppSettings settings)
+        {
+            _settings.SegmentDurationMinutes = settings.SegmentDurationMinutes;
+            _settings.Mp3Bitrate = settings.Mp3Bitrate;
+            _settings.RecordingBasePath = settings.RecordingBasePath;
+            _settings.StartHour = settings.StartHour;
+            _settings.EndHour = settings.EndHour;
+        }
+
         private void CheckFileRotation(object? sender, ElapsedEventArgs e)
         {
-            // Rotate every hour
-            if (DateTime.Now.Hour != _currentFileDate.Hour || DateTime.Now.Date > _currentFileDate.Date)
+            int intervalMinutes = _settings.SegmentDurationMinutes;
+            DateTime now = DateTime.Now;
+            bool shouldRotate = false;
+
+            if (intervalMinutes >= 60)
             {
-                StartNewFile();
+                int hours = intervalMinutes / 60;
+                if (now.Hour != _currentFileDate.Hour && now.Hour % hours == 0)
+                {
+                    shouldRotate = true;
+                }
+            }
+            else
+            {
+                if (now.Minute != _currentFileDate.Minute && now.Minute % intervalMinutes == 0)
+                {
+                    shouldRotate = true;
+                }
+            }
+
+            if (now.Date > _currentFileDate.Date) shouldRotate = true;
+
+            if (shouldRotate)
+            {
+                RotateFile();
             }
         }
 
@@ -264,15 +329,35 @@ namespace RadioLogger.Services
 
         public void Stop()
         {
+            if (_isClosing) return;
+            _isClosing = true;
+
             IsRecording = false;
             _levelTimer.Stop();
             _fileRotatorTimer.Stop();
             _reconnectTimer.Stop();
 
-            if (_encoderHandle != 0)
+            StopStreaming(true);
+
+            lock (_fileLock)
             {
-                BassEnc.EncodeStop(_encoderHandle);
-                _encoderHandle = 0;
+                if (_encoderHandle != 0)
+                {
+                    BassEnc.EncodeStop(_encoderHandle);
+                    _encoderHandle = 0;
+                }
+
+                if (_currentFileStream != null)
+                {
+                    try
+                    {
+                        _currentFileStream.Flush();
+                        _currentFileStream.Close();
+                        _currentFileStream.Dispose();
+                    }
+                    catch { }
+                    finally { _currentFileStream = null; }
+                }
             }
 
             if (_handle != 0)
@@ -280,8 +365,6 @@ namespace RadioLogger.Services
                 Bass.ChannelStop(_handle);
                 _handle = 0;
             }
-            
-            StopStreaming(true);
         }
 
         public void Dispose()
