@@ -16,6 +16,12 @@
         </div>
         
         <div class="header-right">
+            <!-- Indicador de Base de Datos -->
+            <div class="db-status @(Monitoring.IsDatabaseHealthy ? "db-ok" : "db-error")">
+                <span class="db-dot"></span>
+                <span class="db-label">@(Monitoring.IsDatabaseHealthy ? "SQL: ONLINE" : "SQL: OFFLINE")</span>
+            </div>
+
             <div class="connection-status @(IsConnected ? "connected" : "disconnected")">
                 @(IsConnected ? "● LIVE" : "○ RECONNECTING...")
             </div>
@@ -127,6 +133,46 @@
         gap: 20px;
     }
 
+    /* DB STATUS NEON STYLES */
+    .db-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px;
+        border-radius: 4px;
+        background: #1a1a1a;
+        font-size: 0.75rem;
+        font-weight: bold;
+        border: 1px solid #333;
+    }
+
+    .db-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    .db-ok {
+        border-color: #00ff00;
+        color: #00ff00;
+        box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+    }
+    .db-ok .db-dot { background: #00ff00; box-shadow: 0 0 8px #00ff00; }
+
+    .db-error {
+        border-color: #ff4444;
+        color: #ff4444;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.2);
+        animation: db-blink 1s infinite;
+    }
+    .db-error .db-dot { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
+
+    @@keyframes db-blink {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
     .connection-status {
         font-size: 0.8rem;
         font-weight: bold;
@@ -159,9 +205,11 @@
     }
 
     .stations-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 25px;
+        align-items: flex-start;
+        justify-content: flex-start;
     }
 
     .empty-state {

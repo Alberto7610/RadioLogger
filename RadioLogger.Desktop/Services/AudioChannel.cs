@@ -55,9 +55,7 @@ namespace RadioLogger.Services
             }
         }
 
-        private int _streamingEncoder;
         private StreamingClient? _streamingClient;
-        private EncodeProcedure? _streamingCallback;
         private StreamingConfig? _currentConfig;
 
         public AudioChannel(AudioDevice device, string stationName, AppSettings settings)
@@ -171,85 +169,34 @@ namespace RadioLogger.Services
 
         public void StartStreaming(StreamingConfig config)
         {
-            bool wasReconnecting = IsReconnecting;
-            
-            // Only stop timer/reset reconnect flag if this is a MANUAL start (User clicked button)
-            if (!wasReconnecting)
-            {
-                _reconnectTimer.Stop();
-                IsReconnecting = false;
-            }
-            
             _currentConfig = config;
+            StopStreaming(false); // No manual stop, just clean up
 
-            if (IsStreaming) return;
-
-            _streamingClient = new StreamingClient(config, StationName);
-            _streamingCallback = new EncodeProcedure(StreamingDataCallback);
-
-            string lamePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
-            string command = $"\"{lamePath}\" -r -s 44100 -b {config.Bitrate} -";
-            
-            _streamingEncoder = BassEnc.EncodeStart(_handle, command, 0, _streamingCallback, IntPtr.Zero);
-            
-            if (_streamingEncoder == 0)
-            {
-                OnClientDisconnected("Encoder Init Failed");
-                return;
-            }
-
-            // UI LOGIC: Show Amber (Reconnecting/Connecting) immediately.
-            // Only turn Green (IsStreaming) when connection is confirmed.
             IsReconnecting = true;
-            // Ensure IsStreaming is false until success
-            IsStreaming = false; 
+            IsStreaming = false;
 
+            _streamingClient = new StreamingClient(config, StationName, _handle);
+            
             System.Threading.Tasks.Task.Run(() => 
             {
-                if (_streamingClient != null)
+                if (_streamingClient.Connect())
                 {
-                    _streamingClient.Disconnected += OnClientDisconnected;
-                    bool connected = _streamingClient.Connect();
-                    
-                    if (!connected)
-                    {
-                        // Connection failed. OnClientDisconnected will handle retry/timer.
-                        // Pass a specific message to trigger the flow properly if Connect() just returned false without event.
-                        OnClientDisconnected("Initial Connection Failed");
-                    }
-                    else
-                    {
-                        // SUCCESS: Now we turn Green and stop blinking
-                        IsReconnecting = false;
-                        IsStreaming = true;
-                    }
+                    IsStreaming = true;
+                    IsReconnecting = false;
+                }
+                else
+                {
+                    OnClientDisconnected("Connection Failed");
                 }
             });
-        }
-
-        private void StreamingDataCallback(int handle, int channel, IntPtr buffer, int length, IntPtr user)
-        {
-            if (_streamingClient != null && length > 0)
-            {
-                byte[] data = new byte[length];
-                Marshal.Copy(buffer, data, 0, length);
-                _streamingClient.PushData(data, length);
-            }
         }
 
         private void OnClientDisconnected(string reason)
         {
             IsStreaming = false;
             
-            if (_streamingEncoder != 0)
-            {
-                BassEnc.EncodeStop(_streamingEncoder);
-                _streamingEncoder = 0;
-            }
-            
             if (_streamingClient != null)
             {
-                _streamingClient.Disconnected -= OnClientDisconnected;
                 _streamingClient.Dispose();
                 _streamingClient = null;
             }
@@ -269,26 +216,22 @@ namespace RadioLogger.Services
             }
         }
 
-        public void StopStreaming()
+        public void StopStreaming(bool manualStop = true)
         {
-            _currentConfig = null;
-            _reconnectTimer.Stop();
-            IsReconnecting = false;
-
-            if (_streamingEncoder != 0)
+            if (manualStop)
             {
-                BassEnc.EncodeStop(_streamingEncoder);
-                _streamingEncoder = 0;
+                _currentConfig = null;
+                _reconnectTimer.Stop();
             }
-            
+
+            IsReconnecting = false;
+            IsStreaming = false;
+
             if (_streamingClient != null)
             {
-                _streamingClient.Disconnected -= OnClientDisconnected;
-                _streamingClient.Disconnect();
+                _streamingClient.Dispose();
                 _streamingClient = null;
             }
-
-            IsStreaming = false;
         }
 
         private void CheckFileRotation(object? sender, ElapsedEventArgs e)
@@ -333,7 +276,7 @@ namespace RadioLogger.Services
                 _handle = 0;
             }
             
-            StopStreaming();
+            StopStreaming(true);
         }
 
         public void Dispose()

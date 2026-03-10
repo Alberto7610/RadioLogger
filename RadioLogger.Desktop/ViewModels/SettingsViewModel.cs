@@ -197,6 +197,24 @@ namespace RadioLogger.ViewModels
         [RelayCommand]
         public void Save()
         {
+            // First, make sure the current selection's values are captured in the dictionary
+            if (SelectedStreamingDevice != null)
+            {
+                var configs = _configManager.CurrentSettings.DeviceStreamingConfigs;
+                if (!configs.ContainsKey(SelectedStreamingDevice.Name))
+                {
+                    configs[SelectedStreamingDevice.Name] = new StreamingConfig();
+                }
+                
+                var conf = configs[SelectedStreamingDevice.Name];
+                conf.Host = StreamHost;
+                conf.Port = StreamPort;
+                conf.Password = StreamPassword;
+                conf.MountPoint = StreamMount;
+                conf.Bitrate = StreamBitrate;
+                conf.ServerType = StreamServerType;
+            }
+
             _configManager.CurrentSettings.StationName = StationName;
             _configManager.CurrentSettings.RecordingBasePath = RecordingPath;
             _configManager.CurrentSettings.Mp3Bitrate = Bitrate;

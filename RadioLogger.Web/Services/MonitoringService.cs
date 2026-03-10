@@ -16,6 +16,7 @@ namespace RadioLogger.Web.Services
         private readonly IServiceProvider _serviceProvider;
 
         public event Action? OnUpdated;
+        public bool IsDatabaseHealthy { get; set; } = true;
 
         public MonitoringService(IServiceProvider serviceProvider)
         {
@@ -58,7 +59,27 @@ namespace RadioLogger.Web.Services
 
         public List<StationStatusUpdate> GetActiveStations()
         {
-            return _stations.Values.OrderBy(s => s.MachineId).ThenBy(s => s.StationName).ToList();
+            // Filter out stations that haven't sent data in 10 seconds (fail-safe)
+            var threshold = DateTime.UtcNow.AddSeconds(-10);
+            return _stations.Values
+                .Where(s => s.Timestamp > threshold)
+                .OrderBy(s => s.MachineId)
+                .ThenBy(s => s.StationName)
+                .ToList();
+        }
+
+        public void MarkMachineOffline(string machineId)
+        {
+            var keysToRemove = _stations.Keys.Where(k => k.StartsWith($"{machineId}:")).ToList();
+            foreach (var key in keysToRemove)
+            {
+                if (_stations.TryRemove(key, out var station))
+                {
+                    // If it was in silence, end the incident
+                    _ = LogIncidentEnd(key);
+                }
+            }
+            OnUpdated?.Invoke();
         }
 
         private async Task LogIncidentStart(StationStatusUpdate update, string type)

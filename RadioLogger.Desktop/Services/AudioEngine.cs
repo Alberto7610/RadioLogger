@@ -99,7 +99,15 @@ namespace RadioLogger.Services
         {
             if (_activeChannels.ContainsKey(device.Id))
             {
-                _activeChannels[device.Id].StartStreaming(config);
+                // Force pull latest from ConfigManager just in case
+                if (_configManager.CurrentSettings.DeviceStreamingConfigs.TryGetValue(device.Name, out var latestConfig))
+                {
+                    _activeChannels[device.Id].StartStreaming(latestConfig);
+                }
+                else
+                {
+                    _activeChannels[device.Id].StartStreaming(config);
+                }
             }
         }
 
@@ -113,21 +121,28 @@ namespace RadioLogger.Services
         
         public (bool success, string message) TestConnection(StreamingConfig config)
         {
-            var client = new StreamingClient(config, "TEST_CONN");
-            if (client.Connect())
+            try 
             {
-                // Wait for Handshake response
-                System.Threading.Thread.Sleep(2000); 
+                // To test connection, we need a dummy recording handle
+                Bass.RecordInit(1);
+                int dummyHandle = Bass.RecordStart(44100, 2, BassFlags.RecordPause, null, IntPtr.Zero);
                 
-                // If we are still connected/sending, it's likely good. 
-                // If server rejected (Bad Pass), it usually closes the socket.
-                // Note: This is a heuristic.
-                client.Disconnect();
-                return (true, "Conexión establecida (Handshake enviado). Verifique logs si falla.");
+                using var client = new StreamingClient(config, "TEST_CONN", dummyHandle);
+                if (client.Connect())
+                {
+                    System.Threading.Thread.Sleep(3000); 
+                    Bass.ChannelStop(dummyHandle);
+                    return (true, "Conexión Exitosa (Servidor aceptó Handshake)");
+                }
+                else
+                {
+                    Bass.ChannelStop(dummyHandle);
+                    return (false, "Error: El servidor rechazó la conexión o puerto cerrado.");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                return (false, "No se pudo conectar al servidor (Puerto cerrado o IP incorrecta).");
+                return (false, $"Error de Red: {ex.Message}");
             }
         }
 
