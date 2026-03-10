@@ -231,18 +231,38 @@ namespace RadioLogger.ViewModels
             
             bool showAll = savedActive.Count == 0;
 
-            InputDevices.Clear();
+            // Determine target devices to show
+            var targetDevices = devices
+                .Where(dev => showAll || savedActive.Contains(dev.Name))
+                .ToList();
 
-            foreach (var dev in devices)
+            // 1. Remove devices that are no longer active
+            var toRemove = InputDevices
+                .Where(vm => !targetDevices.Any(td => td.Name == vm.Device.Name))
+                .ToList();
+            foreach (var vm in toRemove) InputDevices.Remove(vm);
+
+            // 2. Update or Add devices
+            foreach (var td in targetDevices)
             {
-                if (showAll || savedActive.Contains(dev.Name))
+                if (!nameMapping.TryGetValue(td.Name, out string? customName) || string.IsNullOrWhiteSpace(customName))
                 {
-                    if (!nameMapping.TryGetValue(dev.Name, out string? customName) || string.IsNullOrWhiteSpace(customName))
-                    {
-                        customName = dev.Name;
-                    }
+                    customName = td.Name;
+                }
 
-                    var vm = new DeviceViewModel(dev, _audioEngine, _configManager, customName, false);
+                var existing = InputDevices.FirstOrDefault(vm => vm.Device.Name == td.Name);
+                if (existing != null)
+                {
+                    // Update only the StationName if changed
+                    if (existing.StationName != customName)
+                    {
+                        existing.StationName = customName;
+                    }
+                }
+                else
+                {
+                    // Add as new device
+                    var vm = new DeviceViewModel(td, _audioEngine, _configManager, customName, false);
                     InputDevices.Add(vm);
                 }
             }

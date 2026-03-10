@@ -5,9 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:RadioLogger.ViewModels"
         mc:Ignorable="d"
-        Title="Panel de Control" Height="750" Width="850"
+        Title="Panel de Control" Height="750" Width="800"
         Background="#121212" Foreground="White" WindowStartupLocation="CenterOwner"
-        ResizeMode="CanResize" WindowStyle="None" AllowsTransparency="True">
+        ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True">
     
     <!-- Window Border & Shadow for Chromeless Look -->
     <Border BorderBrush="#333" BorderThickness="1" Background="#121212">
@@ -58,7 +58,7 @@
                         
                         <RadioButton Content="General" IsChecked="True" x:Name="TabGeneral"/>
                         <RadioButton Content="Audio &amp; Dispositivos" x:Name="TabAudio"/>
-                        <RadioButton Content="Config. Streaming" x:Name="TabStreaming"/>
+                        <RadioButton Content="Transmisión" x:Name="TabStreaming"/>
                         <RadioButton Content="Monitoreo Remoto" x:Name="TabRemote"/>
                         <RadioButton Content="Programación" x:Name="TabSchedule"/>
                     </StackPanel>
@@ -74,16 +74,51 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header Title -->
-                <TextBlock Text="Configuración del Sistema" FontSize="22" FontWeight="Light" Foreground="#EEE" Margin="30,25,0,20"/>
+                <Grid Grid.Row="0">
+                    <TextBlock Text="Configuración del Sistema" FontSize="22" FontWeight="Light" Foreground="#EEE" Margin="30,25,0,20"/>
+                    <Button HorizontalAlignment="Right" VerticalAlignment="Top" 
+                            Margin="0,0,0,0" Width="35" Height="30" Cursor="Hand" IsCancel="True"
+                            Background="Transparent" BorderThickness="0">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="Transparent" Padding="0">
+                                    <TextBlock x:Name="Txt" Text="✕" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                               Foreground="#999" FontSize="14"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#E81123"/>
+                                        <Setter TargetName="Txt" Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#A3101D"/>
+                                        <Setter TargetName="Txt" Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
 
                 <!-- GENERAL TAB -->
-                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Hidden" 
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
                               Visibility="{Binding IsChecked, ElementName=TabGeneral, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
+                        <!-- Station Card -->
+                        <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Identidad de la Estación" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
+                                
+                                <TextBlock Text="Nombre (Siglas)" Foreground="#888" FontSize="12" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding StationName}" Height="35" VerticalContentAlignment="Center" Background="#111" Foreground="White" BorderBrush="#444" Padding="5"/>
+                                <TextBlock Text="Este nombre aparecerá en la cabecera y en los reportes." Foreground="#555" FontSize="10" Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- System Card -->
                         <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
                             <StackPanel>
-                                <TextBlock Text="Comportamiento del Sistema" FontSize="16" Foreground="#00E5FF" Margin="0,0,0,15"/>
+                                <TextBlock Text="Comportamiento del Sistema" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
 
                                 <CheckBox IsChecked="{Binding IsAutoStartEnabled}" Margin="0,0,0,10">
                                     <CheckBox.Template>
@@ -97,7 +132,7 @@
                                             </StackPanel>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsChecked" Value="True">
-                                                    <Setter TargetName="Track" Property="Background" Value="#00E5FF"/>
+                                                    <Setter TargetName="Track" Property="Background" Value="#00AABB"/>
                                                     <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
                                                     <Setter TargetName="Knob" Property="Fill" Value="White"/>
                                                 </Trigger>
@@ -112,7 +147,7 @@
                         <!-- Storage Card -->
                         <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
                             <StackPanel>
-                                <TextBlock Text="Almacenamiento" FontSize="16" Foreground="#00E5FF" Margin="0,0,0,15"/>
+                                <TextBlock Text="Almacenamiento" FontSize="16" Foreground="#00AABB" Margin="0,0,0,15"/>
                                 
                                 <TextBlock Text="Ruta de Grabación" Foreground="#888" FontSize="12" Margin="0,0,0,5"/>
                                 <Grid>
@@ -142,7 +177,7 @@
                 </ScrollViewer>
 
                 <!-- AUDIO TAB -->
-                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Hidden" 
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
                               Visibility="{Binding IsChecked, ElementName=TabAudio, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <!-- Quality Card -->
@@ -231,7 +266,7 @@
                 </ScrollViewer>
 
                 <!-- STREAMING TAB -->
-                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Hidden" 
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
                               Visibility="{Binding IsChecked, ElementName=TabStreaming, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -356,7 +391,7 @@
                 </ScrollViewer>
 
                 <!-- REMOTE MONITORING TAB -->
-                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Hidden" 
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
                               Visibility="{Binding IsChecked, ElementName=TabRemote, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <Border Background="#252526" CornerRadius="4" Padding="20" Margin="0,0,0,20" BorderBrush="#333" BorderThickness="1">
@@ -396,7 +431,7 @@
                 </ScrollViewer>
 
                 <!-- SCHEDULE TAB -->
-                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Hidden" 
+                <ScrollViewer Grid.Row="1" Margin="30,0" VerticalScrollBarVisibility="Auto" 
                               Visibility="{Binding IsChecked, ElementName=TabSchedule, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Border Background="#252526" CornerRadius="4" Padding="20" BorderBrush="#333" BorderThickness="1">
                         <StackPanel>

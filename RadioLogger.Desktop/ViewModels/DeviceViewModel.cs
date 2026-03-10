@@ -268,23 +268,8 @@ namespace RadioLogger.ViewModels
                 }
                 RightPeak = _internalRightPeak;
 
-                // Clipping detection with hold timer for realism
-                if (_activeChannel.LeftLevel > 0.98 || _activeChannel.RightLevel > 0.98)
-                {
-                    _clipHoldCounter = 15; // Hold for 15 frames (~750ms)
-                    IsClipping = true;
-                }
-                else
-                {
-                    if (_clipHoldCounter > 0)
-                    {
-                        _clipHoldCounter--;
-                    }
-                    else
-                    {
-                        IsClipping = false;
-                    }
-                }
+                // Clipping detection (if raw signal > 0.99)
+                IsClipping = _activeChannel.LeftLevel > 0.99 || _activeChannel.RightLevel > 0.99;
             }
             else
             {
@@ -293,12 +278,9 @@ namespace RadioLogger.ViewModels
                 LeftPeak = 0;
                 RightPeak = 0;
                 IsClipping = false;
-                _clipHoldCounter = 0;
             }
         }
 
-        private int _clipHoldCounter;
-        
         [ObservableProperty]
         private bool _isClipping;
 

@@ -147,13 +147,17 @@ namespace RadioLogger.Services
             }
 
             _currentFileDate = DateTime.Now;
-            string dateFolder = _currentFileDate.ToString("yyyy-MM-dd");
+            // Folder format: ddMMyyyy (Example: 10032026)
+            string dateFolder = _currentFileDate.ToString("ddMMyyyy");
             string safeStationName = string.Join("_", StationName.Split(Path.GetInvalidFileNameChars()));
-            string folderPath = Path.Combine(_settings.RecordingBasePath, dateFolder, safeStationName);
+            
+            // Structure: Root \ StationName \ ddMMyyyy
+            string folderPath = Path.Combine(_settings.RecordingBasePath, safeStationName, dateFolder);
             
             Directory.CreateDirectory(folderPath);
 
-            string fileName = $"{safeStationName}_{_currentFileDate:HH-mm-ss}.mp3";
+            // Filename format: STATION-ddMMyy-HHmmss.mp3 (Example: XECO-100326-130000.mp3)
+            string fileName = $"{safeStationName}-{_currentFileDate:ddMMyy-HHmmss}.mp3";
             _currentFilePath = Path.Combine(folderPath, fileName);
 
             string lamePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
@@ -236,7 +240,8 @@ namespace RadioLogger.Services
 
         private void CheckFileRotation(object? sender, ElapsedEventArgs e)
         {
-            if (DateTime.Now.Date > _currentFileDate.Date)
+            // Rotate every hour
+            if (DateTime.Now.Hour != _currentFileDate.Hour || DateTime.Now.Date > _currentFileDate.Date)
             {
                 StartNewFile();
             }

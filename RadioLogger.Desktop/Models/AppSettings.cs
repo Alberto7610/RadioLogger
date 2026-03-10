@@ -33,7 +33,8 @@ namespace RadioLogger.Models
 
         public bool IsAutoStartEnabled { get; set; } = false;
 
-        // Settings for auto-start recording on launch
+        // Settings for auto-start recording/streaming on launch
         public List<string> AutoRecordDevices { get; set; } = new List<string>();
+        public List<string> AutoStreamDevices { get; set; } = new List<string>();
     }
 }

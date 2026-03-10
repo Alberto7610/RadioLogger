@@ -22,7 +22,8 @@ namespace RadioLogger.Services
                         string? path = Process.GetCurrentProcess().MainModule?.FileName;
                         if (!string.IsNullOrEmpty(path))
                         {
-                            key.SetValue(AppName, $"\"{path}\"");
+                            // Add argument to start minimized
+                            key.SetValue(AppName, $"\"{path}\" --minimized");
                         }
                     }
                     else
