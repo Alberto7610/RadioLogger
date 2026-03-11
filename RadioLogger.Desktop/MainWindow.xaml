@@ -352,18 +352,24 @@
                                             <Ellipse Width="6" Height="4" Margin="0,1,0,0" VerticalAlignment="Top" Fill="White" Opacity="0.3"/>
                                         </Border>
                                     </Grid>
-                                    <TextBlock Text="GRABANDO" FontSize="10" FontWeight="Bold" Foreground="#888" VerticalAlignment="Center"/>
+                                    <TextBlock Text="GRABANDO" FontSize="10" FontWeight="Bold" Foreground="#FF0000" VerticalAlignment="Center">
+                                        <TextBlock.Effect><DropShadowEffect Color="#FF0000" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/></TextBlock.Effect>
+                                    </TextBlock>
                                 </StackPanel>
-                                <TextBlock Text="{Binding CurrentRecDuration, TargetNullValue='0d 00h 00m 00s'}" Foreground="#FF3300" FontFamily="Consolas" FontSize="26" FontWeight="ExtraBold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding CurrentRecDuration, TargetNullValue='0d 00h 00m 00s'}" Foreground="#FF0000" FontFamily="Consolas" FontSize="22" FontWeight="ExtraBold" HorizontalAlignment="Center">
+                                    <TextBlock.Effect><DropShadowEffect Color="#FF0000" BlurRadius="12" ShadowDepth="0" Opacity="0.8"/></TextBlock.Effect>
+                                </TextBlock>
                             </StackPanel>
                             
                             <Rectangle Fill="#333" Width="1" Margin="0,5,15,5"/>
 
                             <!-- MASTER CLOCK -->
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="HORA ACTUAL" FontSize="10" FontWeight="Bold" Foreground="#00FFFF" HorizontalAlignment="Center" Margin="0,0,0,2"/>
-                                <TextBlock Text="{Binding CurrentTime}" Foreground="#00FFFF" FontFamily="Consolas" FontSize="26" FontWeight="ExtraBold" HorizontalAlignment="Center">
-                                    <TextBlock.Effect><DropShadowEffect Color="#00FFFF" BlurRadius="15" ShadowDepth="0" Opacity="0.8"/></TextBlock.Effect>
+                                <TextBlock Text="HORA ACTUAL" FontSize="10" FontWeight="Bold" Foreground="#00FFFF" HorizontalAlignment="Center" Margin="0,0,0,2">
+                                    <TextBlock.Effect><DropShadowEffect Color="#00FFFF" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/></TextBlock.Effect>
+                                </TextBlock>
+                                <TextBlock Text="{Binding CurrentTime}" Foreground="#00FFFF" FontFamily="Consolas" FontSize="24" FontWeight="ExtraBold" HorizontalAlignment="Center">
+                                    <TextBlock.Effect><DropShadowEffect Color="#00FFFF" BlurRadius="12" ShadowDepth="0" Opacity="0.8"/></TextBlock.Effect>
                                 </TextBlock>
                             </StackPanel>
                         </StackPanel>
@@ -391,18 +397,17 @@
                     <DataTemplate>
                         <!-- Rack Mount Chassis -->
                         <Border Margin="0,0,0,15" CornerRadius="4" BorderBrush="#111" BorderThickness="1">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#2A2A2A" Offset="0"/>
-                                    <GradientStop Color="#1F1F1F" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
                             <Border.Effect>
                                 <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="5" Opacity="0.5"/>
                             </Border.Effect>
-                            
-                                                        <Border x:Name="ModuleBorder" CornerRadius="4" BorderThickness="2" BorderBrush="Transparent">
-                                                            <Grid Margin="10">
+
+                            <Border x:Name="ModuleBorder" CornerRadius="4" BorderThickness="2" BorderBrush="Transparent">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#2A2A2A" Offset="0"/>
+                                        <GradientStop Color="#1F1F1F" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>                                                            <Grid Margin="10">
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="115"/>  <!-- Control ON/OFF -->
                                                                     <ColumnDefinition Width="1"/>   <!-- Separator -->
@@ -649,10 +654,16 @@
                                                     </Grid>
                                                 </Grid>
                                                 
-                                                <TextBlock Text="FALLA DE AUDIO" Foreground="#F44" FontWeight="Bold" FontSize="9" HorizontalAlignment="Center" Margin="0,4,0,0"
-                                                           Visibility="{Binding IsSilenceDetected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                    <TextBlock.Effect><DropShadowEffect Color="Red" BlurRadius="5" ShadowDepth="0"/></TextBlock.Effect>
-                                                </TextBlock>
+                                                <StackPanel>
+                                                    <TextBlock Text="NO SE HA DETECTADO AUDIO" Foreground="#F00" FontWeight="Black" FontSize="14" HorizontalAlignment="Center" Margin="0,4,0,0"
+                                                               Visibility="{Binding IsSilenceDetected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <TextBlock.Effect><DropShadowEffect Color="Red" BlurRadius="12" ShadowDepth="0"/></TextBlock.Effect>
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding SilenceDuration, StringFormat='TIEMPO: {0}'}" Foreground="#F66" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center"
+                                                               Visibility="{Binding IsSilenceDetected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <TextBlock.Effect><DropShadowEffect Color="Black" BlurRadius="2" ShadowDepth="1"/></TextBlock.Effect>
+                                                    </TextBlock>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Grid>
 
@@ -682,7 +693,21 @@
                         <DataTemplate.Triggers>
                             <DataTrigger Binding="{Binding IsSilenceDetected}" Value="True">
                                 <Setter TargetName="ModuleBorder" Property="BorderBrush" Value="#F00"/>
-                                <Setter TargetName="ModuleBorder" Property="Background" Value="#2A0000"/>
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard Name="PulseSilence">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="ModuleBorder" 
+                                                            Storyboard.TargetProperty="(Border.Background).(LinearGradientBrush.GradientStops)[0].Color"
+                                                            To="#4A0000" Duration="0:0:1" AutoReverse="True" RepeatBehavior="Forever"/>
+                                            <ColorAnimation Storyboard.TargetName="ModuleBorder" 
+                                                            Storyboard.TargetProperty="(Border.Background).(LinearGradientBrush.GradientStops)[1].Color"
+                                                            To="#300000" Duration="0:0:1" AutoReverse="True" RepeatBehavior="Forever"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <RemoveStoryboard BeginStoryboardName="PulseSilence"/>
+                                </DataTrigger.ExitActions>
                             </DataTrigger>
                         </DataTemplate.Triggers>
                     </DataTemplate>

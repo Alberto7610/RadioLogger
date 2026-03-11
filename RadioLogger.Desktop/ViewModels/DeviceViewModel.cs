@@ -143,6 +143,9 @@ namespace RadioLogger.ViewModels
 
         [ObservableProperty]
         private bool _isSilenceDetected;
+
+        [ObservableProperty]
+        private string _silenceDuration = "00:00";
         
         [ObservableProperty]
         private double _inputVolume = 100; // 0-150, Default 100 (Unit Gain)
@@ -169,6 +172,7 @@ namespace RadioLogger.ViewModels
         
         // Silence Detection vars
         private int _silenceCounter;
+        private System.DateTime? _silenceStartTime;
         private const int SilenceThresholdFrames = 200; // 10 seconds at 20fps
         private const double SilenceDbThreshold = -40.0;
 
@@ -204,9 +208,11 @@ namespace RadioLogger.ViewModels
 
             if (IsRecording && _activeChannel != null)
             {
-                // ... (Existing logic) ...
-                var lDb = ToDbPercentage(_activeChannel.LeftLevel);
-                var rDb = ToDbPercentage(_activeChannel.RightLevel);
+                var lLevel = _activeChannel.LeftLevel;
+                var rLevel = _activeChannel.RightLevel;
+                
+                var lDb = ToDbPercentage(lLevel);
+                var rDb = ToDbPercentage(rLevel);
 
                 // Convert back to real dB for silence check (approx)
                 // Since ToDbPercentage returns 0-100 mapped from -60 to 0
@@ -220,13 +226,26 @@ namespace RadioLogger.ViewModels
                     _silenceCounter++;
                     if (_silenceCounter > SilenceThresholdFrames)
                     {
-                        IsSilenceDetected = true;
+                        if (!IsSilenceDetected)
+                        {
+                            IsSilenceDetected = true;
+                            _silenceStartTime = System.DateTime.Now;
+                        }
+
+                        // Update silence timer
+                        if (_silenceStartTime.HasValue)
+                        {
+                            var diff = System.DateTime.Now - _silenceStartTime.Value;
+                            SilenceDuration = $"{diff.Minutes:D2}:{diff.Seconds:D2}";
+                        }
                     }
                 }
                 else
                 {
                     _silenceCounter = 0;
                     IsSilenceDetected = false;
+                    _silenceStartTime = null;
+                    SilenceDuration = "00:00";
                 }
 
                 LeftLevel = lDb;
