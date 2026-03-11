@@ -24,5 +24,18 @@ public partial class MainWindow : Window
         
         // Initialize Tray Icon logic
         _trayService = new RadioLogger.Services.TrayService(this);
+
+        // Subscribirse al evento de cierre para ir al tray
+        this.Closing += MainWindow_Closing;
+    }
+
+    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Si no estamos cerrando desde el icono del Tray (botón Salir), cancelamos el cierre y ocultamos
+        if (_trayService != null && !_trayService.IsClosingFromTray)
+        {
+            e.Cancel = true;
+            this.Hide();
+        }
     }
 }

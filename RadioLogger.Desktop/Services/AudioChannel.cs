@@ -178,12 +178,14 @@ namespace RadioLogger.Services
             lock (_fileLock)
             {
                 _currentFileDate = DateTime.Now;
-                string dateFolder = _currentFileDate.ToString("ddMMyyyy");
                 string safeStationName = string.Join("_", StationName.Split(Path.GetInvalidFileNameChars()));
-                string folderPath = Path.Combine(_settings.RecordingBasePath, safeStationName, dateFolder);
+                
+                // New Structure: Root \ RadioLogger \ StationName
+                string folderPath = Path.Combine(_settings.RecordingBasePath, "RadioLogger", safeStationName);
                 
                 Directory.CreateDirectory(folderPath);
 
+                // Filename format: STATION-ddMMyy-HHmmss.mp3
                 string fileName = $"{safeStationName}-{_currentFileDate:ddMMyy-HHmmss}.mp3";
                 _currentFilePath = Path.Combine(folderPath, fileName);
 

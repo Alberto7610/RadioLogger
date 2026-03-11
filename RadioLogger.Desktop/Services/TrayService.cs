@@ -13,6 +13,8 @@ namespace RadioLogger.Services
         private readonly Window _mainWindow;
         private bool _isClosingFromTray = false;
 
+        public bool IsClosingFromTray => _isClosingFromTray;
+
         public TrayService(Window mainWindow)
         {
             _mainWindow = mainWindow;

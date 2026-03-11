@@ -8,6 +8,8 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Timers;
+using System.Globalization;
+using System.Collections.Generic;
 
 namespace RadioLogger.ViewModels
 {
@@ -37,15 +39,12 @@ namespace RadioLogger.ViewModels
         {
             if (value)
             {
-                // Switch to Master: Save app volume, load System Volume
                 _lastAppVolume = OutputVolume;
                 OutputVolume = SystemAudioHelper.GetMasterVolume();
             }
             else
             {
-                // Switch to App: Load saved app volume
                 OutputVolume = _lastAppVolume;
-                // Ensure BASS stream is synced
                 if (_stream != 0) Bass.ChannelSetAttribute(_stream, ChannelAttribute.Volume, (float)(_lastAppVolume / 100.0));
             }
         }
@@ -115,7 +114,6 @@ namespace RadioLogger.ViewModels
         {
             _basePath = basePath;
             LoadOutputDevices();
-            // Don't re-init BASS if already init (it's a global engine)
             if (!Bass.Init(-1, 44100, DeviceInitFlags.Default, IntPtr.Zero)) { }
             
             RefreshStations();
@@ -150,14 +148,12 @@ namespace RadioLogger.ViewModels
 
             TimeDisplay = $"{FormatTime(CurrentPosition)} / {FormatTime(TotalDuration)}";
             
-            // Real time display (StartTime + CurrentPosition)
             if (_fileStartTime != default)
             {
                 var realTime = _fileStartTime.AddSeconds(CurrentPosition);
                 RealTimeDisplay = realTime.ToString("HH:mm:ss");
             }
 
-            // Waveform (Simulated for now based on actual level)
             int level = Bass.ChannelGetLevel(_stream);
             if (level != -1)
             {
@@ -166,7 +162,7 @@ namespace RadioLogger.ViewModels
             }
 
             App.Current.Dispatcher.Invoke(() => {
-                WaveformData.Add(PlaybackLevelL * 50); // Scale for UI
+                WaveformData.Add(PlaybackLevelL * 50);
                 if (WaveformData.Count > 100) WaveformData.RemoveAt(0);
             });
         }
@@ -205,19 +201,25 @@ namespace RadioLogger.ViewModels
         {
             if (_stream != 0) { Bass.StreamFree(_stream); _stream = 0; }
 
-            // Extract start time from filename (e.g., Radio_12-00-00.mp3)
+            // New Filename format: STATION-ddMMyy-HHmmss.mp3
             try {
                 var nameOnly = Path.GetFileNameWithoutExtension(path);
-                var parts = nameOnly.Split('_');
-                if (parts.Length >= 2 && DateTime.TryParseExact(parts.Last(), "HH-mm-ss", null, System.Globalization.DateTimeStyles.None, out var time))
+                var parts = nameOnly.Split('-');
+                if (parts.Length >= 3)
                 {
-                    _fileStartTime = time;
+                    // parts[1] = ddMMyy, parts[2] = HHmmss
+                    string timeStr = $"{parts[1]}-{parts[2]}";
+                    if (DateTime.TryParseExact(timeStr, "ddMMyy-HHmmss", null, DateTimeStyles.None, out var dt))
+                    {
+                        _fileStartTime = dt;
+                    }
                 }
             } catch { }
 
             _stream = Bass.CreateStream(path, 0, 0, BassFlags.Default);
             if (_stream != 0)
             {
+                CurrentTitle = Path.GetFileName(path);
                 Bass.ChannelSetAttribute(_stream, ChannelAttribute.Volume, OutputVolume / 100.0);
                 Bass.ChannelPlay(_stream);
                 IsPlaying = true;
@@ -252,24 +254,19 @@ namespace RadioLogger.ViewModels
         private void RefreshStations()
         {
             Stations.Clear();
-            if (!Directory.Exists(_basePath)) return;
+            string rootPath = Path.Combine(_basePath, "RadioLogger");
+            if (!Directory.Exists(rootPath)) return;
 
-            var stations = new HashSet<string>();
             try
             {
-                var dateDirs = Directory.GetDirectories(_basePath);
-                foreach (var dDir in dateDirs)
+                var sDirs = Directory.GetDirectories(rootPath);
+                foreach (var sDir in sDirs)
                 {
-                    var sDirs = Directory.GetDirectories(dDir);
-                    foreach (var sDir in sDirs)
-                    {
-                        stations.Add(Path.GetFileName(sDir));
-                    }
+                    Stations.Add(Path.GetFileName(sDir));
                 }
             }
             catch { }
 
-            foreach (var s in stations.OrderBy(x => x)) Stations.Add(s);
             if (Stations.Any()) SelectedStation = Stations.First();
         }
 
@@ -278,17 +275,22 @@ namespace RadioLogger.ViewModels
         private void RefreshDates()
         {
             AvailableDates.Clear();
-            if (string.IsNullOrEmpty(SelectedStation) || !Directory.Exists(_basePath)) return;
+            if (string.IsNullOrEmpty(SelectedStation)) return;
+
+            string stationPath = Path.Combine(_basePath, "RadioLogger", SelectedStation);
+            if (!Directory.Exists(stationPath)) return;
 
             var dates = new HashSet<DateTime>();
             try
             {
-                var dateDirs = Directory.GetDirectories(_basePath);
-                foreach (var dDir in dateDirs)
+                var files = Directory.GetFiles(stationPath, "*.mp3");
+                foreach (var file in files)
                 {
-                    if (DateTime.TryParse(Path.GetFileName(dDir), out DateTime dt))
+                    var nameOnly = Path.GetFileNameWithoutExtension(file);
+                    var parts = nameOnly.Split('-');
+                    if (parts.Length >= 2 && DateTime.TryParseExact(parts[1], "ddMMyy", null, DateTimeStyles.None, out var dt))
                     {
-                        if (Directory.Exists(Path.Combine(dDir, SelectedStation))) dates.Add(dt);
+                        dates.Add(dt.Date);
                     }
                 }
             }
@@ -306,11 +308,16 @@ namespace RadioLogger.ViewModels
             RecordingsList.Clear();
             if (string.IsNullOrEmpty(SelectedStation) || !SelectedDate.HasValue) return;
 
-            string path = Path.Combine(_basePath, SelectedDate.Value.ToString("yyyy-MM-dd"), SelectedStation);
-            if (Directory.Exists(path)) {
-                var files = new DirectoryInfo(path).GetFiles("*.mp3").OrderByDescending(f => f.LastWriteTime); 
+            string stationPath = Path.Combine(_basePath, "RadioLogger", SelectedStation);
+            if (!Directory.Exists(stationPath)) return;
+
+            try {
+                var dateStr = SelectedDate.Value.ToString("ddMMyy");
+                var files = new DirectoryInfo(stationPath).GetFiles("*.mp3")
+                    .Where(f => f.Name.Contains($"-{dateStr}-"))
+                    .OrderByDescending(f => f.LastWriteTime); 
                 foreach (var f in files) RecordingsList.Add(f);
-            }
+            } catch { }
         }
 
         [RelayCommand] public void ToggleMute() => IsMuted = !IsMuted;

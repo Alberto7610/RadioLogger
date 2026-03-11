@@ -22,38 +22,34 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
                         <Grid>
-                            <!-- Button Housing (The hole in the console) -->
-                            <Border Width="94" Height="37" CornerRadius="5" Background="#111" BorderBrush="#444" BorderThickness="0,0,1,1">
-                                <Border.Effect><BlurEffect Radius="2"/></Border.Effect>
+                            <!-- Button Housing -->
+                            <Border Width="94" Height="37" CornerRadius="5" Background="#050505" BorderBrush="#222" BorderThickness="0,0,1,1">
+                                <Border.Effect><BlurEffect Radius="1"/></Border.Effect>
                             </Border>
                             
                             <!-- The Physical Button -->
                             <Border x:Name="BtnBody" Width="90" Height="35" CornerRadius="4" BorderThickness="1">
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#333" Offset="0"/>
-                                        <GradientStop Color="#222" Offset="1"/>
+                                        <GradientStop Color="#400000" Offset="0"/>
+                                        <GradientStop Color="#200000" Offset="1"/>
                                     </LinearGradientBrush>
                                 </Border.Background>
                                 <Border.BorderBrush>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#555" Offset="0"/>
-                                        <GradientStop Color="#111" Offset="1"/>
+                                        <GradientStop Color="#600000" Offset="0"/>
+                                        <GradientStop Color="#300000" Offset="1"/>
                                     </LinearGradientBrush>
                                 </Border.BorderBrush>
                                 
                                 <Grid>
                                     <!-- Text Label (Off State) -->
-                                    <TextBlock x:Name="BtnText" Text="OFF" Foreground="#555" 
+                                    <TextBlock x:Name="BtnText" Text="OFF" Foreground="#600" 
                                                HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                               FontWeight="Black" FontSize="12" FontFamily="Consolas">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="1" Direction="270" Opacity="0.8"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
+                                               FontWeight="Black" FontSize="14" FontFamily="Segoe UI Black"/>
                                     
                                     <!-- Inner Glow (Hidden by default) -->
-                                    <Border x:Name="InnerGlow" CornerRadius="3" Opacity="0" Background="#CC3300">
+                                    <Border x:Name="InnerGlow" CornerRadius="3" Opacity="0" Background="#FF0000">
                                         <Border.Effect><BlurEffect Radius="10"/></Border.Effect>
                                     </Border>
                                 </Grid>
@@ -68,13 +64,9 @@
                         </Grid>
                         
                         <ControlTemplate.Triggers>
-                            <!-- PRESSED STATE (Physical Push) -->
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="BtnBody" Property="RenderTransform">
                                     <Setter.Value><TranslateTransform Y="2"/></Setter.Value>
-                                </Setter>
-                                <Setter TargetName="BtnBody" Property="Effect">
-                                    <Setter.Value><DropShadowEffect Color="Black" BlurRadius="2" ShadowDepth="1" Direction="270"/></Setter.Value>
                                 </Setter>
                             </Trigger>
                             
@@ -83,19 +75,18 @@
                                 <Setter TargetName="BtnBody" Property="Background">
                                     <Setter.Value>
                                         <RadialGradientBrush GradientOrigin="0.5,0.5">
-                                            <GradientStop Color="#FF5722" Offset="0"/>
-                                            <GradientStop Color="#BF360C" Offset="1"/>
+                                            <GradientStop Color="#FF0000" Offset="0"/>
+                                            <GradientStop Color="#800000" Offset="1"/>
                                         </RadialGradientBrush>
                                     </Setter.Value>
                                 </Setter>
-                                <Setter TargetName="BtnBody" Property="BorderBrush" Value="#FF7043"/>
+                                <Setter TargetName="BtnBody" Property="BorderBrush" Value="#FF5555"/>
                                 <Setter TargetName="InnerGlow" Property="Opacity" Value="0.6"/>
                                 <Setter TargetName="BtnText" Property="Text" Value="ON AIR"/>
-                                <Setter TargetName="BtnText" Property="FontSize" Value="12"/>
+                                <Setter TargetName="BtnText" Property="Foreground" Value="#FFFFFF"/>
                                 <Setter TargetName="BtnText" Property="FontWeight" Value="Black"/>
-                                <Setter TargetName="BtnText" Property="Foreground" Value="White"/>
                                 <Setter TargetName="BtnText" Property="Effect">
-                                    <Setter.Value><DropShadowEffect Color="#800000" BlurRadius="2" ShadowDepth="0"/></Setter.Value>
+                                    <Setter.Value><DropShadowEffect Color="#FF0000" BlurRadius="15" ShadowDepth="0" Opacity="1"/></Setter.Value>
                                 </Setter>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -111,7 +102,7 @@
                     <ControlTemplate TargetType="Button">
                         <Grid>
                             <!-- Button Housing -->
-                            <Border Width="94" Height="32" CornerRadius="3" Background="#050505" BorderBrush="#333" BorderThickness="0,0,1,1">
+                            <Border Width="94" Height="32" CornerRadius="3" Background="#050505" BorderBrush="#222" BorderThickness="0,0,1,1">
                                 <Border.Effect><BlurEffect Radius="1"/></Border.Effect>
                             </Border>
                             
@@ -119,19 +110,19 @@
                             <Border x:Name="BtnBody" Width="90" Height="30" CornerRadius="2" BorderThickness="1">
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#222" Offset="0"/>
-                                        <GradientStop Color="#111" Offset="1"/>
+                                        <GradientStop Color="#002200" Offset="0"/>
+                                        <GradientStop Color="#001100" Offset="1"/>
                                     </LinearGradientBrush>
                                 </Border.Background>
                                 <Border.BorderBrush>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#444" Offset="0"/>
-                                        <GradientStop Color="#111" Offset="1"/>
+                                        <GradientStop Color="#004400" Offset="0"/>
+                                        <GradientStop Color="#002200" Offset="1"/>
                                     </LinearGradientBrush>
                                 </Border.BorderBrush>
                                 
                                 <Grid>
-                                    <TextBlock x:Name="BtnText" Text="STREAM" Foreground="#555" 
+                                    <TextBlock x:Name="BtnText" Text="STREAM" Foreground="#040" 
                                                HorizontalAlignment="Center" VerticalAlignment="Center" 
                                                FontWeight="Black" FontSize="11" FontFamily="Consolas"/>
                                     
@@ -150,16 +141,23 @@
                                 </Setter>
                             </Trigger>
                             
-                            <!-- State 2: Reconnecting (Project Mandate: Yellow/Black Flashing) -->
+                            <!-- State 2: Reconnecting -->
                             <DataTrigger Binding="{Binding IsReconnecting}" Value="True">
-                                <Setter TargetName="BtnBody" Property="Background" Value="#FFD600"/>
-                                <Setter TargetName="BtnBody" Property="BorderBrush" Value="#000000"/>
-                                <Setter TargetName="BtnText" Property="Text" Value="RECONECTANDO..."/>
-                                <Setter TargetName="BtnText" Property="FontSize" Value="9"/>
-                                <Setter TargetName="BtnText" Property="FontWeight" Value="Black"/>
-                                <Setter TargetName="BtnText" Property="Foreground" Value="Black"/>
-                                <Setter TargetName="BtnText" Property="Effect" Value="{x:Null}"/>
-                                
+                                <Setter TargetName="BtnBody" Property="Background">
+                                    <Setter.Value>
+                                        <RadialGradientBrush GradientOrigin="0.5,0.5">
+                                            <GradientStop Color="#FF9800" Offset="0"/>
+                                            <GradientStop Color="#E65100" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter TargetName="BtnBody" Property="BorderBrush" Value="#FFB74D"/>
+                                <Setter TargetName="BtnText" Property="Text" Value="RE-CON..."/>
+                                <Setter TargetName="BtnText" Property="Foreground" Value="White"/>
+                                <Setter TargetName="BtnText" Property="Effect">
+                                    <Setter.Value><DropShadowEffect Color="#FF9800" BlurRadius="8" ShadowDepth="0"/></Setter.Value>
+                                </Setter>
+
                                 <DataTrigger.EnterActions>
                                     <BeginStoryboard Name="PulseGlow">
                                         <Storyboard>
@@ -175,7 +173,7 @@
                                 </DataTrigger.ExitActions>
                             </DataTrigger>
 
-                            <!-- STATE: ONLINE (Only if NOT Reconnecting) -->
+                            <!-- STATE: ONLINE -->
                             <MultiDataTrigger>
                                 <MultiDataTrigger.Conditions>
                                     <Condition Binding="{Binding IsStreaming}" Value="True"/>
@@ -184,20 +182,17 @@
                                 <Setter TargetName="BtnBody" Property="Background">
                                     <Setter.Value>
                                         <RadialGradientBrush GradientOrigin="0.5,0.5">
-                                            <GradientStop Color="#00C853" Offset="0"/>
-                                            <GradientStop Color="#007E33" Offset="1"/>
+                                            <GradientStop Color="#00FF00" Offset="0"/>
+                                            <GradientStop Color="#008000" Offset="1"/>
                                         </RadialGradientBrush>
                                     </Setter.Value>
                                 </Setter>
-                                <Setter TargetName="BtnBody" Property="BorderBrush" Value="#00E676"/>
+                                <Setter TargetName="BtnBody" Property="BorderBrush" Value="#AAFFAA"/>
                                 <Setter TargetName="InnerGlow" Property="Opacity" Value="0.5"/>
-                                <Setter TargetName="InnerGlow" Property="Background" Value="#00FF00"/>
                                 <Setter TargetName="BtnText" Property="Text" Value="ON LINE"/>
-                                <Setter TargetName="BtnText" Property="FontSize" Value="11"/>
-                                <Setter TargetName="BtnText" Property="FontWeight" Value="Black"/>
                                 <Setter TargetName="BtnText" Property="Foreground" Value="White"/>
                                 <Setter TargetName="BtnText" Property="Effect">
-                                    <Setter.Value><DropShadowEffect Color="#00FF00" BlurRadius="4" ShadowDepth="0"/></Setter.Value>
+                                    <Setter.Value><DropShadowEffect Color="#00FF00" BlurRadius="8" ShadowDepth="0"/></Setter.Value>
                                 </Setter>
                             </MultiDataTrigger>
                         </ControlTemplate.Triggers>
@@ -440,18 +435,32 @@
                             
                                                                 <!-- SECTION 1: ON/AIR -->
                                                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                                    <!-- Station Name Siglas (Top) with Neon Effect -->
+                                                                    <TextBlock Text="{Binding StationName}" TextWrapping="Wrap" 
+                                                                               TextAlignment="Center" Margin="0,0,0,10" FontWeight="Black" FontSize="20">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Foreground" Value="#005555"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                        <Setter Property="Foreground" Value="#00FFFF"/>
+                                                                                        <Setter Property="Effect">
+                                                                                            <Setter.Value><DropShadowEffect Color="#00FFFF" BlurRadius="10" ShadowDepth="0"/></Setter.Value>
+                                                                                        </Setter>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+
                                                                     <CheckBox IsChecked="{Binding IsSelected}" 
                                                                               Style="{StaticResource OnAirButtonStyle}"
                                                                               Command="{Binding DataContext.ToggleDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                               CommandParameter="{Binding}"
                                                                               HorizontalAlignment="Center"/>
-                                                                    <TextBlock Text="{Binding StationName}" Foreground="#00AABB" FontSize="10" TextWrapping="Wrap" 
-                                                                               TextAlignment="Center" Margin="0,5,0,0" FontWeight="Bold" MaxHeight="40">
-                                                                        <TextBlock.Effect><DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="1"/></TextBlock.Effect>
-                                                                    </TextBlock>
                                                                     
                                                                                                             <!-- Individual Channel Timer -->
-                                                                                                            <Border Background="#050505" CornerRadius="2" Padding="4,1" Margin="0,3,0,3" BorderBrush="#333" BorderThickness="1">
+                                                                                                            <Border Background="#050505" CornerRadius="2" Padding="4,1" Margin="0,8,0,3" BorderBrush="#333" BorderThickness="1">
                                                                                                                 <TextBlock Text="{Binding RecordingDuration}" Foreground="#CC3300" 
                                                                                                                            FontSize="11" FontFamily="Consolas" FontWeight="Bold" 
                                                                                                                            HorizontalAlignment="Center"/>
