@@ -312,9 +312,9 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     
                     <!-- Digital Info Panel -->
-                    <Border Background="Black" BorderBrush="#00FFFF" BorderThickness="1" CornerRadius="4" Padding="12,5" Margin="0,0,15,0">
+                    <Border Background="Black" BorderBrush="#A6FF00" BorderThickness="1" CornerRadius="4" Padding="12,5" Margin="0,0,15,0">
                         <Border.Effect>
-                            <DropShadowEffect Color="#00FFFF" BlurRadius="10" Opacity="0.2" ShadowDepth="0"/>
+                            <DropShadowEffect Color="#A6FF00" BlurRadius="10" Opacity="0.2" ShadowDepth="0"/>
                         </Border.Effect>
                         <StackPanel Orientation="Horizontal">
                             <!-- Rec Timer -->
@@ -360,11 +360,11 @@
 
                             <!-- MASTER CLOCK -->
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="HORA ACTUAL" FontSize="10" FontWeight="Bold" Foreground="#00FFFF" HorizontalAlignment="Center" Margin="0,0,0,2">
-                                    <TextBlock.Effect><DropShadowEffect Color="#00FFFF" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/></TextBlock.Effect>
+                                <TextBlock Text="HORA ACTUAL" FontSize="10" FontWeight="Bold" Foreground="#A6FF00" HorizontalAlignment="Center" Margin="0,0,0,2">
+                                    <TextBlock.Effect><DropShadowEffect Color="#A6FF00" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/></TextBlock.Effect>
                                 </TextBlock>
-                                <TextBlock Text="{Binding CurrentTime}" Foreground="#00FFFF" FontFamily="Consolas" FontSize="24" FontWeight="ExtraBold" HorizontalAlignment="Center">
-                                    <TextBlock.Effect><DropShadowEffect Color="#00FFFF" BlurRadius="12" ShadowDepth="0" Opacity="0.8"/></TextBlock.Effect>
+                                <TextBlock Text="{Binding CurrentTime}" Foreground="#A6FF00" FontFamily="Consolas" FontSize="24" FontWeight="ExtraBold" HorizontalAlignment="Center">
+                                    <TextBlock.Effect><DropShadowEffect Color="#A6FF00" BlurRadius="12" ShadowDepth="0" Opacity="0.8"/></TextBlock.Effect>
                                 </TextBlock>
                             </StackPanel>
                         </StackPanel>

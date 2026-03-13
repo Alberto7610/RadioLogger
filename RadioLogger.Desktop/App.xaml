@@ -8,6 +8,7 @@
                     <local:InversePercentageToPixelConverter x:Key="CurtainConverter"/>
                     <local:PeakColorConverter x:Key="PeakColorConverter"/>
                     <local:StringToBoolConverter x:Key="StringToBoolConverter"/>
+                    <local:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
                     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             
                     <!-- DARK COMBOBOX STYLE -->

@@ -31,7 +31,7 @@ namespace RadioLogger.Services
                 await StopAsync();
 
             _connection = new HubConnectionBuilder()
-                .WithUrl(_settings.SignalRHubUrl.Replace("5046", "5000"), options => {
+                .WithUrl(_settings.SignalRHubUrl, options => {
                     options.HttpMessageHandlerFactory = (handler) =>
                     {
                         if (handler is System.Net.Http.HttpClientHandler clientHandler)

@@ -31,6 +31,15 @@ namespace RadioLogger.ViewModels
         [ObservableProperty]
         private int _endHour;
 
+        [ObservableProperty]
+        private bool _enableTelegram;
+
+        [ObservableProperty]
+        private string _telegramToken = string.Empty;
+
+        [ObservableProperty]
+        private string _telegramChatId = string.Empty;
+
         // Wrapper for selection in UI
         public class DeviceSelection : ObservableObject
         {
@@ -152,6 +161,10 @@ namespace RadioLogger.ViewModels
             StartHour = _configManager.CurrentSettings.StartHour;
             EndHour = _configManager.CurrentSettings.EndHour;
 
+            EnableTelegram = _configManager.CurrentSettings.EnableTelegram;
+            TelegramToken = _configManager.CurrentSettings.TelegramToken;
+            TelegramChatId = _configManager.CurrentSettings.TelegramChatId;
+
             IsSignalREnabled = _configManager.CurrentSettings.IsSignalREnabled;
             SignalRHubUrl = _configManager.CurrentSettings.SignalRHubUrl;
             IsAutoStartEnabled = _configManager.CurrentSettings.IsAutoStartEnabled;
@@ -225,7 +238,11 @@ namespace RadioLogger.ViewModels
             _configManager.CurrentSettings.SegmentDurationMinutes = SegmentDuration;
             _configManager.CurrentSettings.StartHour = StartHour;
             _configManager.CurrentSettings.EndHour = EndHour;
-            
+
+            _configManager.CurrentSettings.EnableTelegram = EnableTelegram;
+            _configManager.CurrentSettings.TelegramToken = TelegramToken;
+            _configManager.CurrentSettings.TelegramChatId = TelegramChatId;
+
             _configManager.CurrentSettings.IsSignalREnabled = IsSignalREnabled;
             _configManager.CurrentSettings.SignalRHubUrl = SignalRHubUrl;
             _configManager.CurrentSettings.IsAutoStartEnabled = IsAutoStartEnabled;

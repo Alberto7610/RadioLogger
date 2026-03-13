@@ -22,8 +22,42 @@ namespace RadioLogger.Shared.Models
         public bool IsStreaming { get; set; }
         public string? StreamUrl { get; set; } // URL for the web player
         public bool IsSilence { get; set; }
+
+        // Licensing & Security
+        public string LicenseKey { get; set; } = "FREE-TRIAL";
+        public string HardwareId { get; set; } = "UNKNOWN";
+        public bool IsAuthorized { get; set; } = false;
         
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Permanent record of a station in the Database.
+    /// This allows the Dashboard to show offline stations.
+    /// </summary>
+    public class RegisteredStation
+    {
+        public int Id { get; set; }
+        public string MachineId { get; set; } = string.Empty;
+        public string StationName { get; set; } = string.Empty;
+        public string LicenseKey { get; set; } = string.Empty;
+        public string HardwareId { get; set; } = string.Empty;
+        public bool IsAuthorized { get; set; } = false;
+        public DateTime LastSeen { get; set; } = DateTime.UtcNow;
+        public bool IsOnline { get; set; } = false;
+    }
+
+    /// <summary>
+    /// License management for clients.
+    /// </summary>
+    public class License
+    {
+        public int Id { get; set; }
+        public string Key { get; set; } = string.Empty;
+        public string ClientName { get; set; } = string.Empty;
+        public int MaxSlots { get; set; } = 1;
+        public DateTime ExpirationDate { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 
     /// <summary>

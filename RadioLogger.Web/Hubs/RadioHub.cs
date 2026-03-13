@@ -28,14 +28,14 @@ namespace RadioLogger.Web.Hubs
         public async Task UpdateStationStatus(StationStatusUpdate update)
         {
             _connectionMap[Context.ConnectionId] = update.MachineId;
-            _monitoringService.UpdateStation(update);
+            await _monitoringService.UpdateStation(update);
             await Clients.All.SendAsync("ReceiveStationUpdate", update);
         }
 
         public async Task UpdateBatchStatus(BatchStatusUpdate batch)
         {
             _connectionMap[Context.ConnectionId] = batch.MachineId;
-            _monitoringService.UpdateBatch(batch);
+            await _monitoringService.UpdateBatch(batch);
             await Clients.All.SendAsync("ReceiveBatchUpdate", batch);
         }
     }

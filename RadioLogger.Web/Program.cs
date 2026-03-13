@@ -2,14 +2,18 @@ using Microsoft.EntityFrameworkCore;
 using RadioLogger.Web.Components;
 using RadioLogger.Web.Data;
 using RadioLogger.Web.Hubs;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Force Kestrel to listen on IPv4 loopback only on port 5000
-builder.WebHost.ConfigureKestrel(options =>
+// Configure Kestrel for standalone development, IIS handles this in production
+if (builder.Environment.IsDevelopment())
 {
-    options.Listen(System.Net.IPAddress.Loopback, 5000); 
-});
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.Listen(System.Net.IPAddress.Loopback, 5000); 
+    });
+}
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -41,7 +45,9 @@ builder.Services.AddDbContext<RadioDbContext>(options =>
     }));
 
 // Add monitoring state service
+builder.Services.AddSingleton<RadioLogger.Web.Services.TelegramService>();
 builder.Services.AddSingleton<RadioLogger.Web.Services.MonitoringService>();
+builder.Services.AddHostedService<RadioLogger.Web.Services.WatchdogService>();
 
 // Add SignalR support
 builder.Services.AddSignalR(options => {
@@ -49,6 +55,12 @@ builder.Services.AddSignalR(options => {
 });
 
 var app = builder.Build();
+
+// Cloudflare Support: Forwarded Headers
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

@@ -67,17 +67,17 @@ namespace RadioLogger.Services
 
                 if (!success)
                 {
-                    DebugLog.Write($"[STREAM ERROR] CastInit Failed: {Bass.LastError}");
+                    LogService.Log(LogCategory.NETWORK, $"Falla Stream ({_stationName}): CastInit Error {Bass.LastError}");
                     Stop();
                     return false;
                 }
 
-                DebugLog.Write("[STREAM SUCCESS] Connected to SID successfully.");
+                LogService.Log(LogCategory.NETWORK, $"Stream Conectado ({_stationName}): {_config.Host}:{_config.Port}");
                 return true;
             }
             catch (Exception ex)
             {
-                DebugLog.Write($"[STREAM EXCEPTION] {ex.Message}");
+                LogService.Log(LogCategory.NETWORK, $"Excepción Stream ({_stationName}): {ex.Message}");
                 return false;
             }
         }

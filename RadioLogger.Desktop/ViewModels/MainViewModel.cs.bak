@@ -36,12 +36,6 @@ namespace RadioLogger.ViewModels
         [ObservableProperty]
         private string _signalRStatus = "Monitoreo: Desactivado";
 
-        [ObservableProperty]
-        private string _statusBarColor = "#007ACC"; // Default Blue
-
-        [ObservableProperty]
-        private string _internetStatusText = "INTERNET OK";
-
         public string DashboardUrl => _configManager.CurrentSettings.SignalRHubUrl.Replace("/radiohub", "");
 
         public ObservableCollection<DeviceViewModel> InputDevices { get; } = new ObservableCollection<DeviceViewModel>();
@@ -56,30 +50,15 @@ namespace RadioLogger.ViewModels
             }
 
             _configManager = new ConfigManager();
-            
-            // Init Logs
-            LogService.Initialize(_configManager.CurrentSettings.RecordingBasePath);
-            LogService.Log(LogCategory.SYSTEM, $"Aplicación iniciada. PC: {Environment.MachineName}");
-
             _audioEngine = new AudioEngine(_configManager);
             _heartbeatService = new HeartbeatService(_configManager);
             _heartbeatService.Start();
             
             _signalRService = new SignalRService(_configManager.CurrentSettings);
             _signalRStatus = _configManager.CurrentSettings.IsSignalREnabled ? "Monitoreo: Iniciando..." : "Monitoreo: Desactivado";
-            
-            // Timer para checar internet real independientemente del Dashboard
-            var internetCheckTimer = new System.Timers.Timer(5000); // Cada 5s
-            internetCheckTimer.Elapsed += (s, e) => CheckInternetReal();
-            internetCheckTimer.Start();
-
-            _signalRService.ConnectionStatusChanged += (msg, connected) => 
-            {
-                SignalRStatus = msg;
-            };
+            _signalRService.ConnectionStatusChanged += (msg, connected) => SignalRStatus = msg;
             
             _ = _signalRService.StartAsync(); // Fire and forget connection task
-            CheckInternetReal(); // Chequeo inicial
 
             StationName = _configManager.CurrentSettings.StationName;
 
@@ -106,104 +85,11 @@ namespace RadioLogger.ViewModels
             _uiTimer.Start();
         }
 
-        private int _internetFailCount = 0;
-        private const int MaxInternetFails = 3; // Tolerar 3 fallos (15s) antes de alertar
-
-        private void CheckInternetReal()
-        {
-            bool isInternetUp = false;
-            try
-            {
-                if (System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
-                {
-                    using (var ping = new System.Net.NetworkInformation.Ping())
-                    {
-                        // 1. Probar Google DNS
-                        var reply8 = ping.Send("8.8.8.8", 1000);
-                        if (reply8.Status == System.Net.NetworkInformation.IPStatus.Success)
-                        {
-                            isInternetUp = true;
-                        }
-                        else
-                        {
-                            // 2. Probar Cloudflare DNS (Doble check)
-                            var reply1 = ping.Send("1.1.1.1", 1000);
-                            if (reply1.Status == System.Net.NetworkInformation.IPStatus.Success)
-                            {
-                                isInternetUp = true;
-                            }
-                        }
-                    }
-
-                    // 3. Si los pings fallan, intentar llegar a nuestro propio servidor via HTTP
-                    // A veces el protocolo ICMP (ping) está bloqueado pero el internet funciona.
-                    if (!isInternetUp)
-                    {
-                        try
-                        {
-                            using (var client = new System.Net.Http.HttpClient())
-                            {
-                                client.Timeout = TimeSpan.FromSeconds(2);
-                                var response = client.GetAsync("https://cloudradiologger.com/heartbeat").Result;
-                                if (response.IsSuccessStatusCode) isInternetUp = true;
-                            }
-                        }
-                        catch { /* Ignorar falla de HTTP */ }
-                    }
-                }
-            }
-            catch { isInternetUp = false; }
-
-            App.Current.Dispatcher.Invoke(() => 
-            {
-                if (isInternetUp)
-                {
-                    _internetFailCount = 0; // Resetear contador al éxito
-                    StatusBarColor = "#007ACC"; 
-                    InternetStatusText = "INTERNET OK";
-                }
-                else
-                {
-                    _internetFailCount++;
-                    
-                    // Solo cambiar a ROJO si se acumulan fallos seguidos
-                    if (_internetFailCount >= MaxInternetFails)
-                    {
-                        StatusBarColor = "#CC0000"; 
-                        InternetStatusText = "SIN CONEXIÓN A INTERNET";
-                        // Solo loguear el primer fallo crítico para no saturar
-                        if (_internetFailCount == MaxInternetFails)
-                            LogService.Log(LogCategory.NETWORK, "CRÍTICO: Sin acceso a internet confirmado tras 3 intentos.");
-                    }
-                    else
-                    {
-                        // Estado intermedio (Opcional: podrías ponerlo amarillo o dejarlo azul)
-                        InternetStatusText = $"INTERNET INESTABLE ({_internetFailCount})";
-                    }
-                }
-            });
-        }
-
-        private string GetHardwareId()
-        {
-            try
-            {
-                using var searcher = new System.Management.ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
-                foreach (var item in searcher.Get())
-                {
-                    return item["SerialNumber"]?.ToString() ?? "UNKNOWN_HWID";
-                }
-            }
-            catch { }
-            return "DEV_MACHINE_" + Environment.MachineName;
-        }
-
         private void SendSignalRUpdates()
         {
             if (!_signalRService.IsConnected) return;
 
             var batch = new RadioLogger.Shared.Models.BatchStatusUpdate { MachineId = Environment.MachineName };
-            var hwid = GetHardwareId();
             
             foreach (var d in InputDevices)
             {
@@ -211,8 +97,6 @@ namespace RadioLogger.ViewModels
                 {
                     MachineId = Environment.MachineName,
                     StationName = d.StationName,
-                    HardwareId = hwid,
-                    LicenseKey = "FREE-TRIAL-001", // Default for now
                     LeftLevel = Math.Round(d.LeftLevel / 100.0, 3),
                     RightLevel = Math.Round(d.RightLevel / 100.0, 3),
                     LeftPeak = Math.Round(d.LeftPeak / 100.0, 3),
@@ -232,29 +116,7 @@ namespace RadioLogger.ViewModels
         {
             foreach (var dev in InputDevices)
             {
-                bool previouslySilence = dev.IsSilenceDetected;
                 dev.RefreshLevels();
-
-                // Notificaciones de Telegram
-                if (_configManager.CurrentSettings.EnableTelegram)
-                {
-                    if (dev.IsSilenceDetected && !previouslySilence)
-                    {
-                        // Inicio de falla
-                        _ = TelegramService.SendAlertAsync(
-                            _configManager.CurrentSettings.TelegramToken,
-                            _configManager.CurrentSettings.TelegramChatId,
-                            $"🔴 <b>ALERTA DE SILENCIO</b>\nEstación: <b>{dev.StationName}</b>\nHora: {DateTime.Now:HH:mm:ss}\nEstado: No se detecta audio.");
-                    }
-                    else if (!dev.IsSilenceDetected && previouslySilence)
-                    {
-                        // Fin de falla
-                        _ = TelegramService.SendAlertAsync(
-                            _configManager.CurrentSettings.TelegramToken,
-                            _configManager.CurrentSettings.TelegramChatId,
-                            $"🟢 <b>AUDIO RESTABLECIDO</b>\nEstación: <b>{dev.StationName}</b>\nHora: {DateTime.Now:HH:mm:ss}\nDuración del silencio: {dev.SilenceDuration}");
-                    }
-                }
             }
         }
 
@@ -333,7 +195,6 @@ namespace RadioLogger.ViewModels
             if (win.ShowDialog() == true)
             {
                 StationName = _configManager.CurrentSettings.StationName;
-                _audioEngine.UpdateAllSettings(_configManager.CurrentSettings);
                 LoadDevices();
             }
         }
@@ -342,12 +203,6 @@ namespace RadioLogger.ViewModels
         public void ToggleDevice(DeviceViewModel device)
         {
             device.UpdateState();
-            
-            if (device.IsSelected)
-                LogService.Log(LogCategory.AUDIO, $"Grabación INICIADA manualmente: {device.StationName}");
-            else
-                LogService.Log(LogCategory.AUDIO, $"Grabación DETENIDA manualmente: {device.StationName}");
-
             _configManager.CurrentSettings.AutoRecordDevices = InputDevices
                 .Where(d => d.IsSelected)
                 .Select(d => d.Device.Name)
@@ -376,38 +231,18 @@ namespace RadioLogger.ViewModels
             
             bool showAll = savedActive.Count == 0;
 
-            // Determine target devices to show
-            var targetDevices = devices
-                .Where(dev => showAll || savedActive.Contains(dev.Name))
-                .ToList();
+            InputDevices.Clear();
 
-            // 1. Remove devices that are no longer active
-            var toRemove = InputDevices
-                .Where(vm => !targetDevices.Any(td => td.Name == vm.Device.Name))
-                .ToList();
-            foreach (var vm in toRemove) InputDevices.Remove(vm);
-
-            // 2. Update or Add devices
-            foreach (var td in targetDevices)
+            foreach (var dev in devices)
             {
-                if (!nameMapping.TryGetValue(td.Name, out string? customName) || string.IsNullOrWhiteSpace(customName))
+                if (showAll || savedActive.Contains(dev.Name))
                 {
-                    customName = td.Name;
-                }
-
-                var existing = InputDevices.FirstOrDefault(vm => vm.Device.Name == td.Name);
-                if (existing != null)
-                {
-                    // Update only the StationName if changed
-                    if (existing.StationName != customName)
+                    if (!nameMapping.TryGetValue(dev.Name, out string? customName) || string.IsNullOrWhiteSpace(customName))
                     {
-                        existing.StationName = customName;
+                        customName = dev.Name;
                     }
-                }
-                else
-                {
-                    // Add as new device
-                    var vm = new DeviceViewModel(td, _audioEngine, _configManager, customName, false);
+
+                    var vm = new DeviceViewModel(dev, _audioEngine, _configManager, customName, false);
                     InputDevices.Add(vm);
                 }
             }

@@ -73,10 +73,8 @@ namespace RadioLogger.ViewModels
         
         // Silence Detection vars
         private int _silenceCounter;
-        private int _restoreCounter;
         private System.DateTime? _silenceStartTime;
         private const int SilenceThresholdFrames = 200; // 10 seconds at 20fps
-        private const int RestoreThresholdFrames = 60;  // 3 seconds at 20fps
         private const double SilenceDbThreshold = -40.0;
 
         public DeviceViewModel(AudioDevice device, AudioEngine audioEngine, ConfigManager configManager, string stationName, bool isSelected)
@@ -92,6 +90,7 @@ namespace RadioLogger.ViewModels
             {
                 IsRecording = true;
                 RecordingStartTime = _audioEngine.GetDeviceStartTime(device.Id);
+                // Note: The channel will be linked on the first RefreshLevels call if needed
             }
         }
 
@@ -142,15 +141,27 @@ namespace RadioLogger.ViewModels
             // Auto-link channel if recording but reference is null
             if (IsRecording && _activeChannel == null)
             {
+                // In a real scenario we'd need a GetChannel, but StartRecording returns it if already active
                 _activeChannel = _audioEngine.StartRecording(_device, _stationName);
             }
 
-            // Sync States
-            IsStreaming = _audioEngine.IsDeviceStreaming(Device.Id);
-            IsReconnecting = _audioEngine.IsDeviceReconnecting(Device.Id);
+            // Sync Streaming State from Engine
+            bool realStreamingState = _audioEngine.IsDeviceStreaming(Device.Id);
+            if (IsStreaming != realStreamingState)
+            {
+                IsStreaming = realStreamingState;
+            }
+
+            bool realReconnectState = _audioEngine.IsDeviceReconnecting(Device.Id);
+            if (IsReconnecting != realReconnectState)
+            {
+                IsReconnecting = realReconnectState;
+            }
+
+            // Sync Stream URL
             StreamUrl = _audioEngine.GetDeviceStreamUrl(Device.Id);
 
-            // Update Recording Timer
+            // Update Timer
             if (IsRecording && RecordingStartTime.HasValue)
             {
                 var diff = System.DateTime.Now - RecordingStartTime.Value;
@@ -175,7 +186,6 @@ namespace RadioLogger.ViewModels
                 
                 if (realDbLeft < SilenceDbThreshold && realDbRight < SilenceDbThreshold)
                 {
-                    _restoreCounter = 0; // Reset restore if we see silence
                     _silenceCounter++;
                     if (_silenceCounter > SilenceThresholdFrames)
                     {
@@ -195,29 +205,9 @@ namespace RadioLogger.ViewModels
                 else
                 {
                     _silenceCounter = 0;
-                    
-                    if (IsSilenceDetected)
-                    {
-                        // We are in silence state, but we see audio. 
-                        // Wait for RestoreThresholdFrames (3s) before declaring it restored.
-                        _restoreCounter++;
-                        if (_restoreCounter > RestoreThresholdFrames)
-                        {
-                            IsSilenceDetected = false;
-                            _silenceStartTime = null;
-                            // We don't reset SilenceDuration here so Telegram can read the final value.
-                            // It will be reset when a new silence starts.
-                            _restoreCounter = 0;
-                        }
-                    }
-                    else
-                    {
-                        // Normal state
-                        IsSilenceDetected = false;
-                        _silenceStartTime = null;
-                        SilenceDuration = "00:00";
-                        _restoreCounter = 0;
-                    }
+                    IsSilenceDetected = false;
+                    _silenceStartTime = null;
+                    SilenceDuration = "00:00";
                 }
 
                 LeftLevel = lDb;
@@ -236,9 +226,8 @@ namespace RadioLogger.ViewModels
             }
             else
             {
-                // Reset State
+                // RESET EVERYTHING IF NOT RECORDING
                 _silenceCounter = 0;
-                _restoreCounter = 0;
                 IsSilenceDetected = false;
                 _silenceStartTime = null;
                 SilenceDuration = "00:00";

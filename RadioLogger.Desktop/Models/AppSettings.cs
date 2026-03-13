@@ -32,6 +32,11 @@ namespace RadioLogger.Models
         public string SignalRHubUrl { get; set; } = "https://localhost:7250/radiohub";
         public int SignalRUpdateIntervalMs { get; set; } = 200; // 5 FPS for remote meters
 
+        // Telegram Notifications
+        public bool EnableTelegram { get; set; } = false;
+        public string TelegramToken { get; set; } = string.Empty;
+        public string TelegramChatId { get; set; } = string.Empty;
+
         public bool IsAutoStartEnabled { get; set; } = false;
 
         // Settings for auto-start recording/streaming on launch
