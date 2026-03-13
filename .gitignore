@@ -9,6 +9,8 @@
 
 ## Project Specific
 settings.json
+appsettings.json
+appsettings.Development.json
 *.log
 DebugLog.txt
 Recordings/
