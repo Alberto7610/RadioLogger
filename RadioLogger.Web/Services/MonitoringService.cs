@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using RadioLogger.Shared.Models;
 using RadioLogger.Web.Data;
+using RadioLogger.Web.Hubs;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -16,6 +18,10 @@ namespace RadioLogger.Web.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly TelegramService _telegram;
 
+        // Cache para evitar saturar la DB
+        private List<RegisteredStation> _registeredCache = new();
+        private DateTime _lastCacheUpdate = DateTime.MinValue;
+
         public event Action? OnUpdated;
         public bool IsDatabaseHealthy { get; set; } = true;
 
@@ -23,16 +29,66 @@ namespace RadioLogger.Web.Services
         {
             _serviceProvider = serviceProvider;
             _telegram = telegram;
+            _ = RefreshCache(); // Carga inicial
+        }
+
+        /// <summary>
+        /// Send a remote command to a WPF client via SignalR.
+        /// </summary>
+        public async Task SendCommandAsync(StationCommand command)
+        {
+            try
+            {
+                var hubContext = _serviceProvider.GetRequiredService<IHubContext<RadioHub>>();
+                var connectionId = RadioHub.GetConnectionId(command.MachineId);
+                if (connectionId != null)
+                {
+                    await hubContext.Clients.Client(connectionId).SendAsync("ReceiveCommand", command);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MONITORING] Error SendCommand: {ex.Message}");
+            }
+        }
+
+        private async Task RefreshCache()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+                _registeredCache = await db.RegisteredStations.ToListAsync();
+                _lastCacheUpdate = DateTime.Now;
+                IsDatabaseHealthy = true;
+            }
+            catch (Exception ex)
+            {
+                IsDatabaseHealthy = false;
+                Console.WriteLine($"[MONITORING] Error RefreshCache: {ex.Message}");
+            }
         }
 
         public async Task UpdateStation(StationStatusUpdate update)
         {
-            string key = $"{update.MachineId}:{update.StationName}";
+            await UpdateStationInternal(update);
+            OnUpdated?.Invoke();
+        }
+
+        private async Task UpdateStationInternal(StationStatusUpdate update)
+        {
+            // Use HardwareName as stable key to allow renaming StationName in Dashboard
+            string key = $"{update.MachineId}:{update.HardwareName}";
+            bool isNew = !_stations.ContainsKey(key);
+            
             _stations.TryGetValue(key, out var previous);
             _stations[key] = update;
 
-            // Persistent Database Sync
-            _ = SyncStationToDb(update);
+            // Sync to DB immediately if new, or every 10 seconds to update LastSeen
+            if (isNew || update.Timestamp.Second % 10 == 0)
+            {
+                _ = SyncStationToDb(update);
+            }
 
             // Detect Silence Transitions
             if (previous != null)
@@ -40,26 +96,14 @@ namespace RadioLogger.Web.Services
                 if (update.IsSilence && !previous.IsSilence)
                 {
                     _ = LogIncidentStart(update, "SILENCE");
-                    
-                    _ = _telegram.SendAlertAsync(
-                        $"🔴 <b>ALERTA DE SILENCIO</b>\n" +
-                        $"Servidor: <b>{update.MachineId}</b>\n" +
-                        $"Estación: <b>{update.StationName}</b>\n" +
-                        $"Estado: No se detecta audio.");
+                    _ = _telegram.SendAlertAsync($"🔴 <b>ALERTA DE SILENCIO</b>\nServidor: <b>{update.MachineId}</b>\nEstación: <b>{update.StationName}</b>");
                 }
                 else if (!update.IsSilence && previous.IsSilence)
                 {
                     _ = LogIncidentEnd(key);
-                    
-                    _ = _telegram.SendAlertAsync(
-                        $"🟢 <b>AUDIO RESTABLECIDO</b>\n" +
-                        $"Servidor: <b>{update.MachineId}</b>\n" +
-                        $"Estación: <b>{update.StationName}</b>\n" +
-                        $"Estado: Audio detectado nuevamente.");
+                    _ = _telegram.SendAlertAsync($"🟢 <b>AUDIO RESTABLECIDO</b>\nServidor: <b>{update.MachineId}</b>\nEstación: <b>{update.StationName}</b>");
                 }
             }
-
-            OnUpdated?.Invoke();
         }
 
         public async Task UpdateBatch(BatchStatusUpdate batch)
@@ -68,9 +112,14 @@ namespace RadioLogger.Web.Services
             {
                 if (string.IsNullOrEmpty(station.MachineId))
                     station.MachineId = batch.MachineId;
+                
+                // Ensure HardwareName is set (fallback to StationName if old client)
+                if (string.IsNullOrEmpty(station.HardwareName))
+                    station.HardwareName = station.StationName;
                     
-                await UpdateStation(station);
+                await UpdateStationInternal(station);
             }
+            OnUpdated?.Invoke(); // Una sola notificación para todo el grupo
         }
 
         private async Task SyncStationToDb(StationStatusUpdate update)
@@ -80,72 +129,114 @@ namespace RadioLogger.Web.Services
                 using var scope = _serviceProvider.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
 
+                // Look up by MachineId and HardwareName (the stable key)
                 var station = await db.RegisteredStations
-                    .FirstOrDefaultAsync(s => s.MachineId == update.MachineId && s.StationName == update.StationName);
+                    .FirstOrDefaultAsync(s => s.MachineId == update.MachineId && s.HardwareName == update.HardwareName);
 
                 if (station == null)
                 {
                     station = new RegisteredStation
                     {
                         MachineId = update.MachineId,
-                        StationName = update.StationName,
+                        HardwareName = update.HardwareName,
+                        StationName = update.StationName, // Use initial name
                         HardwareId = update.HardwareId,
-                        LicenseKey = update.LicenseKey,
-                        IsAuthorized = false, // Must be authorized manually
+                        IsAuthorized = false,
                         IsOnline = true,
                         LastSeen = DateTime.UtcNow
                     };
                     db.RegisteredStations.Add(station);
+                    await db.SaveChangesAsync();
+                    await RefreshCache();
                 }
                 else
                 {
+                    // Update last seen
                     station.LastSeen = DateTime.UtcNow;
                     station.IsOnline = true;
-                    // Update Hardware ID if changed (migration detection)
-                    if (station.HardwareId != update.HardwareId)
-                    {
-                        station.HardwareId = update.HardwareId;
-                        // station.IsAuthorized = false; // Could auto-unauthorize if security is strict
-                    }
+                    await db.SaveChangesAsync();
                 }
-
-                await db.SaveChangesAsync();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MONITORING] Error SyncStationToDb: {ex.Message}");
+            }
+        }
+
+        public async Task AuthorizeStation(int id, bool authorized)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+            var station = await db.RegisteredStations.FindAsync(id);
+            if (station != null)
+            {
+                station.IsAuthorized = authorized;
+                await db.SaveChangesAsync();
+                await RefreshCache();
+                OnUpdated?.Invoke();
+            }
+        }
+
+        public async Task UpdateStationDisplayName(int id, string newName)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+            var station = await db.RegisteredStations.FindAsync(id);
+            if (station != null)
+            {
+                station.StationName = newName;
+                await db.SaveChangesAsync();
+                await RefreshCache();
+                OnUpdated?.Invoke();
+            }
+        }
+
+        public List<RegisteredStation> GetRegisteredStations()
+        {
+            return _registeredCache;
         }
 
         public List<StationStatusUpdate> GetActiveStations()
         {
-            // Now we can merge RAM (real-time levels) with DB (permanent list)
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
-            var registered = db.RegisteredStations.ToList();
-
             var list = new List<StationStatusUpdate>();
             var threshold = DateTime.UtcNow.AddSeconds(-15);
-
+            var registered = _registeredCache; // Usar caché instantánea
+            
+            // 1. Añadir estaciones registradas (offline o live)
+            var handledKeys = new HashSet<string>();
             foreach (var reg in registered)
             {
-                string key = $"{reg.MachineId}:{reg.StationName}";
+                string key = $"{reg.MachineId}:{reg.HardwareName}";
+                handledKeys.Add(key);
+                
                 if (_stations.TryGetValue(key, out var live) && live.Timestamp > threshold)
                 {
-                    // Live station
                     live.IsAuthorized = reg.IsAuthorized;
+                    live.StationName = reg.StationName; 
                     list.Add(live);
                 }
                 else
                 {
-                    // Offline station from DB
                     list.Add(new StationStatusUpdate
                     {
                         MachineId = reg.MachineId,
+                        HardwareName = reg.HardwareName,
                         StationName = reg.StationName,
-                        IsRecording = false,
-                        IsStreaming = false,
                         IsAuthorized = reg.IsAuthorized,
-                        Timestamp = reg.LastSeen, // Show when it was last seen
-                        LeftLevel = 0, RightLevel = 0 // Greyed out
+                        Timestamp = reg.LastSeen,
+                        LeftLevel = 0, RightLevel = 0,
+                        IsSilence = false 
                     });
+                }
+            }
+
+            // 2. Añadir estaciones que están LIVE pero aún no están en la DB (nuevas)
+            foreach (var live in _stations.Values)
+            {
+                string key = $"{live.MachineId}:{live.HardwareName}";
+                if (!handledKeys.Contains(key) && live.Timestamp > threshold)
+                {
+                    list.Add(live);
                 }
             }
 
@@ -159,12 +250,16 @@ namespace RadioLogger.Web.Services
         {
             return _stations.Values.ToList();
         }
-public void MarkMachineOffline(string machineId)
+public int GetActiveIncidentsCount()
 {
+    return _activeIncidentIds.Count;
+}
+
+public void MarkMachineOffline(string machineId){
     var machineStations = _stations.Values.Where(s => s.MachineId == machineId).ToList();
     foreach (var station in machineStations)
     {
-        string key = $"{station.MachineId}:{station.StationName}";
+        string key = $"{station.MachineId}:{station.HardwareName}";
         // No la eliminamos de _stations, solo cerramos el incidente si existía.
         // El Watchdog se encargará de ver que el Timestamp es viejo y enviará el Telegram.
         _ = LogIncidentEnd(key);
@@ -199,7 +294,7 @@ public void MarkMachineOffline(string machineId)
                 db.Incidents.Add(log);
                 await db.SaveChangesAsync();
 
-                string key = $"{update.MachineId}:{update.StationName}";
+                string key = $"{update.MachineId}:{update.HardwareName}";
                 _activeIncidentIds[key] = log.Id;
             }
             catch (Exception ex)

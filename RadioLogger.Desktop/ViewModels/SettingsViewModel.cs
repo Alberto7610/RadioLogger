@@ -59,6 +59,13 @@ namespace RadioLogger.ViewModels
                 get => _customStationName;
                 set => SetProperty(ref _customStationName, value);
             }
+
+            private bool _isRecordingEnabled = true;
+            public bool IsRecordingEnabled
+            {
+                get => _isRecordingEnabled;
+                set => SetProperty(ref _isRecordingEnabled, value);
+            }
         }
 
         public ObservableCollection<DeviceSelection> AvailableDevices { get; } = new ObservableCollection<DeviceSelection>();
@@ -177,6 +184,7 @@ namespace RadioLogger.ViewModels
             var systemDevices = _audioEngine.GetInputDevices();
             var savedActive = _configManager.CurrentSettings.ActiveInputDevices;
             var nameMapping = _configManager.CurrentSettings.DeviceStationNames;
+            var recMapping = _configManager.CurrentSettings.DeviceRecordingEnabled;
 
             foreach (var dev in systemDevices)
             {
@@ -185,12 +193,17 @@ namespace RadioLogger.ViewModels
                     customName = dev.Name;
                 }
 
+                var recEnabled = true;
+                if (recMapping.TryGetValue(dev.Name, out bool re))
+                    recEnabled = re;
+
                 AvailableDevices.Add(new DeviceSelection
                 {
                     Name = dev.Name,
                     Driver = dev.Driver,
                     IsActive = savedActive.Contains(dev.Name),
-                    CustomStationName = customName
+                    CustomStationName = customName,
+                    IsRecordingEnabled = recEnabled
                 });
             }
             
@@ -259,6 +272,10 @@ namespace RadioLogger.ViewModels
             // Save station name mapping
             _configManager.CurrentSettings.DeviceStationNames = AvailableDevices
                 .ToDictionary(d => d.Name, d => d.CustomStationName);
+
+            // Save per-device recording enabled
+            _configManager.CurrentSettings.DeviceRecordingEnabled = AvailableDevices
+                .ToDictionary(d => d.Name, d => d.IsRecordingEnabled);
 
             _configManager.Save();
         }

@@ -60,7 +60,7 @@ namespace RadioLogger.Services
             return devices;
         }
 
-        public AudioChannel? StartRecording(AudioDevice device, string stationName)
+        public AudioChannel? StartRecording(AudioDevice device, string stationName, bool recordToFile = true)
         {
             if (_activeChannels.ContainsKey(device.Id))
             {
@@ -68,13 +68,12 @@ namespace RadioLogger.Services
                 if (existing.StationName != stationName)
                 {
                     existing.StationName = stationName;
-                    // Note: The file name will update on the next rotation or if we force it.
-                    // For now, updating the property is enough for the next rotation.
                 }
                 return existing;
             }
 
             var channel = new AudioChannel(device, stationName, _configManager.CurrentSettings);
+            channel.RecordToFile = recordToFile;
             if (channel.Initialize())
             {
                 channel.Start();

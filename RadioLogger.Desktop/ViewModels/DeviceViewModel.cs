@@ -63,6 +63,9 @@ namespace RadioLogger.ViewModels
         [ObservableProperty]
         private double _inputVolume = 100; // 0-150, Default 100 (Unit Gain)
 
+        [ObservableProperty]
+        private bool _isRecordingEnabled = true;
+
         // Peak Hold logic vars
         private double _internalLeftPeak;
         private double _internalRightPeak;
@@ -87,6 +90,12 @@ namespace RadioLogger.ViewModels
             _stationName = stationName;
             _isSelected = isSelected;
 
+            // Load per-device recording enabled setting
+            if (_configManager.CurrentSettings.DeviceRecordingEnabled.TryGetValue(device.Name, out bool recEnabled))
+                IsRecordingEnabled = recEnabled;
+            else
+                IsRecordingEnabled = true; // Default: enabled
+
             // Sync initial state if engine already has this device active
             if (_audioEngine.IsDeviceRecording(device.Id))
             {
@@ -99,7 +108,7 @@ namespace RadioLogger.ViewModels
         {
             if (IsSelected)
             {
-                _activeChannel = _audioEngine.StartRecording(_device, _stationName);
+                _activeChannel = _audioEngine.StartRecording(_device, _stationName, IsRecordingEnabled);
                 IsRecording = _activeChannel != null;
                 if (IsRecording) RecordingStartTime = DateTime.Now;
             }
@@ -142,7 +151,7 @@ namespace RadioLogger.ViewModels
             // Auto-link channel if recording but reference is null
             if (IsRecording && _activeChannel == null)
             {
-                _activeChannel = _audioEngine.StartRecording(_device, _stationName);
+                _activeChannel = _audioEngine.StartRecording(_device, _stationName, IsRecordingEnabled);
             }
 
             // Sync States

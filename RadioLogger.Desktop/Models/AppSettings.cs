@@ -28,8 +28,8 @@ namespace RadioLogger.Models
         public Dictionary<string, StreamingConfig> DeviceStreamingConfigs { get; set; } = new Dictionary<string, StreamingConfig>();
         
         // SignalR Remote Monitoring
-        public bool IsSignalREnabled { get; set; } = false;
-        public string SignalRHubUrl { get; set; } = "https://localhost:7250/radiohub";
+        public bool IsSignalREnabled { get; set; } = true;
+        public string SignalRHubUrl { get; set; } = "http://127.0.0.1:5046/radiohub";
         public int SignalRUpdateIntervalMs { get; set; } = 200; // 5 FPS for remote meters
 
         // Telegram Notifications
@@ -38,6 +38,9 @@ namespace RadioLogger.Models
         public string TelegramChatId { get; set; } = string.Empty;
 
         public bool IsAutoStartEnabled { get; set; } = false;
+
+        // Per-device recording enabled (if false for a device, it only streams without recording to disk)
+        public Dictionary<string, bool> DeviceRecordingEnabled { get; set; } = new Dictionary<string, bool>();
 
         // Settings for auto-start recording/streaming on launch
         public List<string> AutoRecordDevices { get; set; } = new List<string>();

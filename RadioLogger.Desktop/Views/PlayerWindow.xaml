@@ -43,54 +43,81 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
 
-                    <TextBlock Grid.Row="4" Text="ARCHIVOS" Foreground="#666" FontSize="10" FontWeight="Bold" Margin="20,0,20,5"/>
-                    
+                    <TextBlock Grid.Row="4" Text="ARCHIVOS (Ctrl+clic para seleccionar varios)" Foreground="#666" FontSize="9" FontWeight="Bold" Margin="20,0,20,5"/>
+
                     <TextBlock Grid.Row="5" Text="No hay grabaciones" Foreground="#444" HorizontalAlignment="Center" Margin="0,30,0,0" FontStyle="Italic"
                                Visibility="{Binding RecordingsList.Count, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}"/>
 
-                    <ListBox Grid.Row="5" ItemsSource="{Binding RecordingsList}" SelectedItem="{Binding SelectedRecording}" Background="Transparent" BorderThickness="0">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="Bd" Padding="15,8" Cursor="Hand" Background="Transparent" BorderBrush="#222" BorderThickness="0,0,0,1">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                                    <Path Data="M0,0 L10,6 L0,12 Z" Fill="#444" Width="8" Height="10" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                                    <StackPanel Grid.Column="1">
-                                                        <!-- Simplified title to just show the hour-min-sec part as the station/date is already selected -->
-                                                        <TextBlock x:Name="FileTitle" Text="{Binding Name}" Foreground="#BBB" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Text="{Binding LastWriteTime, StringFormat='{}{0:HH:mm:ss}'}" Foreground="#555" FontSize="10" Margin="0,2,0,0"/>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="Bd" Property="Background" Value="#252526"/>
-                                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#00AABB"/>
-                                                    <Setter TargetName="FileTitle" Property="Foreground" Value="White"/>
-                                                </Trigger>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bd" Property="Background" Value="#222"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
+                    <Grid Grid.Row="5">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <ListBox x:Name="RecordingsListBox" Grid.Row="0" ItemsSource="{Binding RecordingsList}"
+                                 SelectionMode="Extended" Background="Transparent" BorderThickness="0"
+                                 SelectionChanged="RecordingsListBox_SelectionChanged">
+                            <ListBox.ContextMenu>
+                                <ContextMenu Background="#1E1E1E" BorderBrush="#444" BorderThickness="1">
+                                    <MenuItem Header="Eliminar archivo(s)" Click="DeleteFiles_Click" Foreground="#FF4444" FontSize="11">
+                                        <MenuItem.Icon>
+                                            <Path Data="M6,2 L8,0 H16 L18,2 H24 V4 H0 V2 Z M2,6 H22 L20,24 H4 Z"
+                                                  Fill="#FF4444" Stretch="Uniform" Width="12" Height="12"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator Background="#333"/>
+                                    <MenuItem Header="Abrir carpeta" Click="OpenFolder_Click" Foreground="#AAA" FontSize="11">
+                                        <MenuItem.Icon>
+                                            <Path Data="M2,4 H10 L12,2 H22 V20 H2 Z"
+                                                  Fill="#888" Stretch="Uniform" Width="12" Height="12"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </ListBox.ContextMenu>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="Bd" Padding="15,8" Cursor="Hand" Background="Transparent" BorderBrush="#222" BorderThickness="0,0,0,1">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                        <Path Data="M0,0 L10,6 L0,12 Z" Fill="#444" Width="8" Height="10" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock x:Name="FileTitle" Text="{Binding Name}" Foreground="#BBB" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding LastWriteTime, StringFormat='{}{0:HH:mm:ss}'}" Foreground="#555" FontSize="10" Margin="0,2,0,0"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#252526"/>
+                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="#00AABB"/>
+                                                        <Setter TargetName="FileTitle" Property="Foreground" Value="White"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#222"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+
+                    </Grid>
                     </Grid>
                 </Border>
 
             <!-- Main Player Area -->
             <Grid Grid.Column="1" Background="#121212">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/> <!-- Track Info -->
+                    <RowDefinition Height="Auto"/> <!-- Concatenation action bar -->
+                    <RowDefinition Height="*"/>    <!-- Waveform -->
+                    <RowDefinition Height="Auto"/> <!-- VU meters -->
+                    <RowDefinition Height="Auto"/> <!-- Transport -->
                 </Grid.RowDefinitions>
 
                 <!-- 1. Track Info -->
@@ -100,46 +127,241 @@
                     <TextBlock Text="{Binding TimeDisplay}" Foreground="#00AABB" FontSize="14" Margin="0,5,0,0"/>
                 </StackPanel>
 
-                <!-- 2. WAVEFORM & SEEKER -->
-                <Grid Grid.Row="1" Margin="35,15">
-                    <Border BorderBrush="#252525" BorderThickness="1" CornerRadius="8" Background="#080808" ClipToBounds="True">
-                        <Grid>
-                            <ItemsControl ItemsSource="{Binding WaveformData}" VerticalAlignment="Center">
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate><Rectangle Width="6" Height="{Binding}" Fill="#00AABB" Margin="0.5,0" Opacity="0.7" RadiusX="1" RadiusY="1"/></DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                <!-- 2. Action bar: Join button OR Concatenation result (mutually exclusive) -->
+                <Grid Grid.Row="1" Margin="35,0,35,0">
 
-                            <Slider Minimum="0" Maximum="{Binding TotalDuration}" Value="{Binding CurrentPosition}" IsMoveToPointEnabled="True" VerticalAlignment="Stretch">
-                                <Slider.Template>
-                                    <ControlTemplate TargetType="Slider">
-                                        <Grid Background="Transparent">
-                                            <Track x:Name="PART_Track">
-                                                <Track.Thumb>
-                                                    <Thumb>
-                                                        <Thumb.Template>
-                                                            <ControlTemplate TargetType="Thumb">
-                                                                <Grid Width="2" Height="300">
-                                                                    <Rectangle Fill="White" Opacity="0.3"/>
-                                                                    <Rectangle Fill="#F00" Width="1"/>
-                                                                    <Path Data="M-4,0 L6,0 L1,8 Z" Fill="#F00" Width="10" Height="8" VerticalAlignment="Top"/>
-                                                                </Grid>
-                                                            </ControlTemplate>
-                                                        </Thumb.Template>
-                                                    </Thumb>
-                                                </Track.Thumb>
-                                            </Track>
-                                        </Grid>
-                                    </ControlTemplate>
-                                </Slider.Template>
-                            </Slider>
+                    <!-- Join button (visible when 2+ files selected, no concatenation active) -->
+                    <Button x:Name="JoinButton" Click="JoinFiles_Click" Cursor="Hand" Visibility="Collapsed"
+                            HorizontalAlignment="Left" Margin="0,0,0,8">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="bd" Background="#0D1A15" CornerRadius="5" Padding="16,8" BorderThickness="1">
+                                    <Border.BorderBrush>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#00AA66" Offset="0"/>
+                                            <GradientStop Color="#00AABB" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.BorderBrush>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M4,0 V4 H0 V8 H4 V12 H8 V8 H12 V4 H8 V0 Z" Fill="#00CC77" Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <TextBlock x:Name="btnText" Text="UNIR ARCHIVOS" Foreground="#00CC77" FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="#0D2A20"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="bd" Property="Opacity" Value="0.5"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Concatenation result bar (visible after joining) -->
+                    <Border CornerRadius="5" Padding="14,8" Margin="0,0,0,8"
+                            Visibility="{Binding IsConcatenatedMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Color="#0D1F18" Offset="0"/>
+                                <GradientStop Color="#0D161A" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Border.BorderBrush>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Color="#00AA66" Offset="0"/>
+                                <GradientStop Color="#00AABB" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.BorderBrush>
+                        <Border.BorderThickness>1</Border.BorderThickness>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Chain link icon -->
+                            <Path Grid.Column="0" Data="M10,2 A4,4 0 0,1 10,14 L8,16 A4,4 0 0,1 2,10 L4,8 M6,14 A4,4 0 0,1 6,2 L8,0 A4,4 0 0,1 14,6 L12,8"
+                                  Stroke="#00CC77" StrokeThickness="1.8" Stretch="Uniform" Width="14" Height="14"
+                                  VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                            <!-- Status text -->
+                            <TextBlock Grid.Column="1" Text="{Binding ConcatenateStatus}" Foreground="#AAA" FontSize="11"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
+                            <!-- Action buttons -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="12,0,0,0">
+                                <!-- Export MP3 -->
+                                <Button Command="{Binding ExportConcatenationCommand}" Cursor="Hand" Margin="0,0,6,0" ToolTip="Guardar como MP3">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="#0D2520" CornerRadius="4" Padding="12,5" BorderBrush="#00AA88" BorderThickness="1">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path Data="M12,2 V10 M7,7 L12,12 L17,7 M4,16 H20" Stroke="#00DDAA" StrokeThickness="1.5"
+                                                          Stretch="Uniform" Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="EXPORTAR MP3" Foreground="#00DDAA" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#0D3530"/>
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="#00EEBB"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+
+                                <!-- Discard -->
+                                <Button Command="{Binding DiscardConcatenationCommand}" Cursor="Hand" ToolTip="Descartar y volver">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="#1A1215" CornerRadius="4" Padding="12,5" BorderBrush="#553333" BorderThickness="1">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path Data="M4,4 L12,12 M12,4 L4,12" Stroke="#CC4444" StrokeThickness="1.5"
+                                                          Stretch="Uniform" Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="DESCARTAR" Foreground="#CC4444" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#2A1A1A"/>
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="#AA3333"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>
 
-                <!-- 2.5 HORIZONTAL VU METERS -->
-                <Border Grid.Row="2" Margin="30,0,30,15" Background="#0E0E0E" BorderBrush="#222" BorderThickness="1" CornerRadius="4" Padding="10,8">
+                <!-- 3. WAVEFORM VISUALIZATION -->
+                <Grid Grid.Row="2" Margin="35,10,35,15">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Waveform header + zoom controls -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,0">
+                        <Border Padding="14,5" CornerRadius="4,4,0,0" Background="#080808" BorderBrush="#00AABB" BorderThickness="1,1,1,0">
+                            <TextBlock Text="FORMA DE ONDA" FontSize="10" FontWeight="SemiBold" Foreground="#00CCEE"/>
+                        </Border>
+
+                        <!-- Zoom indicator -->
+                        <TextBlock x:Name="ZoomLevelText" Text="" Foreground="#00AABB" FontSize="10" FontWeight="Bold"
+                                   FontFamily="Consolas" VerticalAlignment="Center" Margin="12,0,0,0"/>
+
+                        <!-- Reset zoom button -->
+                        <Button x:Name="ResetZoomBtn" Click="ResetZoom_Click" Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Center">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" Background="#1A1A1A" CornerRadius="3" Padding="6,3" BorderBrush="#333" BorderThickness="1">
+                                        <TextBlock Text="1:1" Foreground="#666" FontSize="9" FontWeight="Bold"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="BorderBrush" Value="#00AABB"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Timeline scrubber -->
+                    <Border x:Name="TimelineBorder" Grid.Row="1" Background="#0A0A0A" BorderBrush="#252525" BorderThickness="1,0,1,0"
+                            Height="22" ClipToBounds="True" MouseLeftButtonDown="VizBorder_MouseLeftButtonDown">
+                        <Canvas x:Name="TimelineCanvas" IsHitTestVisible="False">
+                            <!-- Tick marks and time labels rendered in code-behind -->
+                        </Canvas>
+                    </Border>
+
+                    <!-- Visualization area -->
+                    <Border x:Name="VizBorder" Grid.Row="2" BorderBrush="#252525" BorderThickness="1" ClipToBounds="True"
+                            Background="#080808" MouseLeftButtonDown="VizBorder_MouseLeftButtonDown">
+                        <Grid>
+                            <!-- Waveform image — pixel-perfect, no scaling -->
+                            <Image Source="{Binding WaveformBitmap}" Stretch="None" IsHitTestVisible="False"
+                                   RenderOptions.BitmapScalingMode="NearestNeighbor"
+                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                            <!-- Loading indicator (glass capsule) -->
+                            <Border HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                    CornerRadius="10" Padding="28,14"
+                                    Visibility="{Binding IsGeneratingVisualization, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#CC0A0A0A" Offset="0"/>
+                                        <GradientStop Color="#DD060606" Offset="0.5"/>
+                                        <GradientStop Color="#CC0A0A0A" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Border.BorderBrush>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#33FFFFFF" Offset="0"/>
+                                        <GradientStop Color="#11FFFFFF" Offset="0.5"/>
+                                        <GradientStop Color="#22FFFFFF" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.BorderBrush>
+                                <Border.BorderThickness>1</Border.BorderThickness>
+                                <Border.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="0" Opacity="0.6"/>
+                                </Border.Effect>
+                                <TextBlock Text="Generando forma de onda..." Foreground="#00AABB" FontSize="12"
+                                           FontFamily="Consolas" FontWeight="Light"/>
+                            </Border>
+
+                            <!-- Placeholder when no file loaded (hidden during generation) -->
+                            <TextBlock Text="Seleccione un archivo para visualizar" Foreground="#555" FontSize="11" FontStyle="Italic"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding WaveformBitmap}" Value="{x:Null}"/>
+                                                    <Condition Binding="{Binding IsGeneratingVisualization}" Value="False"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- Playhead (positioned via code-behind) -->
+                            <Canvas IsHitTestVisible="False">
+                                <Grid x:Name="Playhead" Canvas.Left="0" Width="14">
+                                    <!-- Glow -->
+                                    <Rectangle Fill="#FF2020" Width="10" Opacity="0.3" RadiusX="5" RadiusY="5">
+                                        <Rectangle.Effect>
+                                            <BlurEffect Radius="12"/>
+                                        </Rectangle.Effect>
+                                    </Rectangle>
+                                    <!-- Main line -->
+                                    <Rectangle Fill="#FF2020" Width="2.5" Opacity="1" HorizontalAlignment="Center"/>
+                                    <!-- Top arrow -->
+                                    <Path Data="M0,0 L12,0 L6,8 Z" Fill="#FF2020" Width="12" Height="8"
+                                          HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                    <!-- Bottom arrow -->
+                                    <Path Data="M0,8 L6,0 L12,8 Z" Fill="#FF2020" Width="12" Height="8"
+                                          HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
+                                </Grid>
+                            </Canvas>
+
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- VU METERS -->
+                <Border Grid.Row="3" Margin="30,0,30,15" Background="#0E0E0E" BorderBrush="#222" BorderThickness="1" CornerRadius="4" Padding="10,8">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -225,125 +447,116 @@
                     </Grid>
                 </Border>
 
-                <!-- 4. TRANSPORT & MONITOR CONTROLS -->
-                <Grid Grid.Row="3" Margin="30,0,30,30">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/> <!-- Monitor Section -->
-                    </Grid.ColumnDefinitions>
+                <!-- TRANSPORT BAR -->
+                <Border Grid.Row="4" Margin="30,0,30,20" Background="#0E0E0E" CornerRadius="6" BorderBrush="#1A1A1A" BorderThickness="1" Padding="16,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>  <!-- Output device -->
+                            <ColumnDefinition Width="*"/>     <!-- Transport buttons (centered) -->
+                            <ColumnDefinition Width="Auto"/>  <!-- Volume -->
+                        </Grid.ColumnDefinitions>
 
-                    <!-- Transport (Centered) -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
-                        <!-- Rewind Button -->
-                        <Button Command="{Binding RewindCommand}" Width="46" Height="46" Cursor="Hand">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bd" CornerRadius="23" Background="#1E1E1E" BorderBrush="#333" BorderThickness="1.5">
-                                        <!-- Double Triangle Icon (<<) -->
-                                        <Path x:Name="icon" Data="M22,12 L22,28 L10,20 Z M34,12 L34,28 L22,20 Z" Fill="#666" Stretch="Uniform" Width="16" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="-2,0,0,0"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="BorderBrush" Value="#00AABB"/><Setter TargetName="icon" Property="Fill" Value="#00AABB"/></Trigger>
-                                        <Trigger Property="IsPressed" Value="True"><Setter TargetName="bd" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1"/></Setter.Value></Setter></Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
+                        <!-- Output device selector (compact) -->
+                        <ComboBox Grid.Column="0" ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedOutputDevice}"
+                                  DisplayMemberPath="Name" Height="28" Width="140" FontSize="9" VerticalAlignment="Center"
+                                  ToolTip="Dispositivo de salida"/>
 
-                        <!-- Play Button (Big) -->
-                        <Button Command="{Binding PlayPauseCommand}" Width="68" Height="68" Margin="30,0" Cursor="Hand">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bd" CornerRadius="34" Background="#222" BorderBrush="#444" BorderThickness="2">
-                                        <Path x:Name="icon" Data="M12,8 L28,18 L12,28 Z" Fill="#00AABB" Stretch="Uniform" Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
-                                            <Setter TargetName="icon" Property="Data" Value="M8,8 H14 V28 H8 Z M22,8 H28 V28 H22 Z"/>
-                                            <Setter TargetName="bd" Property="Effect"><Setter.Value><DropShadowEffect Color="#00AABB" BlurRadius="15" ShadowDepth="0"/></Setter.Value></Setter>
-                                        </DataTrigger>
-                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="#2A2A2A"/><Setter TargetName="bd" Property="BorderBrush" Value="#00CCEE"/></Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-
-                        <!-- Stop Button -->
-                        <Button Command="{Binding StopCommand}" Width="46" Height="46" Cursor="Hand">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bd" CornerRadius="23" Background="#1E1E1E" BorderBrush="#333" BorderThickness="1.5">
-                                        <Rectangle x:Name="icon" Fill="#666" Width="14" Height="14" RadiusX="1" RadiusY="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="BorderBrush" Value="#FF4444"/><Setter TargetName="icon" Property="Fill" Value="#FF4444"/></Trigger>
-                                        <Trigger Property="IsPressed" Value="True"><Setter TargetName="bd" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1"/></Setter.Value></Setter></Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </StackPanel>
-
-                    <!-- MONITOR SECTION -->
-                    <Border Grid.Column="1" Background="#111" CornerRadius="4" BorderBrush="#222" BorderThickness="1" Padding="10,5">
-                        <StackPanel>
-                            <TextBlock Text="MONITOR OUT" Foreground="#444" FontSize="9" FontWeight="Bold" Margin="0,0,0,5"/>
-                            
-                            <!-- Output Selector (Single Device) -->
-                            <ComboBox ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedOutputDevice}" 
-                                      DisplayMemberPath="Name" Height="25" Width="150" FontSize="10" Margin="0,0,0,10"/>
-                            
-                            <Rectangle Fill="#222" Height="1" Margin="0,0,0,8"/>
-                            
-                            <!-- Volume & Mute -->
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="30"/> <!-- Mute -->
-                                    <ColumnDefinition Width="*"/>  <!-- Vol -->
-                                </Grid.ColumnDefinitions>
-                                
-                                <Button Command="{Binding ToggleMuteCommand}" Width="25" Height="25" Cursor="Hand">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="bd" Background="#222" CornerRadius="3" BorderBrush="#333" BorderThickness="1">
-                                                <TextBlock Text="DIM" Foreground="#666" FontSize="8" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding IsMuted}" Value="True">
-                                                    <Setter TargetName="bd" Property="Background" Value="#CC3300"/>
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="#FF5522"/>
-                                                </DataTrigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                </Button>
-                                
-                                <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding OutputVolume}" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                            </Grid>
-                            
-                            <CheckBox Content="Controlar Sistema" IsChecked="{Binding IsMasterVolumeControl}" 
-                                      Foreground="#666" FontSize="9" Margin="0,8,0,0" HorizontalAlignment="Right" Cursor="Hand">
-                                <CheckBox.Template>
-                                    <ControlTemplate TargetType="CheckBox">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Border x:Name="bd" Width="10" Height="10" CornerRadius="2" BorderBrush="#555" BorderThickness="1" Background="#1A1A1A" Margin="0,0,5,0">
-                                                <Path x:Name="chk" Data="M2,5 L4,7 L8,2" Stroke="#00AABB" StrokeThickness="1.5" Visibility="Collapsed"/>
-                                            </Border>
-                                            <ContentPresenter VerticalAlignment="Center"/>
-                                        </StackPanel>
+                        <!-- Transport buttons -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- Rewind -10s -->
+                            <Button Command="{Binding RewindCommand}" Width="40" Height="40" Cursor="Hand" ToolTip="Retroceder 10s">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="20" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="1">
+                                            <Path x:Name="icon" Data="M22,12 L22,28 L10,20 Z M34,12 L34,28 L22,20 Z" Fill="#666" Stretch="Uniform" Width="14" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="-1,0,0,0"/>
+                                        </Border>
                                         <ControlTemplate.Triggers>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="chk" Property="Visibility" Value="Visible"/>
+                                            <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="bd" Property="BorderBrush" Value="#00AABB"/>
-                                                <Setter Property="Foreground" Value="#00AABB"/>
+                                                <Setter TargetName="icon" Property="Fill" Value="#00AABB"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="bd" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1"/></Setter.Value></Setter>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
-                                </CheckBox.Template>
-                            </CheckBox>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- Play/Pause -->
+                            <Button Command="{Binding PlayPauseCommand}" Width="56" Height="56" Margin="20,0" Cursor="Hand">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="28" Background="#1A1A1A" BorderBrush="#333" BorderThickness="1.5">
+                                            <Path x:Name="icon" Data="M12,8 L28,18 L12,28 Z" Fill="#00AABB" Stretch="Uniform" Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                <Setter TargetName="icon" Property="Data" Value="M8,8 H14 V28 H8 Z M22,8 H28 V28 H22 Z"/>
+                                                <Setter TargetName="bd" Property="Effect">
+                                                    <Setter.Value><DropShadowEffect Color="#00AABB" BlurRadius="12" ShadowDepth="0"/></Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#222"/>
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#00CCEE"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- Stop -->
+                            <Button Command="{Binding StopCommand}" Width="40" Height="40" Cursor="Hand">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="20" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="1">
+                                            <Rectangle x:Name="icon" Fill="#666" Width="12" Height="12" RadiusX="1" RadiusY="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#FF4444"/>
+                                                <Setter TargetName="icon" Property="Fill" Value="#FF4444"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="bd" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1"/></Setter.Value></Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
                         </StackPanel>
-                    </Border>
-                </Grid>
+
+                        <!-- Volume control (compact) -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Mute/Speaker button -->
+                            <Button Command="{Binding ToggleMuteCommand}" Width="30" Height="30" Cursor="Hand" ToolTip="Silenciar">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="4" Background="Transparent">
+                                            <Path x:Name="icon" Stretch="Uniform" Width="16" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  Data="M2,8 H6 L12,3 V21 L6,16 H2 Z M16,7 C18,9 18,15 16,17 M19,4 C23,7 23,17 19,20"
+                                                  Stroke="#666" StrokeThickness="1.5" Fill="Transparent"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                                                <Setter TargetName="icon" Property="Data" Value="M2,8 H6 L12,3 V21 L6,16 H2 Z M17,9 L23,15 M23,9 L17,15"/>
+                                                <Setter TargetName="icon" Property="Stroke" Value="#CC4444"/>
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="icon" Property="Stroke" Value="#00AABB"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- Volume slider -->
+                            <Slider Minimum="0" Maximum="100" Value="{Binding OutputVolume}" Width="100"
+                                    VerticalAlignment="Center" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </Grid>
         </Grid>
     </Border>

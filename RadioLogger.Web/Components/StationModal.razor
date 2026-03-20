@@ -1,0 +1,301 @@
+@using RadioLogger.Shared.Models
+@using RadioLogger.Web.Services
+@inject MonitoringService Monitoring
+@inject IJSRuntime JS
+
+@if (IsVisible && Station != null)
+{
+    <div class="modal-backdrop" @onclick="Close">
+        <div class="modal-panel" @onclick:stopPropagation="true">
+            @{
+                // Siempre leer datos frescos del servicio de monitoreo
+                var live = GetLiveStation();
+                var isLive = live != null && (DateTime.UtcNow - live.Timestamp).TotalSeconds < 15;
+                var s = live ?? Station;
+            }
+
+            <!-- Header -->
+            <div class="modal-hdr">
+                <div class="modal-hdr-left">
+                    <div class="modal-led @(isLive ? "green" : "red")"></div>
+                    <div>
+                        <div class="modal-title">@s.StationName</div>
+                        <div class="modal-sub">@s.MachineId &mdash; @s.HardwareName</div>
+                    </div>
+                </div>
+                <button class="modal-close" @onclick="Close">&times;</button>
+            </div>
+
+            <!-- Status -->
+            <div class="modal-status">
+                <div class="modal-status-item">
+                    <span class="modal-lbl">Estado</span>
+                    <span class="modal-val @(isLive ? "val-green" : "val-red")">@(isLive ? "EN LINEA" : "DESCONECTADA")</span>
+                </div>
+                <div class="modal-status-item">
+                    <span class="modal-lbl">Grabacion</span>
+                    @if (s.IsRecordingEnabled)
+                    {
+                        <span class="modal-val @(s.IsRecording ? "val-green" : "val-red")">@(s.IsRecording ? "ON AIR" : "OFF AIR")</span>
+                    }
+                    else
+                    {
+                        <span class="modal-val val-amber">DESHABILITADA</span>
+                    }
+                </div>
+                <div class="modal-status-item">
+                    <span class="modal-lbl">Streaming</span>
+                    <span class="modal-val @(s.IsStreaming ? "val-green" : "val-red")">@(s.IsStreaming ? "ACTIVO" : "INACTIVO")</span>
+                </div>
+                <div class="modal-status-item">
+                    <span class="modal-lbl">Ultimo reporte</span>
+                    <span class="modal-val">@s.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+                </div>
+            </div>
+
+            <!-- VU Meters grandes con Peak Hold y Clipping -->
+            <div class="modal-vu">
+                <div class="modal-vu-row">
+                    <span class="modal-vu-ch">L</span>
+                    <div class="modal-vu-bar">
+                        <div class="modal-vu-mask" style="width: @(SafePct(1 - s.LeftLevel))%;"></div>
+                        <div class="modal-vu-peak @(GetPeakClass(s.LeftPeak))" style="left: @(SafePct(s.LeftPeak))%;"></div>
+                    </div>
+                    <div class="modal-clip-led @(IsClipping(s.LeftPeak) ? "clip-on" : "")">CLIP</div>
+                    <span class="modal-vu-db">@GetDb(s.LeftLevel)</span>
+                </div>
+                <div class="modal-vu-row">
+                    <span class="modal-vu-ch">R</span>
+                    <div class="modal-vu-bar">
+                        <div class="modal-vu-mask" style="width: @(SafePct(1 - s.RightLevel))%;"></div>
+                        <div class="modal-vu-peak @(GetPeakClass(s.RightPeak))" style="left: @(SafePct(s.RightPeak))%;"></div>
+                    </div>
+                    <div class="modal-clip-led @(IsClipping(s.RightPeak) ? "clip-on" : "")">CLIP</div>
+                    <span class="modal-vu-db">@GetDb(s.RightLevel)</span>
+                </div>
+                <!-- Escala dB -->
+                <div class="modal-vu-row modal-vu-scale-row">
+                    <span class="modal-vu-ch"></span>
+                    <div class="modal-vu-bar modal-vu-scale-bar">
+                        <span style="left: 0%;">-60</span>
+                        <span style="left: 33%;">-40</span>
+                        <span style="left: 67%;">-20</span>
+                        <span style="left: 90%;">-6</span>
+                        <span style="left: 97%;">0</span>
+                    </div>
+                    <div class="modal-clip-led" style="visibility: hidden;">CLIP</div>
+                    <span class="modal-vu-db"></span>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            @if (isLive)
+            {
+                <div class="modal-controls">
+                    @if (s.IsRecordingEnabled)
+                    {
+                        <div class="modal-ctrl-group">
+                            <span class="modal-ctrl-lbl">GRABACION</span>
+                            @if (s.IsRecording)
+                            {
+                                <button class="modal-btn btn-danger" @onclick="StopRecording" disabled="@IsSending">
+                                    DETENER GRABACION
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="modal-btn btn-success" @onclick="StartRecording" disabled="@IsSending">
+                                    INICIAR GRABACION
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="modal-ctrl-group">
+                            <span class="modal-ctrl-lbl">GRABACION</span>
+                            <button class="modal-btn btn-disabled" disabled>
+                                DESHABILITADA EN EQUIPO
+                            </button>
+                        </div>
+                    }
+
+                    <div class="modal-ctrl-group">
+                        <span class="modal-ctrl-lbl">STREAMING</span>
+                        @if (s.IsStreaming)
+                        {
+                            <button class="modal-btn btn-danger" @onclick="StopStreaming" disabled="@IsSending">
+                                DETENER STREAM
+                            </button>
+                        }
+                        else if (s.IsRecording)
+                        {
+                            <button class="modal-btn btn-success" @onclick="StartStreaming" disabled="@IsSending">
+                                INICIAR STREAM
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="modal-btn btn-disabled" disabled>
+                                REQUIERE GRABACION
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(CommandStatus))
+                {
+                    <div class="modal-cmd-status">@CommandStatus</div>
+                }
+            }
+            else
+            {
+                <div class="modal-offline-msg">
+                    El equipo no esta en linea. Los controles remotos no estan disponibles.
+                </div>
+            }
+
+            <!-- Stream Player -->
+            <div class="modal-stream">
+                <div class="modal-stream-hdr">
+                    <div class="modal-stream-led-wrap">
+                        <div class="modal-stream-led @(s.IsStreaming ? "led-live" : "led-off")"></div>
+                        <div class="modal-stream-led-ring @(s.IsStreaming ? "ring-live" : "")"></div>
+                    </div>
+                    <div class="modal-stream-info">
+                        <span class="modal-stream-title">BROADCAST</span>
+                        <span class="modal-stream-status @(s.IsStreaming ? "val-green" : "val-red")">@(s.IsStreaming ? "EN VIVO" : "INACTIVO")</span>
+                    </div>
+                </div>
+                @if (s.IsStreaming && !string.IsNullOrEmpty(s.StreamUrl))
+                {
+                    <div class="modal-stream-url">@s.StreamUrl</div>
+                    <div class="modal-stream-player">
+                        <audio id="streamAudio" preload="none" crossorigin="anonymous">
+                            <source src="@s.StreamUrl" />
+                        </audio>
+                        <button class="modal-stream-btn @(IsStreamPlaying ? "playing" : "")" @onclick="ToggleStreamPlay">
+                            <span class="stream-btn-icon">@(IsStreamPlaying ? "⏸" : "▶")</span>
+                            <span class="stream-btn-text">@(IsStreamPlaying ? "PAUSAR" : "ESCUCHAR")</span>
+                        </button>
+                        <div class="modal-stream-eq @(IsStreamPlaying ? "eq-active" : "")">
+                            <span></span><span></span><span></span><span></span><span></span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="modal-stream-offline">STREAM NO DISPONIBLE</div>
+                }
+            </div>
+
+            <!-- Info extra -->
+            <div class="modal-info">
+                <div class="modal-info-row">
+                    <span class="modal-lbl">Hardware ID</span>
+                    <span class="modal-val mono">@s.HardwareId</span>
+                </div>
+                <div class="modal-info-row">
+                    <span class="modal-lbl">Licencia</span>
+                    <span class="modal-val mono">@s.LicenseKey</span>
+                </div>
+                @if (s.IsStreaming && !string.IsNullOrEmpty(s.StreamUrl))
+                {
+                    <div class="modal-info-row">
+                        <span class="modal-lbl">Stream URL</span>
+                        <span class="modal-val mono">@s.StreamUrl</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public StationStatusUpdate? Station { get; set; }
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool IsSending = false;
+    private string CommandStatus = "";
+    private bool IsStreamPlaying = false;
+
+    private async Task SendCommand(string command)
+    {
+        if (Station == null) return;
+        IsSending = true;
+        CommandStatus = "Enviando comando...";
+        StateHasChanged();
+
+        await Monitoring.SendCommandAsync(new StationCommand
+        {
+            MachineId = Station.MachineId,
+            HardwareName = Station.HardwareName,
+            Command = command
+        });
+
+        CommandStatus = "Comando enviado. Esperando respuesta...";
+        IsSending = false;
+        StateHasChanged();
+
+        // Limpiar mensaje despues de 3 segundos
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            CommandStatus = "";
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private Task StartRecording() => SendCommand("START_RECORDING");
+    private Task StopRecording() => SendCommand("STOP_RECORDING");
+    private Task StartStreaming() => SendCommand("START_STREAMING");
+    private Task StopStreaming() => SendCommand("STOP_STREAMING");
+
+    private async Task ToggleStreamPlay()
+    {
+        IsStreamPlaying = !IsStreamPlaying;
+        if (IsStreamPlaying)
+            await JS.InvokeVoidAsync("eval", "var a=document.getElementById('streamAudio');if(a){a.load();a.play();}");
+        else
+            await JS.InvokeVoidAsync("eval", "var a=document.getElementById('streamAudio');if(a){a.pause();a.removeAttribute('src');a.load();}");
+    }
+
+    private async Task Close()
+    {
+        // Detener audio al cerrar
+        if (IsStreamPlaying)
+        {
+            IsStreamPlaying = false;
+            await JS.InvokeVoidAsync("eval", "var a=document.getElementById('streamAudio');if(a){a.pause();a.src='';}");
+        }
+        CommandStatus = "";
+        await OnClose.InvokeAsync();
+    }
+
+    private StationStatusUpdate? GetLiveStation()
+    {
+        if (Station == null) return null;
+        return Monitoring.GetActiveStations()
+            .FirstOrDefault(s => s.MachineId == Station.MachineId && s.HardwareName == Station.HardwareName);
+    }
+
+    private string GetDb(double level)
+    {
+        if (level <= 0) return "-inf";
+        double db = 20 * Math.Log10(level);
+        return $"{db:F1} dB";
+    }
+
+    private string GetPeakClass(double peak)
+    {
+        double pct = Math.Clamp(peak, 0, 1) * 100;
+        if (pct >= 95) return "pk-r";
+        if (pct >= 80) return "pk-o";
+        if (pct >= 50) return "pk-y";
+        return "pk-g";
+    }
+
+    private bool IsClipping(double peak) => peak >= 0.98;
+
+    private string SafePct(double val) => FormattableString.Invariant($"{Math.Clamp(val * 100, 0, 100):F1}");
+}

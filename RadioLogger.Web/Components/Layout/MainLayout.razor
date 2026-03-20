@@ -1,9 +1,105 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using RadioLogger.Web.Services
+@inject MonitoringService Monitoring
+@implements IDisposable
 
-@Body
+<div class="sidebar">
+    <div class="logo">
+        <div class="logo-bars">
+            <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="logo-info">
+            <div class="logo-name">RADIO<span style="color:var(--blue)">LOGGER</span></div>
+            <div class="logo-ver">ENTERPRISE V2.0</div>
+        </div>
+    </div>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+    <div class="nav-scroll">
+        <div class="nav-sec">Principal</div>
+        <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+            <span class="nav-ico">📊</span>
+            <span>Dashboard</span>
+            <span class="nav-badge nb-blu">LIVE</span>
+        </NavLink>
+        <NavLink class="nav-item" href="estaciones">
+            <span class="nav-ico">📡</span>
+            <span>Estaciones</span>
+        </NavLink>
+        <NavLink class="nav-item" href="historial">
+            <span class="nav-ico">📋</span>
+            <span>Incidentes</span>
+            <span class="nav-badge nb-red">@Monitoring.GetActiveIncidentsCount()</span>
+        </NavLink>
+
+        <div class="nav-sec">Administración</div>
+        <NavLink class="nav-item" href="licencias">
+            <span class="nav-ico">🔑</span>
+            <span>Licencias</span>
+        </NavLink>
+        <NavLink class="nav-item" href="configuracion">
+            <span class="nav-ico">⚙️</span>
+            <span>Configuración</span>
+        </NavLink>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="user-card">
+            <div class="avatar">AD</div>
+            <div class="user-info">
+                <div class="u-name">Administrador</div>
+                <div class="u-role">SISTEMA ONLINE</div>
+            </div>
+            <div class="u-dot"></div>
+        </div>
+    </div>
 </div>
+
+<main class="main">
+    <header class="topbar">
+        <div class="topbar-title">MONITOR DE EMISORAS <span>CENTRAL DE CONTROL</span></div>
+        
+        <div class="pill">
+            <div class="dot g"></div>
+            <span>INTERNET OK</span>
+        </div>
+        <div class="pill">
+            <div class="dot @(Monitoring.IsDatabaseHealthy ? "g" : "r")"></div>
+            <span>SQL: @(Monitoring.IsDatabaseHealthy ? "ONLINE" : "OFFLINE")</span>
+        </div>
+        <div class="pill">
+            <div class="dot @(Monitoring.GetActiveStations().Any(s => (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15) ? "g" : "y")"></div>
+            <span>WPF: @(Monitoring.GetActiveStations().Any(s => (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15) ? "CONECTADO" : "SIN DATOS")</span>
+        </div>
+        
+        <div class="clock">@DateTime.Now.ToString("HH:mm:ss")</div>
+    </header>
+
+    <div class="page active">
+        @Body
+    </div>
+</main>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    private System.Threading.Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        // Sincronizar con el inicio del próximo segundo para evitar desfase
+        var msToNextSecond = 1000 - DateTime.Now.Millisecond;
+        _timer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(StateHasChanged);
+        }, null, msToNextSecond, 1000);
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

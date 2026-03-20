@@ -1,86 +1,102 @@
 @using RadioLogger.Shared.Models
 
-<div class="station-card @(Update.IsSilence ? "silence-alert" : "")">
-    <div class="station-header">
-        <div class="header-main">
-            <span class="station-name">@Update.StationName</span>
-            <span class="machine-id">SERVIDOR: @Update.MachineId</span>
-        </div>
-        <div class="status-indicators">
-            <!-- Badge ON AIR / OFF AIR (Grabación) -->
-            <span class="status-badge @(Update.IsRecording ? "badge-onair" : "badge-offair")">
-                @(Update.IsRecording ? "ON AIR" : "OFF AIR")
-            </span>
-            
-            <!-- Badge STREAMING (Streaming) -->
-            <span class="status-badge @(Update.IsStreaming ? "badge-streaming" : "badge-nostream")" title="URL: @Update.StreamUrl">
-                WEB
-            </span>
-        </div>
-    </div>
+@{
+    var isLive = (DateTime.UtcNow - Update.Timestamp).TotalSeconds < 15;
+    var isActive = isLive && Update.IsRecording;
+    var isDisconnected = !isLive;
+}
 
-    <div class="meters-container">
-        <div class="meter-row">
-            <span class="meter-label">L</span>
-            <div class="meter-track">
-                <div class="meter-fill" style="clip-path: inset(0 @($"{100 - (Update.LeftLevel * 100):0.##}%") 0 0)"></div>
-                <div class="meter-shine"></div>
-                <div class="meter-grid"></div>
-            </div>
+<div class="sc @(isActive ? "online" : "offline") @(isDisconnected ? "disconnected" : "") @(Update.IsSilence && isLive ? "silence" : "")">
+    @if (!Update.IsAuthorized)
+    {
+        <div class="authorized-overlay">
+            <span class="lock-icon">🔒</span>
+            <span class="lock-text">PENDIENTE</span>
         </div>
-        <div class="meter-row">
-            <span class="meter-label">R</span>
-            <div class="meter-track">
-                <div class="meter-fill" style="clip-path: inset(0 @($"{100 - (Update.RightLevel * 100):0.##}%") 0 0)"></div>
-                <div class="meter-shine"></div>
-                <div class="meter-grid"></div>
-            </div>
-        </div>
-    </div>
+    }
 
-    <div class="station-footer">
-        <div class="footer-info">
-            <span class="timestamp">@Update.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+    <div class="sc-top">
+        <div class="sc-info">
+            <div class="sc-name">@Update.StationName</div>
+            <div class="sc-srv">@Update.MachineId</div>
         </div>
-        
-        <div class="custom-player">
-            @if (Update.IsStreaming && !string.IsNullOrEmpty(Update.StreamUrl))
+        <div class="badges">
+            @if (Update.IsRecordingEnabled)
             {
-                <div class="player-controls">
-                    <button class="ctrl-btn @(IsPlaying ? "active" : "")" @onclick="TogglePlay" title="@(IsPlaying ? "Detener" : "Reproducir")">
-                        @(IsPlaying ? "■" : "▶")
-                    </button>
-                    
-                    @if (IsPlaying)
-                    {
-                        <button class="ctrl-btn mute-btn" @onclick="ToggleMute" title="@(IsMuted ? "Activar Sonido" : "Silenciar")">
-                            @(IsMuted ? "🔇" : "🔊")
-                        </button>
-                    }
-                </div>
-                
-                <audio @ref="audioElement" autoplay="@IsPlaying" muted="@IsMuted" style="display:none">
-                    <source src="@Update.StreamUrl" type="audio/mpeg">
-                </audio>
+                <div class="bdg @(Update.IsRecording ? "on" : "off")">@(Update.IsRecording ? "ON AIR" : "OFF AIR")</div>
             }
+            else
+            {
+                <div class="bdg off" title="Grabación deshabilitada en configuración">NO REC</div>
+            }
+            <div class="rec-clock @(Update.IsRecording ? "" : "inactive")">@GetDuration()</div>
+            <div class="bdg @(Update.IsStreaming ? "on" : "off")">STREAM</div>
         </div>
+    </div>
+
+    <!-- Vúmetros con Peak Hold y Clipping -->
+    <div class="vu-container">
+        <div class="vu-row">
+            <div class="vu-ch">L</div>
+            <div class="vu-bar-wrapper">
+                <div class="vu-mask" style="width: @(SafePct(1 - Update.LeftLevel))%;"></div>
+                <div class="vu-peak @(GetPeakClass(Update.LeftPeak))" style="left: @(SafePct(Update.LeftPeak))%;"></div>
+            </div>
+            <div class="vu-clip-led @(IsClipping(Update.LeftPeak) ? "clip-on" : "")"></div>
+        </div>
+        <div class="vu-row">
+            <div class="vu-ch">R</div>
+            <div class="vu-bar-wrapper">
+                <div class="vu-mask" style="width: @(SafePct(1 - Update.RightLevel))%;"></div>
+                <div class="vu-peak @(GetPeakClass(Update.RightPeak))" style="left: @(SafePct(Update.RightPeak))%;"></div>
+            </div>
+            <div class="vu-clip-led @(IsClipping(Update.RightPeak) ? "clip-on" : "")"></div>
+        </div>
+    </div>
+
+    <div class="sc-foot">
+        <div class="sc-time">@Update.Timestamp.ToLocalTime().ToString("HH:mm:ss")</div>
+        @if (isDisconnected)
+        {
+            <div class="sc-status-led disconnected-led">
+                <div class="led-light red"></div>
+                <span class="led-label">DESCONECTADA</span>
+            </div>
+        }
+        else if (Update.IsSilence)
+        {
+            <div class="bdg sil">SILENCIO</div>
+        }
+        else
+        {
+            <div class="sc-status-led">
+                <div class="led-light green"></div>
+                <span class="led-label on">EN LÍNEA</span>
+            </div>
+        }
     </div>
 </div>
 
 @code {
     [Parameter] public StationStatusUpdate Update { get; set; } = new();
-    private bool IsPlaying = false;
-    private bool IsMuted = false;
-    private ElementReference audioElement;
 
-    private void TogglePlay()
+    private string GetPeakClass(double peak)
     {
-        IsPlaying = !IsPlaying;
-        if (!IsPlaying) IsMuted = false;
+        double pct = Math.Clamp(peak, 0, 1) * 100;
+        if (pct >= 95) return "pk-r";
+        if (pct >= 80) return "pk-o";
+        if (pct >= 50) return "pk-y";
+        return "pk-g";
     }
 
-    private void ToggleMute()
+    private bool IsClipping(double peak) => peak >= 0.98;
+
+    private string SafePct(double val) => FormattableString.Invariant($"{Math.Clamp(val * 100, 0, 100):F1}");
+
+    private string GetDuration()
     {
-        IsMuted = !IsMuted;
+        if (Update.RecordingStartTime == null) return "00d 00h 00m 00s";
+        var diff = DateTime.UtcNow - Update.RecordingStartTime.Value;
+        return $"{diff.Days:D2}d {diff.Hours:D2}h {diff.Minutes:D2}m {diff.Seconds:D2}s";
     }
 }

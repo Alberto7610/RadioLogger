@@ -39,6 +39,7 @@ namespace RadioLogger.Services
         public bool IsReconnecting { get; private set; }
         public string? StreamUrl => _currentConfig?.GetPublicUrl();
         public DateTime StartTime { get; private set; }
+        public bool RecordToFile { get; set; } = true;
         
         public AudioDevice DeviceInfo { get; private set; }
         
@@ -153,12 +154,15 @@ namespace RadioLogger.Services
 
             _dspHandle = Bass.ChannelSetDSP(_handle, _gainDsp, IntPtr.Zero, 1);
 
-            StartEncoder();
+            if (RecordToFile)
+            {
+                StartEncoder();
+                _fileRotatorTimer.Start();
+            }
 
             Bass.ChannelPlay(_handle);
-            
+
             _levelTimer.Start();
-            _fileRotatorTimer.Start();
             IsRecording = true;
             StartTime = DateTime.Now;
         }

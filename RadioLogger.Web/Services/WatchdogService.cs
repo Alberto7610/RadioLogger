@@ -29,15 +29,15 @@ namespace RadioLogger.Web.Services
                 {
                     string key = $"{station.MachineId}:{station.StationName}";
                     
-                    // Si no ha reportado en más de 60 segundos
-                    if ((now - station.Timestamp).TotalSeconds > 60)
+                    // Si no ha reportado en más de 15 segundos
+                    if ((now - station.Timestamp).TotalSeconds > 15)
                     {
                         // Solo enviar alerta si no hemos avisado ya de esta desconexión
                         if (!_offlineAlerts.ContainsKey(key))
                         {
                             _offlineAlerts[key] = now;
                             await _telegram.SendAlertAsync(
-                                $"🚨 <b>SERVIDOR DESCONECTADO</b>\n" +
+                                $"🚨 <b>EQUIPO DESCONECTADO</b>\n" +
                                 $"Servidor: <b>{station.MachineId}</b>\n" +
                                 $"Estación: <b>{station.StationName}</b>\n" +
                                 $"Estado: No se reciben datos de SignalR (¿Sin Internet?).");
@@ -52,7 +52,7 @@ namespace RadioLogger.Web.Services
                         if (_offlineAlerts.TryRemove(key, out _))
                         {
                             await _telegram.SendAlertAsync(
-                                $"✅ <b>SERVIDOR RESTABLECIDO</b>\n" +
+                                $"✅ <b>EQUIPO RESTABLECIDO</b>\n" +
                                 $"Servidor: <b>{station.MachineId}</b>\n" +
                                 $"Estación: <b>{station.StationName}</b>\n" +
                                 $"Estado: Conexión SignalR recuperada.");
@@ -60,7 +60,7 @@ namespace RadioLogger.Web.Services
                     }
                 }
 
-                await Task.Delay(30000, stoppingToken); // Revisar cada 30s
+                await Task.Delay(5000, stoppingToken); // Revisar cada 5s
             }
         }
     }

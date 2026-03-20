@@ -1,0 +1,124 @@
+@page "/configuracion"
+@using RadioLogger.Shared.Models
+@using RadioLogger.Web.Services
+@inject MonitoringService Monitoring
+
+<div class="content">
+    <div class="panel">
+        <div class="panel-hdr">
+            <div class="panel-title">CONFIGURACIÓN DE ESTACIONES</div>
+        </div>
+        
+        <div class="st-scroll" style="padding: 20px;">
+            <table class="config-table">
+                <thead>
+                    <tr>
+                        <th>Equipo</th>
+                        <th>Hardware ID</th>
+                        <th>Nombre Identificado</th>
+                        <th>Nombre Personalizado</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var station in Monitoring.GetRegisteredStations())
+                    {
+                        <tr>
+                            <td>@station.MachineId</td>
+                            <td style="font-family: monospace; font-size: 0.8em; color: var(--text3)">@station.HardwareId</td>
+                            <td style="font-weight: bold; color: var(--blue)">@station.HardwareName</td>
+                            <td>
+                                <input type="text" 
+                                       value="@station.StationName" 
+                                       @onchange="@((e) => UpdateName(station.Id, e.Value?.ToString()))"
+                                       class="config-input" />
+                            </td>
+                            <td>
+                                @if (station.IsAuthorized)
+                                {
+                                    <span class="status-badge ok">AUTORIZADA</span>
+                                }
+                                else
+                                {
+                                    <span class="status-badge warn">PENDIENTE</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!station.IsAuthorized)
+                                {
+                                    <button class="btn-action ok" @onclick="() => Authorize(station.Id, true)">AUTORIZAR</button>
+                                }
+                                else
+                                {
+                                    <button class="btn-action warn" @onclick="() => Authorize(station.Id, false)">REVOCAR</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .config-table {
+        width: 100%;
+        border-collapse: collapse;
+        color: white;
+    }
+    .config-table th {
+        text-align: left;
+        padding: 12px;
+        border-bottom: 2px solid #222;
+        color: var(--blue);
+        font-size: 0.9em;
+    }
+    .config-table td {
+        padding: 12px;
+        border-bottom: 1px solid #222;
+    }
+    .config-input {
+        background: #111;
+        border: 1px solid #333;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        width: 100%;
+    }
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: bold;
+    }
+    .status-badge.ok { background: #004400; color: #00ff00; }
+    .status-badge.warn { background: #444400; color: #ffff00; }
+    
+    .btn-action {
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 0.8em;
+    }
+    .btn-action.ok { background: var(--blue); color: white; }
+    .btn-action.warn { background: #660000; color: white; }
+</style>
+
+@code {
+    private async Task Authorize(int id, bool auth)
+    {
+        await Monitoring.AuthorizeStation(id, auth);
+    }
+
+    private async Task UpdateName(int id, string? name)
+    {
+        if (!string.IsNullOrEmpty(name))
+        {
+            await Monitoring.UpdateStationDisplayName(id, name);
+        }
+    }
+}

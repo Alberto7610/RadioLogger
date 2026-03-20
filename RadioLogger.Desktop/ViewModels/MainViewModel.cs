@@ -73,11 +73,13 @@ namespace RadioLogger.ViewModels
             internetCheckTimer.Elapsed += (s, e) => CheckInternetReal();
             internetCheckTimer.Start();
 
-            _signalRService.ConnectionStatusChanged += (msg, connected) => 
+            _signalRService.ConnectionStatusChanged += (msg, connected) =>
             {
                 SignalRStatus = msg;
             };
-            
+
+            _signalRService.CommandReceived += OnRemoteCommand;
+
             _ = _signalRService.StartAsync(); // Fire and forget connection task
             CheckInternetReal(); // Chequeo inicial
 
@@ -211,6 +213,7 @@ namespace RadioLogger.ViewModels
                 {
                     MachineId = Environment.MachineName,
                     StationName = d.StationName,
+                    HardwareName = d.Device.Name, // Use the stable hardware name
                     HardwareId = hwid,
                     LicenseKey = "FREE-TRIAL-001", // Default for now
                     LeftLevel = Math.Round(d.LeftLevel / 100.0, 3),
@@ -218,9 +221,11 @@ namespace RadioLogger.ViewModels
                     LeftPeak = Math.Round(d.LeftPeak / 100.0, 3),
                     RightPeak = Math.Round(d.RightPeak / 100.0, 3),
                     IsRecording = d.IsRecording,
+                    RecordingStartTime = d.RecordingStartTime,
                     IsStreaming = d.IsStreaming,
                     StreamUrl = d.StreamUrl,
                     IsSilence = d.IsSilenceDetected,
+                    IsRecordingEnabled = d.IsRecordingEnabled,
                     Timestamp = DateTime.UtcNow
                 });
             }
@@ -342,23 +347,83 @@ namespace RadioLogger.ViewModels
         public void ToggleDevice(DeviceViewModel device)
         {
             device.UpdateState();
-            
+
             if (device.IsSelected)
                 LogService.Log(LogCategory.AUDIO, $"Grabación INICIADA manualmente: {device.StationName}");
             else
                 LogService.Log(LogCategory.AUDIO, $"Grabación DETENIDA manualmente: {device.StationName}");
 
-            _configManager.CurrentSettings.AutoRecordDevices = InputDevices
-                .Where(d => d.IsSelected)
-                .Select(d => d.Device.Name)
-                .ToList();
-            SaveConfig();
+            PersistCurrentState();
         }
 
         [RelayCommand]
         public void ToggleStreaming(DeviceViewModel device)
         {
             device.ToggleStreaming();
+            PersistCurrentState();
+        }
+
+        /// <summary>
+        /// Handle remote commands from the Dashboard via SignalR.
+        /// </summary>
+        private void OnRemoteCommand(RadioLogger.Shared.Models.StationCommand command)
+        {
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            {
+                var device = InputDevices.FirstOrDefault(d => d.Device.Name == command.HardwareName);
+                if (device == null) return;
+
+                LogService.Log(LogCategory.SYSTEM, $"Comando remoto: {command.Command} para {command.HardwareName}");
+
+                switch (command.Command)
+                {
+                    case "START_RECORDING":
+                        if (!device.IsRecording)
+                        {
+                            device.IsSelected = true;
+                            device.UpdateState(); // Respects IsRecordingEnabled from settings
+                        }
+                        break;
+
+                    case "STOP_RECORDING":
+                        if (device.IsRecording)
+                        {
+                            device.IsSelected = false;
+                            device.UpdateState();
+                        }
+                        break;
+
+                    case "START_STREAMING":
+                        if (device.IsRecording && !device.IsStreaming)
+                        {
+                            device.ToggleStreaming();
+                        }
+                        break;
+
+                    case "STOP_STREAMING":
+                        if (device.IsStreaming)
+                        {
+                            device.ToggleStreaming();
+                        }
+                        break;
+                }
+
+                // Persist state after remote command so it survives restarts
+                PersistCurrentState();
+            });
+        }
+
+        private void PersistCurrentState()
+        {
+            _configManager.CurrentSettings.AutoRecordDevices = InputDevices
+                .Where(d => d.IsSelected)
+                .Select(d => d.Device.Name)
+                .ToList();
+            _configManager.CurrentSettings.AutoStreamDevices = InputDevices
+                .Where(d => d.IsStreaming)
+                .Select(d => d.Device.Name)
+                .ToList();
+            SaveConfig();
         }
 
         private void SaveConfig()
@@ -373,7 +438,9 @@ namespace RadioLogger.ViewModels
             var devices = _audioEngine.GetInputDevices();
             var savedActive = _configManager.CurrentSettings.ActiveInputDevices;
             var nameMapping = _configManager.CurrentSettings.DeviceStationNames;
-            
+            var autoRecord = _configManager.CurrentSettings.AutoRecordDevices;
+            var autoStream = _configManager.CurrentSettings.AutoStreamDevices;
+
             bool showAll = savedActive.Count == 0;
 
             // Determine target devices to show
@@ -395,20 +462,50 @@ namespace RadioLogger.ViewModels
                     customName = td.Name;
                 }
 
+                var recEnabled = true;
+                if (_configManager.CurrentSettings.DeviceRecordingEnabled.TryGetValue(td.Name, out bool re))
+                    recEnabled = re;
+
                 var existing = InputDevices.FirstOrDefault(vm => vm.Device.Name == td.Name);
                 if (existing != null)
                 {
-                    // Update only the StationName if changed
                     if (existing.StationName != customName)
-                    {
                         existing.StationName = customName;
-                    }
+                    existing.IsRecordingEnabled = recEnabled;
                 }
                 else
                 {
                     // Add as new device
                     var vm = new DeviceViewModel(td, _audioEngine, _configManager, customName, false);
                     InputDevices.Add(vm);
+                }
+            }
+
+            // 3. Auto-restore: resume recording and streaming from previous session
+            RestorePreviousState(autoRecord, autoStream);
+        }
+
+        private void RestorePreviousState(List<string> autoRecord, List<string> autoStream)
+        {
+            if (autoRecord.Count == 0 && autoStream.Count == 0) return;
+
+            LogService.Log(LogCategory.SYSTEM, $"Restaurando estado previo: {autoRecord.Count} grabando, {autoStream.Count} en streaming");
+
+            foreach (var device in InputDevices)
+            {
+                // Restore recording
+                if (autoRecord.Contains(device.Device.Name) && !device.IsRecording)
+                {
+                    device.IsSelected = true;
+                    device.UpdateState();
+                    LogService.Log(LogCategory.AUDIO, $"Auto-restaurado grabación: {device.StationName}");
+                }
+
+                // Restore streaming (only if recording is active and config exists)
+                if (autoStream.Contains(device.Device.Name) && device.IsRecording && !device.IsStreaming)
+                {
+                    device.ToggleStreaming();
+                    LogService.Log(LogCategory.AUDIO, $"Auto-restaurado streaming: {device.StationName}");
                 }
             }
         }

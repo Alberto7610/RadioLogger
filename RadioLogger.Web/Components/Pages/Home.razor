@@ -1,66 +1,119 @@
 @page "/"
-@rendermode InteractiveServer
 @using RadioLogger.Shared.Models
 @using RadioLogger.Web.Services
 @using RadioLogger.Web.Components
 @inject MonitoringService Monitoring
 @implements IDisposable
 
-<PageTitle>Dashboard - RadioLogger</PageTitle>
-
-<div class="dashboard-container">
-    <header class="dashboard-header">
-        <div class="header-left">
-            <h1 class="main-title">MONITOREO DE EMISORAS</h1>
-            <span class="online-count">@Monitoring.GetActiveStations().Count Estaciones Activas</span>
+<div class="content">
+    <!-- Row: Stats -->
+    <div class="stats-row">
+        @{
+            var allStations = Monitoring.GetActiveStations();
+            var onlineCount = allStations.Count(s => (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15);
+            var disconnectedCount = allStations.Count(s => (DateTime.UtcNow - s.Timestamp).TotalSeconds >= 15);
+            var silenceCount = allStations.Count(s => s.IsSilence && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15);
+            var alertCount = Monitoring.GetActiveIncidentsCount() + disconnectedCount;
+            var recordingCount = allStations.Count(s => s.IsRecording && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15);
+            var streamingCount = allStations.Count(s => s.IsStreaming && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15);
+        }
+        <div class="stat sg">
+            <div class="stat-lbl">Online</div>
+            <div class="stat-num ng">@onlineCount</div>
+            <div class="stat-sub">EQUIPOS ACTIVOS</div>
         </div>
-        
-        <div class="header-right">
-            <!-- Indicador de Base de Datos -->
-            <div class="db-status @(Monitoring.IsDatabaseHealthy ? "db-ok" : "db-error")">
-                <span class="db-dot"></span>
-                <span class="db-label">@(Monitoring.IsDatabaseHealthy ? "SQL: ONLINE" : "SQL: OFFLINE")</span>
-            </div>
-
-            <div class="connection-status @(IsConnected ? "connected" : "disconnected")">
-                @(IsConnected ? "● LIVE" : "○ RECONNECTING...")
-            </div>
-            
-            <div class="alert-toggle" @onclick="ToggleAudioAlert">
-                <span class="icon">@(IsAudioEnabled ? "🔊" : "🔇")</span>
-                <span class="label">Alertas de Audio</span>
-            </div>
+        <div class="stat sr">
+            <div class="stat-lbl">Silence</div>
+            <div class="stat-num nr">@silenceCount</div>
+            <div class="stat-sub">DETECCIONES DE SILENCIO</div>
         </div>
-    </header>
+        <div class="stat sa @(alertCount > 0 ? "stat-alert" : "")">
+            <div class="stat-lbl">Alerts</div>
+            <div class="stat-num na">@alertCount</div>
+            <div class="stat-sub">INCIDENTES EN CURSO</div>
+        </div>
+        <div class="stat sb">
+            <div class="stat-lbl">Record</div>
+            <div class="stat-num nb">@recordingCount</div>
+            <div class="stat-sub">GRABANDO A DISCO</div>
+        </div>
+        <div class="stat sc2">
+            <div class="stat-lbl">Stream</div>
+            <div class="stat-num nc">@streamingCount</div>
+            <div class="stat-sub">BROADCAST WEB</div>
+        </div>
+    </div>
 
-    @if (Monitoring.GetActiveStations().Count == 0)
+    <!-- Ticker: Alertas críticas -->
+    @if (allStations.Any(s => s.IsSilence || (DateTime.UtcNow - s.Timestamp).TotalSeconds > 15))
     {
-        <div class="empty-state">
-            <div class="empty-icon">📻</div>
-            <h2>Esperando datos de la consola...</h2>
-            <p>Asegúrate de que RadioLogger esté abierto y con SignalR habilitado.</p>
-        </div>
-    }
-    else
-    {
-        @foreach (var group in Monitoring.GetActiveStations().GroupBy(s => s.MachineId))
-        {
-            <div class="machine-section">
-                <h2 class="machine-title">💻 SERVIDOR: @group.Key</h2>
-                <div class="stations-grid">
-                    @foreach (var station in group)
+        <div class="ticker">
+            <div class="ticker-lbl">ALERTAS</div>
+            <div class="ticker-track">
+                <div class="ticker-txt">
+                    @foreach (var s in allStations.Where(s => s.IsSilence && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15))
                     {
-                        <StationCard @key="@($"{station.MachineId}:{station.StationName}")" Update="station" />
+                        <span>🚨 SILENCIO DETECTADO: @s.StationName (@s.MachineId) &nbsp;&nbsp; | &nbsp;&nbsp; </span>
+                    }
+                    @foreach (var s in allStations.Where(s => (DateTime.UtcNow - s.Timestamp).TotalSeconds >= 15))
+                    {
+                        <span style="color:var(--amber)">⚠️ EQUIPO DESCONECTADO: @s.StationName (@s.MachineId) &nbsp;&nbsp; | &nbsp;&nbsp; </span>
                     }
                 </div>
             </div>
-        }
+        </div>
     }
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+        <!-- Panel de Estaciones -->
+        <div class="panel">
+            <div class="panel-hdr">
+                <div class="panel-title">ESTACIONES REGISTRADAS</div>
+                <div class="tabs">
+                    <div class="tab @(CurrentFilter == "ALL" ? "active" : "")" @onclick='() => SetFilter("ALL")'>TODAS</div>
+                    <div class="tab @(CurrentFilter == "AUDIO" ? "active" : "")" @onclick='() => SetFilter("AUDIO")'>CON AUDIO</div>
+                    <div class="tab @(CurrentFilter == "ERROR" ? "active" : "")" @onclick='() => SetFilter("ERROR")'>ERRORES</div>
+                </div>
+                <input type="text" class="search" placeholder="BUSCAR ESTACIÓN..." @bind="SearchTerm" @bind:event="oninput">
+            </div>
+
+            <div class="st-scroll">
+                @foreach (var group in GetFilteredStations().GroupBy(s => s.MachineId))
+                {
+                    <div class="grp">
+                        <div class="grp-hdr">
+                            <span class="grp-tog">▼</span>
+                            <span class="grp-name">EQUIPO: @group.Key</span>
+                            <span class="grp-cnt">@group.Count()</span>
+                            @{
+                                var okCount = group.Count(s => !s.IsSilence && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15);
+                            }
+                            <span class="grp-on">● @okCount OK</span>
+                        </div>
+                        <div class="st-grid">
+                            @foreach (var station in group)
+                            {
+                                <div @onclick="() => OpenModal(station)" style="cursor:pointer">
+                                    <StationCard @key="@($"{station.MachineId}:{station.StationName}")" Update="station" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- Modal de control remoto -->
+<StationModal Station="ModalStation" IsVisible="IsModalOpen" OnClose="CloseModal" />
+
 @code {
-    private bool IsAudioEnabled = false;
-    private bool IsConnected = true; // In Blazor Server, the service is local, so it's always "connected" to the data
+    private string CurrentFilter = "ALL";
+    private string SearchTerm = "";
+    private StationStatusUpdate? ModalStation;
+    private bool IsModalOpen = false;
 
     protected override void OnInitialized()
     {
@@ -72,9 +125,35 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private void ToggleAudioAlert()
+    private void SetFilter(string filter) => CurrentFilter = filter;
+
+    private IEnumerable<StationStatusUpdate> GetFilteredStations()
     {
-        IsAudioEnabled = !IsAudioEnabled;
+        var stations = Monitoring.GetActiveStations();
+
+        if (!string.IsNullOrWhiteSpace(SearchTerm))
+        {
+            stations = stations.Where(s => s.StationName.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) 
+                                       || s.MachineId.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        return CurrentFilter switch
+        {
+            "AUDIO" => stations.Where(s => !s.IsSilence && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15),
+            "ERROR" => stations.Where(s => s.IsSilence || (DateTime.UtcNow - s.Timestamp).TotalSeconds >= 15),
+            _ => stations
+        };
+    }
+
+    private void OpenModal(StationStatusUpdate station)
+    {
+        ModalStation = station;
+        IsModalOpen = true;
+    }
+
+    private void CloseModal()
+    {
+        IsModalOpen = false;
     }
 
     public void Dispose()
@@ -82,145 +161,3 @@
         Monitoring.OnUpdated -= OnMonitoringUpdate;
     }
 }
-
-<style>
-    .machine-section {
-        margin-bottom: 40px;
-    }
-
-    .machine-title {
-        color: #888;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 15px;
-        border-left: 3px solid #00aabb;
-        padding-left: 10px;
-    }
-
-    .dashboard-container {
-        padding: 20px;
-        min-height: 100vh;
-        background: #121212;
-    }
-
-    .dashboard-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 30px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #333;
-    }
-
-    .main-title {
-        color: #eee;
-        font-size: 1.5rem;
-        font-weight: 300;
-        margin: 0;
-        letter-spacing: 2px;
-    }
-
-    .online-count {
-        color: #00aabb;
-        font-size: 0.8rem;
-        font-weight: bold;
-    }
-
-    .header-right {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-    }
-
-    /* DB STATUS NEON STYLES */
-    .db-status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 5px 12px;
-        border-radius: 4px;
-        background: #1a1a1a;
-        font-size: 0.75rem;
-        font-weight: bold;
-        border: 1px solid #333;
-    }
-
-    .db-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-    }
-
-    .db-ok {
-        border-color: #00ff00;
-        color: #00ff00;
-        box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
-    }
-    .db-ok .db-dot { background: #00ff00; box-shadow: 0 0 8px #00ff00; }
-
-    .db-error {
-        border-color: #ff4444;
-        color: #ff4444;
-        box-shadow: 0 0 10px rgba(255, 68, 68, 0.2);
-        animation: db-blink 1s infinite;
-    }
-    .db-error .db-dot { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
-
-    @@keyframes db-blink {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
-    }
-
-    .connection-status {
-        font-size: 0.8rem;
-        font-weight: bold;
-        padding: 5px 12px;
-        border-radius: 20px;
-        background: #222;
-    }
-
-    .connection-status.connected { color: #00ff00; }
-    .connection-status.disconnected { color: #ff4444; }
-
-    .alert-toggle {
-        cursor: pointer;
-        background: #222;
-        padding: 8px 15px;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        transition: all 0.2s;
-    }
-
-    .alert-toggle:hover {
-        background: #333;
-    }
-
-    .alert-toggle .label {
-        font-size: 0.8rem;
-        color: #aaa;
-    }
-
-    .stations-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 25px;
-        align-items: flex-start;
-        justify-content: flex-start;
-    }
-
-    .empty-state {
-        text-align: center;
-        margin-top: 100px;
-        color: #555;
-    }
-
-    .empty-icon {
-        font-size: 4rem;
-        margin-bottom: 20px;
-        opacity: 0.3;
-    }
-</style>

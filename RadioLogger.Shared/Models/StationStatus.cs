@@ -9,7 +9,8 @@ namespace RadioLogger.Shared.Models
     public class StationStatusUpdate
     {
         public string MachineId { get; set; } = Environment.MachineName;
-        public string StationName { get; set; } = string.Empty;
+        public string StationName { get; set; } = string.Empty; // Custom display name
+        public string HardwareName { get; set; } = string.Empty; // Stable hardware name (e.g. "Line 1")
         
         // Audio levels (0.0 to 1.0)
         public double LeftLevel { get; set; }
@@ -19,9 +20,11 @@ namespace RadioLogger.Shared.Models
         
         // Status Flags
         public bool IsRecording { get; set; }
+        public DateTime? RecordingStartTime { get; set; }
         public bool IsStreaming { get; set; }
         public string? StreamUrl { get; set; } // URL for the web player
         public bool IsSilence { get; set; }
+        public bool IsRecordingEnabled { get; set; } = true; // false = streaming-only mode
 
         // Licensing & Security
         public string LicenseKey { get; set; } = "FREE-TRIAL";
@@ -40,6 +43,7 @@ namespace RadioLogger.Shared.Models
         public int Id { get; set; }
         public string MachineId { get; set; } = string.Empty;
         public string StationName { get; set; } = string.Empty;
+        public string HardwareName { get; set; } = string.Empty; // Stable hardware name (e.g. "Line 1")
         public string LicenseKey { get; set; } = string.Empty;
         public string HardwareId { get; set; } = string.Empty;
         public bool IsAuthorized { get; set; } = false;
@@ -68,6 +72,17 @@ namespace RadioLogger.Shared.Models
     {
         public string MachineId { get; set; } = Environment.MachineName;
         public System.Collections.Generic.List<StationStatusUpdate> Stations { get; set; } = new();
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Remote command sent from Dashboard to WPF client.
+    /// </summary>
+    public class StationCommand
+    {
+        public string MachineId { get; set; } = string.Empty;
+        public string HardwareName { get; set; } = string.Empty;
+        public string Command { get; set; } = string.Empty; // START_RECORDING, STOP_RECORDING, START_STREAMING, STOP_STREAMING
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 

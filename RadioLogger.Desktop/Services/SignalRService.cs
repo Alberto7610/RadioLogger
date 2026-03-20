@@ -14,6 +14,7 @@ namespace RadioLogger.Services
         private bool _isDisposed;
 
         public event Action<string, bool>? ConnectionStatusChanged;
+        public event Action<RadioLogger.Shared.Models.StationCommand>? CommandReceived;
 
         public bool IsConnected => _connection?.State == HubConnectionState.Connected;
 
@@ -27,11 +28,14 @@ namespace RadioLogger.Services
             if (!_settings.IsSignalREnabled || string.IsNullOrWhiteSpace(_settings.SignalRHubUrl))
                 return;
 
+            string sanitizedUrl = _settings.SignalRHubUrl.Replace("//radiohub", "/radiohub");
+            if (sanitizedUrl.EndsWith("/")) sanitizedUrl = sanitizedUrl.TrimEnd('/');
+
             if (_connection != null)
                 await StopAsync();
 
             _connection = new HubConnectionBuilder()
-                .WithUrl(_settings.SignalRHubUrl, options => {
+                .WithUrl(sanitizedUrl, options => {
                     options.HttpMessageHandlerFactory = (handler) =>
                     {
                         if (handler is System.Net.Http.HttpClientHandler clientHandler)
@@ -47,6 +51,13 @@ namespace RadioLogger.Services
                 })
                 .WithAutomaticReconnect()
                 .Build();
+
+            // Listen for remote commands from Dashboard
+            _connection.On<RadioLogger.Shared.Models.StationCommand>("ReceiveCommand", (command) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[SignalR] Command received: {command.Command} for {command.HardwareName}");
+                CommandReceived?.Invoke(command);
+            });
 
             _connection.Closed += async (error) =>
             {
