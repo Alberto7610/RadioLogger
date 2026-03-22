@@ -191,6 +191,32 @@ namespace RadioLogger.Web.Services
             }
         }
 
+        public async Task UpdateStationDetails(RegisteredStation updated)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+            var station = await db.RegisteredStations.FindAsync(updated.Id);
+            if (station != null)
+            {
+                station.StationName = updated.StationName;
+                station.Siglas = updated.Siglas;
+                station.Frecuencia = updated.Frecuencia;
+                station.Banda = updated.Banda;
+                station.NombreComercial = updated.NombreComercial;
+                station.Estado = updated.Estado;
+                station.Plaza = updated.Plaza;
+                station.GrupoEmpresa = updated.GrupoEmpresa;
+                station.Formato = updated.Formato;
+                station.Potencia = updated.Potencia;
+                station.Cobertura = updated.Cobertura;
+                station.Notas = updated.Notas;
+                station.Activa = updated.Activa;
+                await db.SaveChangesAsync();
+                await RefreshCache();
+                OnUpdated?.Invoke();
+            }
+        }
+
         public List<RegisteredStation> GetRegisteredStations()
         {
             return _registeredCache;
@@ -202,9 +228,9 @@ namespace RadioLogger.Web.Services
             var threshold = DateTime.UtcNow.AddSeconds(-15);
             var registered = _registeredCache; // Usar caché instantánea
             
-            // 1. Añadir estaciones registradas (offline o live)
+            // 1. Only show authorized stations
             var handledKeys = new HashSet<string>();
-            foreach (var reg in registered)
+            foreach (var reg in registered.Where(r => r.IsAuthorized))
             {
                 string key = $"{reg.MachineId}:{reg.HardwareName}";
                 handledKeys.Add(key);
@@ -230,16 +256,6 @@ namespace RadioLogger.Web.Services
                 }
             }
 
-            // 2. Añadir estaciones que están LIVE pero aún no están en la DB (nuevas)
-            foreach (var live in _stations.Values)
-            {
-                string key = $"{live.MachineId}:{live.HardwareName}";
-                if (!handledKeys.Contains(key) && live.Timestamp > threshold)
-                {
-                    list.Add(live);
-                }
-            }
-
             return list.OrderBy(s => s.MachineId).ThenBy(s => s.StationName).ToList();
         }
 
@@ -250,22 +266,48 @@ namespace RadioLogger.Web.Services
         {
             return _stations.Values.ToList();
         }
-public int GetActiveIncidentsCount()
-{
-    return _activeIncidentIds.Count;
-}
+        public int GetActiveIncidentsCount()
+        {
+            return _activeIncidentIds.Count;
+        }
 
-public void MarkMachineOffline(string machineId){
-    var machineStations = _stations.Values.Where(s => s.MachineId == machineId).ToList();
-    foreach (var station in machineStations)
-    {
-        string key = $"{station.MachineId}:{station.HardwareName}";
-        // No la eliminamos de _stations, solo cerramos el incidente si existía.
-        // El Watchdog se encargará de ver que el Timestamp es viejo y enviará el Telegram.
-        _ = LogIncidentEnd(key);
-    }
-    OnUpdated?.Invoke();
-}
+        public void MarkMachineOffline(string machineId)
+        {
+            var machineStations = _stations.Values.Where(s => s.MachineId == machineId).ToList();
+            foreach (var station in machineStations)
+            {
+                string key = $"{station.MachineId}:{station.HardwareName}";
+                // No la eliminamos de _stations, solo cerramos el incidente si existía.
+                // El Watchdog se encargará de ver que el Timestamp es viejo y enviará el Telegram.
+                _ = LogIncidentEnd(key);
+            }
+            OnUpdated?.Invoke();
+        }
+
+        public async Task ResetStationPassword(string machineId, string newPasswordHash)
+        {
+            var command = new StationCommand
+            {
+                MachineId = machineId,
+                Command = "RESET_PASSWORD",
+                Payload = newPasswordHash
+            };
+            await SendCommandAsync(command);
+        }
+
+        public async Task DeleteStation(int id)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+            var station = await db.RegisteredStations.FindAsync(id);
+            if (station != null)
+            {
+                db.RegisteredStations.Remove(station);
+                await db.SaveChangesAsync();
+                await RefreshCache();
+                OnUpdated?.Invoke();
+            }
+        }
 
         public void MarkStationOfflineExplicitly(string key)
         {

@@ -19,10 +19,27 @@ namespace RadioLogger.Views
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            // The Cancel button uses IsCancel="True" which automatically sets DialogResult = false.
-            // This handler is only for the Save button (or any button intended to return Success).
             this.DialogResult = true;
             this.Close();
+        }
+
+        // PasswordBox doesn't support binding — bridge via code-behind
+        private void PwdCurrent_Changed(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is RadioLogger.ViewModels.SettingsViewModel vm)
+                vm.CurrentPassword = PwdCurrent.Password;
+        }
+
+        private void PwdNew_Changed(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is RadioLogger.ViewModels.SettingsViewModel vm)
+                vm.NewPassword = PwdNew.Password;
+        }
+
+        private void PwdConfirm_Changed(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is RadioLogger.ViewModels.SettingsViewModel vm)
+                vm.ConfirmPassword = PwdConfirm.Password;
         }
     }
 }

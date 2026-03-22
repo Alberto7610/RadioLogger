@@ -54,7 +54,7 @@ namespace RadioLogger.Services
                     if (int.TryParse(sid, out _))
                     {
                         passWithSid = $"{_config.Password},{sid}";
-                        DebugLog.Write($"[STREAM] Using SID formatting for password: {_config.Password},SID={sid}");
+                        DebugLog.Write($"[STREAM] Using SID formatting: ****,SID={sid}");
                     }
                 }
 

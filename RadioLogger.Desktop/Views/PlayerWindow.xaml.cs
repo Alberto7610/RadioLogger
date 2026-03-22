@@ -350,11 +350,10 @@ namespace RadioLogger.Views
             JoinButton.Visibility = showJoin ? Visibility.Visible : Visibility.Collapsed;
 
             // Single selection → load file for playback
-            if (count == 1 && listBox.SelectedItem is System.IO.FileSystemInfo file)
+            if (count == 1 && listBox.SelectedItem is RecordingFile file)
             {
                 if (DataContext is PlayerViewModel vm && vm.SelectedRecording != file)
                 {
-                    // If in concatenated mode, discard first
                     if (vm.IsConcatenatedMode) vm.DiscardConcatenation();
                     vm.SelectedRecording = file;
                 }
@@ -366,7 +365,7 @@ namespace RadioLogger.Views
             if (DataContext is not PlayerViewModel vm) return;
 
             var selected = RecordingsListBox.SelectedItems
-                .Cast<System.IO.FileSystemInfo>()
+                .Cast<RecordingFile>()
                 .ToList();
 
             if (selected.Count < 2) return;
@@ -383,13 +382,13 @@ namespace RadioLogger.Views
             if (DataContext is not PlayerViewModel vm) return;
 
             var selected = RecordingsListBox.SelectedItems
-                .Cast<System.IO.FileSystemInfo>()
+                .Cast<RecordingFile>()
                 .ToList();
 
             if (selected.Count == 0) return;
 
             string msg = selected.Count == 1
-                ? $"¿Eliminar \"{selected[0].Name}\"?"
+                ? $"¿Eliminar \"{selected[0].FileName}\"?"
                 : $"¿Eliminar {selected.Count} archivos seleccionados?";
 
             var result = System.Windows.MessageBox.Show(msg, "Confirmar eliminación",
@@ -397,7 +396,6 @@ namespace RadioLogger.Views
 
             if (result != MessageBoxResult.Yes) return;
 
-            // Stop playback if any selected file is currently playing
             vm.Stop();
 
             int deleted = 0;
@@ -405,12 +403,12 @@ namespace RadioLogger.Views
             {
                 try
                 {
-                    System.IO.File.Delete(file.FullName);
+                    System.IO.File.Delete(file.FullPath);
                     deleted++;
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show($"No se pudo eliminar \"{file.Name}\":\n{ex.Message}",
+                    System.Windows.MessageBox.Show($"No se pudo eliminar \"{file.FileName}\":\n{ex.Message}",
                         "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -424,14 +422,14 @@ namespace RadioLogger.Views
             if (DataContext is not PlayerViewModel vm) return;
 
             var selected = RecordingsListBox.SelectedItems
-                .Cast<System.IO.FileSystemInfo>()
+                .Cast<RecordingFile>()
                 .FirstOrDefault();
 
             if (selected == null) return;
 
-            string folder = System.IO.Path.GetDirectoryName(selected.FullName) ?? "";
+            string folder = System.IO.Path.GetDirectoryName(selected.FullPath) ?? "";
             if (!string.IsNullOrEmpty(folder))
-                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{selected.FullName}\"");
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{selected.FullPath}\"");
         }
 
         // ─── CLEANUP ─────────────────────────────────────────────

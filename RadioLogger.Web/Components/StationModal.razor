@@ -255,9 +255,9 @@
     {
         IsStreamPlaying = !IsStreamPlaying;
         if (IsStreamPlaying)
-            await JS.InvokeVoidAsync("eval", "var a=document.getElementById('streamAudio');if(a){a.load();a.play();}");
+            await JS.InvokeVoidAsync("audioPlayer.play");
         else
-            await JS.InvokeVoidAsync("eval", "var a=document.getElementById('streamAudio');if(a){a.pause();a.removeAttribute('src');a.load();}");
+            await JS.InvokeVoidAsync("audioPlayer.stop");
     }
 
     private async Task Close()
@@ -266,7 +266,7 @@
         if (IsStreamPlaying)
         {
             IsStreamPlaying = false;
-            await JS.InvokeVoidAsync("eval", "var a=document.getElementById('streamAudio');if(a){a.pause();a.src='';}");
+            await JS.InvokeVoidAsync("audioPlayer.cleanup");
         }
         CommandStatus = "";
         await OnClose.InvokeAsync();

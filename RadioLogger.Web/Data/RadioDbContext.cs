@@ -20,7 +20,7 @@ namespace RadioLogger.Web.Data
             modelBuilder.Entity<IncidentLog>().Property(e => e.EventType).HasMaxLength(20);
 
             modelBuilder.Entity<RegisteredStation>().HasKey(e => e.Id);
-            modelBuilder.Entity<RegisteredStation>().HasIndex(e => new { e.MachineId, e.StationName }).IsUnique();
+            modelBuilder.Entity<RegisteredStation>().HasIndex(e => new { e.MachineId, e.HardwareName }).IsUnique();
 
             modelBuilder.Entity<License>().HasKey(e => e.Id);
             modelBuilder.Entity<License>().HasIndex(e => e.Key).IsUnique();

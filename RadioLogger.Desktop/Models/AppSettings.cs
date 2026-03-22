@@ -45,5 +45,8 @@ namespace RadioLogger.Models
         // Settings for auto-start recording/streaming on launch
         public List<string> AutoRecordDevices { get; set; } = new List<string>();
         public List<string> AutoStreamDevices { get; set; } = new List<string>();
+
+        // Security: SHA256 hash of settings password (default: hash of "admin")
+        public string SettingsPasswordHash { get; set; } = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
     }
 }

@@ -89,6 +89,50 @@ namespace RadioLogger.ViewModels
 
         [ObservableProperty] private bool _isAutoStartEnabled;
 
+        [ObservableProperty] private string _currentPassword = "";
+        [ObservableProperty] private string _newPassword = "";
+        [ObservableProperty] private string _confirmPassword = "";
+        [ObservableProperty] private string _passwordStatus = "";
+        [ObservableProperty] private string _passwordStatusColor = "#666";
+
+        [RelayCommand]
+        public void ChangePassword()
+        {
+            if (string.IsNullOrEmpty(NewPassword))
+            {
+                PasswordStatus = "La nueva contraseña no puede estar vacía";
+                PasswordStatusColor = "#FF4444";
+                return;
+            }
+            if (NewPassword != ConfirmPassword)
+            {
+                PasswordStatus = "Las contraseñas no coinciden";
+                PasswordStatusColor = "#FF4444";
+                return;
+            }
+            if (NewPassword.Length < 4)
+            {
+                PasswordStatus = "Mínimo 4 caracteres";
+                PasswordStatusColor = "#FF4444";
+                return;
+            }
+
+            string currentHash = RadioLogger.Views.PasswordDialog.ComputeHash(CurrentPassword);
+            if (currentHash != _configManager.CurrentSettings.SettingsPasswordHash)
+            {
+                PasswordStatus = "Contraseña actual incorrecta";
+                PasswordStatusColor = "#FF4444";
+                return;
+            }
+
+            _configManager.CurrentSettings.SettingsPasswordHash = RadioLogger.Views.PasswordDialog.ComputeHash(NewPassword);
+            PasswordStatus = "Contraseña actualizada correctamente";
+            PasswordStatusColor = "#00CC66";
+            CurrentPassword = "";
+            NewPassword = "";
+            ConfirmPassword = "";
+        }
+
         [RelayCommand]
         public async System.Threading.Tasks.Task TestConnection()
         {

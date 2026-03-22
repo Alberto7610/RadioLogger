@@ -43,12 +43,33 @@ namespace RadioLogger.Shared.Models
         public int Id { get; set; }
         public string MachineId { get; set; } = string.Empty;
         public string StationName { get; set; } = string.Empty;
-        public string HardwareName { get; set; } = string.Empty; // Stable hardware name (e.g. "Line 1")
+        public string HardwareName { get; set; } = string.Empty;
         public string LicenseKey { get; set; } = string.Empty;
         public string HardwareId { get; set; } = string.Empty;
         public bool IsAuthorized { get; set; } = false;
         public DateTime LastSeen { get; set; } = DateTime.UtcNow;
         public bool IsOnline { get; set; } = false;
+
+        // Station identity
+        public string? Siglas { get; set; }
+        public string? Frecuencia { get; set; }
+        public string? Banda { get; set; }
+        public string? NombreComercial { get; set; }
+
+        // Location
+        public string? Estado { get; set; }
+        public string? Plaza { get; set; }
+
+        // Commercial
+        public string? GrupoEmpresa { get; set; }
+        public string? Formato { get; set; }
+        public string? Potencia { get; set; }
+        public string? Cobertura { get; set; }
+
+        // Admin
+        public string? Notas { get; set; }
+        public bool Activa { get; set; } = true;
+        public DateTime FechaAlta { get; set; } = DateTime.UtcNow;
     }
 
     /// <summary>
@@ -83,6 +104,7 @@ namespace RadioLogger.Shared.Models
         public string MachineId { get; set; } = string.Empty;
         public string HardwareName { get; set; } = string.Empty;
         public string Command { get; set; } = string.Empty; // START_RECORDING, STOP_RECORDING, START_STREAMING, STOP_STREAMING
+        public string? Payload { get; set; } // Optional data for commands like RESET_PASSWORD
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 

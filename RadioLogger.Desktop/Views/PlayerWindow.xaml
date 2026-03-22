@@ -25,90 +25,180 @@
                         <RowDefinition Height="Auto"/> <!-- Station Combo -->
                         <RowDefinition Height="Auto"/> <!-- Date Label -->
                         <RowDefinition Height="Auto"/> <!-- Date Combo -->
-                        <RowDefinition Height="Auto"/> <!-- Files Label -->
+                        <RowDefinition Height="Auto"/> <!-- Files header + sort -->
                         <RowDefinition Height="*"/>    <!-- Files List -->
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Text="EMISORA" Foreground="#00AABB" FontSize="10" FontWeight="Bold" Margin="20,20,20,5"/>
-                    <ComboBox Grid.Row="1" ItemsSource="{Binding Stations}" SelectedItem="{Binding SelectedStation}" 
+                    <ComboBox Grid.Row="1" ItemsSource="{Binding Stations}" SelectedItem="{Binding SelectedStation}"
                               Margin="20,0,20,15" Height="30"/>
 
                     <TextBlock Grid.Row="2" Text="FECHA" Foreground="#00AABB" FontSize="10" FontWeight="Bold" Margin="20,0,20,5"/>
-                    <ComboBox Grid.Row="3" ItemsSource="{Binding AvailableDates}" SelectedItem="{Binding SelectedDate}" 
-                              Margin="20,0,20,15" Height="30">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding StringFormat='{}{0:dd MMM yyyy}'}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <ComboBox Grid.Row="3" ItemsSource="{Binding AvailableDates}" SelectedItem="{Binding SelectedDate}"
+                              Margin="20,0,20,15" Height="30"/>
 
-                    <TextBlock Grid.Row="4" Text="ARCHIVOS (Ctrl+clic para seleccionar varios)" Foreground="#666" FontSize="9" FontWeight="Bold" Margin="20,0,20,5"/>
+                    <!-- Files header with sort button -->
+                    <Grid Grid.Row="4" Margin="20,0,20,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="ARCHIVOS" Foreground="#00AABB" FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Command="{Binding ToggleSortOrderCommand}" Cursor="Hand" ToolTip="Cambiar orden">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" Background="#222" CornerRadius="3" Padding="8,3" BorderBrush="#333" BorderThickness="1">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path x:Name="arrow" Data="M0,8 L5,0 L10,8 Z" Fill="#666" Width="8" Height="6"
+                                                  VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBlock x:Name="label" Foreground="#666" FontSize="9" FontWeight="Bold" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="MAS RECIENTE"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSortAscending}" Value="True">
+                                                                <Setter Property="Text" Value="MAS ANTIGUO"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsSortAscending}" Value="True">
+                                            <Setter TargetName="arrow" Property="Data" Value="M0,0 L5,8 L10,0 Z"/>
+                                        </DataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="BorderBrush" Value="#00AABB"/>
+                                            <Setter TargetName="arrow" Property="Fill" Value="#00AABB"/>
+                                            <Setter TargetName="label" Property="Foreground" Value="#00AABB"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </Grid>
 
                     <TextBlock Grid.Row="5" Text="No hay grabaciones" Foreground="#444" HorizontalAlignment="Center" Margin="0,30,0,0" FontStyle="Italic"
                                Visibility="{Binding RecordingsList.Count, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}"/>
 
-                    <Grid Grid.Row="5">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                    <ListBox x:Name="RecordingsListBox" Grid.Row="5" ItemsSource="{Binding RecordingsList}"
+                             SelectionMode="Extended" Background="Transparent" BorderThickness="0"
+                             SelectionChanged="RecordingsListBox_SelectionChanged">
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <ContextMenu.Template>
+                                    <ControlTemplate TargetType="ContextMenu">
+                                        <Border Background="#1E1E2A" BorderBrush="#00AABB" BorderThickness="1" CornerRadius="6" Padding="4">
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="Black" BlurRadius="16" ShadowDepth="4" Opacity="0.6"/>
+                                            </Border.Effect>
+                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ContextMenu.Template>
+                                <MenuItem Click="OpenFolder_Click">
+                                    <MenuItem.Style>
+                                        <Style TargetType="MenuItem">
+                                            <Setter Property="Foreground" Value="#DDD"/>
+                                            <Setter Property="FontSize" Value="11"/>
+                                            <Setter Property="Padding" Value="8,6"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="MenuItem">
+                                                        <Border x:Name="bd" Background="Transparent" Padding="12,8" CornerRadius="4" Margin="2">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Path Data="M1,4 V18 H21 V7 H11 L9,4 Z" Stroke="#00AABB" StrokeThickness="1.2" Fill="Transparent"
+                                                                      Width="14" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                                <TextBlock Text="Abrir en Explorador" Foreground="#DDD" FontSize="11" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsHighlighted" Value="True">
+                                                                <Setter TargetName="bd" Property="Background" Value="#2A2A3A"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </MenuItem.Style>
+                                </MenuItem>
+                                <Separator Background="#333" Margin="8,2"/>
+                                <MenuItem Click="DeleteFiles_Click">
+                                    <MenuItem.Style>
+                                        <Style TargetType="MenuItem">
+                                            <Setter Property="Foreground" Value="#FF5555"/>
+                                            <Setter Property="FontSize" Value="11"/>
+                                            <Setter Property="Padding" Value="8,6"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="MenuItem">
+                                                        <Border x:Name="bd" Background="Transparent" Padding="12,8" CornerRadius="4" Margin="2">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Path Data="M3,6 H21 L19,22 H5 Z M1,4 H23 M9,1 H15 V4 H9 Z" Stroke="#FF5555" StrokeThickness="1.2" Fill="Transparent"
+                                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                                <TextBlock Text="Eliminar archivo(s)" Foreground="#FF5555" FontSize="11" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsHighlighted" Value="True">
+                                                                <Setter TargetName="bd" Property="Background" Value="#2A1A1A"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </MenuItem.Style>
+                                </MenuItem>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Bd" Padding="12,8" Cursor="Hand" Background="Transparent" BorderBrush="#1F1F1F" BorderThickness="0,0,0,1">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
 
-                        <ListBox x:Name="RecordingsListBox" Grid.Row="0" ItemsSource="{Binding RecordingsList}"
-                                 SelectionMode="Extended" Background="Transparent" BorderThickness="0"
-                                 SelectionChanged="RecordingsListBox_SelectionChanged">
-                            <ListBox.ContextMenu>
-                                <ContextMenu Background="#1E1E1E" BorderBrush="#444" BorderThickness="1">
-                                    <MenuItem Header="Eliminar archivo(s)" Click="DeleteFiles_Click" Foreground="#FF4444" FontSize="11">
-                                        <MenuItem.Icon>
-                                            <Path Data="M6,2 L8,0 H16 L18,2 H24 V4 H0 V2 Z M2,6 H22 L20,24 H4 Z"
-                                                  Fill="#FF4444" Stretch="Uniform" Width="12" Height="12"/>
-                                        </MenuItem.Icon>
-                                    </MenuItem>
-                                    <Separator Background="#333"/>
-                                    <MenuItem Header="Abrir carpeta" Click="OpenFolder_Click" Foreground="#AAA" FontSize="11">
-                                        <MenuItem.Icon>
-                                            <Path Data="M2,4 H10 L12,2 H22 V20 H2 Z"
-                                                  Fill="#888" Stretch="Uniform" Width="12" Height="12"/>
-                                        </MenuItem.Icon>
-                                    </MenuItem>
-                                </ContextMenu>
-                            </ListBox.ContextMenu>
-                            <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="ListBoxItem">
-                                                <Border x:Name="Bd" Padding="15,8" Cursor="Hand" Background="Transparent" BorderBrush="#222" BorderThickness="0,0,0,1">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                                        <Path Data="M0,0 L10,6 L0,12 Z" Fill="#444" Width="8" Height="10" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                                        <StackPanel Grid.Column="1">
-                                                            <TextBlock x:Name="FileTitle" Text="{Binding Name}" Foreground="#BBB" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Text="{Binding LastWriteTime, StringFormat='{}{0:HH:mm:ss}'}" Foreground="#555" FontSize="10" Margin="0,2,0,0"/>
-                                                        </StackPanel>
-                                                    </Grid>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsSelected" Value="True">
-                                                        <Setter TargetName="Bd" Property="Background" Value="#252526"/>
-                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="#00AABB"/>
-                                                        <Setter TargetName="FileTitle" Property="Foreground" Value="White"/>
-                                                    </Trigger>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="Bd" Property="Background" Value="#222"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </ListBox.ItemContainerStyle>
-                        </ListBox>
+                                                    <!-- File info -->
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock x:Name="FileTitle" Text="{Binding TimeText}" Foreground="#BBB" FontSize="12" FontFamily="Consolas" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding FileName}" Foreground="#555" FontSize="9" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
 
-                    </Grid>
-                    </Grid>
-                </Border>
+                                                    <!-- Duration badge -->
+                                                    <Border Grid.Column="1" Background="#0D1A15" CornerRadius="3" Padding="6,2" VerticalAlignment="Center"
+                                                            BorderBrush="#1A3A2A" BorderThickness="1">
+                                                        <TextBlock x:Name="DurText" Text="{Binding DurationText}" Foreground="#00AA66" FontSize="10" FontFamily="Consolas"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#1A2230"/>
+                                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#00AABB"/>
+                                                    <Setter TargetName="FileTitle" Property="Foreground" Value="#00DDEE"/>
+                                                    <Setter TargetName="DurText" Property="Foreground" Value="#00DDAA"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#1A1A24"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </Grid>
+            </Border>
 
             <!-- Main Player Area -->
             <Grid Grid.Column="1" Background="#121212">

@@ -12,7 +12,7 @@ namespace RadioLogger.Services
 
         public static void Initialize(string basePath)
         {
-            _basePath = Path.Combine(basePath, "RadioLogger", "Logs");
+            _basePath = Path.Combine(basePath, "Logs");
             if (!Directory.Exists(_basePath)) Directory.CreateDirectory(_basePath);
             Log(LogCategory.SYSTEM, "Servicio de Log Iniciado.");
         }

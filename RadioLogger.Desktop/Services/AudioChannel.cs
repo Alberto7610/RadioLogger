@@ -182,11 +182,27 @@ namespace RadioLogger.Services
             lock (_fileLock)
             {
                 _currentFileDate = DateTime.Now;
+
+                // Sanitize station name: remove invalid chars, path traversal, and clamp length
                 string safeStationName = string.Join("_", StationName.Split(Path.GetInvalidFileNameChars()));
-                
-                // New Structure: Root \ RadioLogger \ StationName
-                string folderPath = Path.Combine(_settings.RecordingBasePath, "RadioLogger", safeStationName);
-                
+                safeStationName = safeStationName.Replace("..", "").Replace("/", "").Replace("\\", "");
+                safeStationName = Path.GetFileName(safeStationName); // strip any remaining path components
+                if (string.IsNullOrWhiteSpace(safeStationName)) safeStationName = "Unknown";
+                if (safeStationName.Length > 100) safeStationName = safeStationName[..100];
+
+                // Structure: Root \ RadioLogger \ StationName \ dd-MMMM-yyyy
+                string dateFolder = _currentFileDate.ToString("dd-MMMM-yyyy", new System.Globalization.CultureInfo("es-MX"));
+                string folderPath = Path.Combine(_settings.RecordingBasePath, "RadioLogger", safeStationName, dateFolder);
+
+                // Verify the resolved path is within the expected base directory
+                string fullPath = Path.GetFullPath(folderPath);
+                string baseFull = Path.GetFullPath(Path.Combine(_settings.RecordingBasePath, "RadioLogger"));
+                if (!fullPath.StartsWith(baseFull, StringComparison.OrdinalIgnoreCase))
+                {
+                    LogService.Log(LogCategory.AUDIO, $"SEGURIDAD: Ruta sospechosa bloqueada: {fullPath}");
+                    return;
+                }
+
                 Directory.CreateDirectory(folderPath);
 
                 // Filename format: STATION-ddMMyy-HHmmss.mp3

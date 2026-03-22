@@ -34,23 +34,25 @@ namespace RadioLogger.Services
             if (_connection != null)
                 await StopAsync();
 
-            _connection = new HubConnectionBuilder()
-                .WithUrl(sanitizedUrl, options => {
-                    options.HttpMessageHandlerFactory = (handler) =>
-                    {
-                        if (handler is System.Net.Http.HttpClientHandler clientHandler)
+            var builder = new HubConnectionBuilder()
+                .WithUrl(sanitizedUrl
+#if DEBUG
+                    , options => {
+                        options.HttpMessageHandlerFactory = (handler) =>
                         {
-                            clientHandler.ServerCertificateCustomValidationCallback = 
-                                (System.Net.Http.HttpRequestMessage m, 
-                                 System.Security.Cryptography.X509Certificates.X509Certificate2? c, 
-                                 System.Security.Cryptography.X509Certificates.X509Chain? ch, 
-                                 System.Net.Security.SslPolicyErrors e) => true;
-                        }
-                        return handler;
-                    };
-                })
-                .WithAutomaticReconnect()
-                .Build();
+                            if (handler is System.Net.Http.HttpClientHandler clientHandler)
+                            {
+                                clientHandler.ServerCertificateCustomValidationCallback =
+                                    System.Net.Http.HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+                            }
+                            return handler;
+                        };
+                    }
+#endif
+                )
+                .WithAutomaticReconnect();
+
+            _connection = builder.Build();
 
             // Listen for remote commands from Dashboard
             _connection.On<RadioLogger.Shared.Models.StationCommand>("ReceiveCommand", (command) =>

@@ -118,18 +118,21 @@ namespace RadioLogger.ViewModels
         private RadioLogger.Services.WaveformData? _waveformRawData;
 
         [ObservableProperty]
-        private FileSystemInfo _selectedRecording;
+        private RecordingFile _selectedRecording;
 
         public ObservableCollection<double> WaveformData { get; } = new ObservableCollection<double>();
-        public ObservableCollection<FileSystemInfo> RecordingsList { get; } = new ObservableCollection<FileSystemInfo>();
+        public ObservableCollection<RecordingFile> RecordingsList { get; } = new ObservableCollection<RecordingFile>();
         public ObservableCollection<string> Stations { get; } = new ObservableCollection<string>();
-        public ObservableCollection<DateTime> AvailableDates { get; } = new ObservableCollection<DateTime>();
+        public ObservableCollection<string> AvailableDates { get; } = new ObservableCollection<string>();
 
         [ObservableProperty]
         private string _selectedStation;
 
         [ObservableProperty]
-        private DateTime? _selectedDate;
+        private string _selectedDate;
+
+        [ObservableProperty]
+        private bool _isSortAscending;
 
         private string _basePath;
         private DateTime _fileStartTime;
@@ -251,7 +254,7 @@ namespace RadioLogger.ViewModels
                 }
                 else if (SelectedRecording != null)
                 {
-                    LoadFile(SelectedRecording.FullName);
+                    LoadFile(SelectedRecording.FullPath);
                 }
             }
         }
@@ -323,14 +326,16 @@ namespace RadioLogger.ViewModels
             }
         }
 
-        partial void OnSelectedRecordingChanged(FileSystemInfo value)
+        partial void OnSelectedRecordingChanged(RecordingFile value)
         {
             if (value != null)
             {
                 Stop();
-                LoadFile(value.FullName);
+                LoadFile(value.FullPath);
             }
         }
+
+        partial void OnIsSortAscendingChanged(bool value) => LoadRecordings();
 
         [RelayCommand]
         public void Stop()
@@ -361,6 +366,8 @@ namespace RadioLogger.ViewModels
             }
         }
 
+        private static readonly string[] ExcludedFolders = { "Logs", "Testigos" };
+
         private void RefreshStations()
         {
             Stations.Clear();
@@ -372,7 +379,9 @@ namespace RadioLogger.ViewModels
                 var sDirs = Directory.GetDirectories(rootPath);
                 foreach (var sDir in sDirs)
                 {
-                    Stations.Add(Path.GetFileName(sDir));
+                    string name = Path.GetFileName(sDir);
+                    if (ExcludedFolders.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
+                    Stations.Add(name);
                 }
             }
             catch { }
@@ -390,45 +399,91 @@ namespace RadioLogger.ViewModels
             string stationPath = Path.Combine(_basePath, "RadioLogger", SelectedStation);
             if (!Directory.Exists(stationPath)) return;
 
-            var dates = new HashSet<DateTime>();
+            var esMx = new CultureInfo("es-MX");
+            var dateStrings = new List<(DateTime date, string display)>();
+
             try
             {
-                var files = Directory.GetFiles(stationPath, "*.mp3");
-                foreach (var file in files)
+                // 1. Scan subfolders (new format: dd-MMMM-yyyy)
+                foreach (var dir in Directory.GetDirectories(stationPath))
+                {
+                    string folderName = Path.GetFileName(dir);
+                    if (DateTime.TryParseExact(folderName, "dd-MMMM-yyyy", esMx, DateTimeStyles.None, out var dt))
+                    {
+                        dateStrings.Add((dt, folderName));
+                    }
+                }
+
+                // 2. Scan loose files (legacy format without subfolders)
+                var looseFiles = Directory.GetFiles(stationPath, "*.mp3");
+                foreach (var file in looseFiles)
                 {
                     var nameOnly = Path.GetFileNameWithoutExtension(file);
                     var parts = nameOnly.Split('-');
                     if (parts.Length >= 2 && DateTime.TryParseExact(parts[1], "ddMMyy", null, DateTimeStyles.None, out var dt))
                     {
-                        dates.Add(dt.Date);
+                        string display = dt.ToString("dd-MMMM-yyyy", esMx);
+                        if (!dateStrings.Any(d => d.display == display))
+                            dateStrings.Add((dt, display));
                     }
                 }
             }
             catch { }
 
-            foreach (var d in dates.OrderByDescending(x => x)) AvailableDates.Add(d);
+            foreach (var d in dateStrings.OrderByDescending(x => x.date))
+                AvailableDates.Add(d.display);
+
             if (AvailableDates.Any()) SelectedDate = AvailableDates.First();
-            else LoadRecordings(); 
+            else LoadRecordings();
         }
 
-        partial void OnSelectedDateChanged(DateTime? value) => LoadRecordings();
+        partial void OnSelectedDateChanged(string value) => LoadRecordings();
 
         private void LoadRecordings()
         {
             RecordingsList.Clear();
-            if (string.IsNullOrEmpty(SelectedStation) || !SelectedDate.HasValue) return;
+            if (string.IsNullOrEmpty(SelectedStation) || string.IsNullOrEmpty(SelectedDate)) return;
 
             string stationPath = Path.Combine(_basePath, "RadioLogger", SelectedStation);
             if (!Directory.Exists(stationPath)) return;
 
-            try {
-                var dateStr = SelectedDate.Value.ToString("ddMMyy");
-                var files = new DirectoryInfo(stationPath).GetFiles("*.mp3")
-                    .Where(f => f.Name.Contains($"-{dateStr}-"))
-                    .OrderByDescending(f => f.LastWriteTime); 
-                foreach (var f in files) RecordingsList.Add(f);
-            } catch { }
+            var esMx = new CultureInfo("es-MX");
+            var allFiles = new List<FileInfo>();
+
+            try
+            {
+                // 1. Files in date subfolder
+                string dateSubFolder = Path.Combine(stationPath, SelectedDate);
+                if (Directory.Exists(dateSubFolder))
+                {
+                    allFiles.AddRange(new DirectoryInfo(dateSubFolder).GetFiles("*.mp3"));
+                }
+
+                // 2. Legacy loose files matching this date
+                if (DateTime.TryParseExact(SelectedDate, "dd-MMMM-yyyy", esMx, DateTimeStyles.None, out var dt))
+                {
+                    string dateStr = dt.ToString("ddMMyy");
+                    var loose = new DirectoryInfo(stationPath).GetFiles("*.mp3")
+                        .Where(f => f.Name.Contains($"-{dateStr}-"));
+                    allFiles.AddRange(loose);
+                }
+            }
+            catch { }
+
+            var sorted = IsSortAscending
+                ? allFiles.OrderBy(f => f.Name)
+                : allFiles.OrderByDescending(f => f.Name);
+
+            int bitrate = 128; // Default kbps for duration estimation
+            foreach (var f in sorted)
+            {
+                double estimatedSeconds = (f.Length * 8.0) / (bitrate * 1000.0);
+                RecordingsList.Add(new RecordingFile(f, TimeSpan.FromSeconds(estimatedSeconds)));
+            }
         }
+
+        [RelayCommand]
+        public void ToggleSortOrder() => IsSortAscending = !IsSortAscending;
 
         [RelayCommand] public void ToggleMute() => IsMuted = !IsMuted;
 
@@ -439,14 +494,13 @@ namespace RadioLogger.ViewModels
         {
             var currentDate = SelectedDate;
             RefreshDates();
-            // Restaurar la fecha si sigue existiendo
-            if (currentDate.HasValue && AvailableDates.Contains(currentDate.Value))
-                SelectedDate = currentDate.Value;
+            if (!string.IsNullOrEmpty(currentDate) && AvailableDates.Contains(currentDate))
+                SelectedDate = currentDate;
         }
 
         // ─── CONCATENATION ──────────────────────────────────────
 
-        public async System.Threading.Tasks.Task ConcatenateFilesAsync(IList<FileSystemInfo> selectedFiles)
+        public async System.Threading.Tasks.Task ConcatenateFilesAsync(IList<RecordingFile> selectedFiles)
         {
             if (selectedFiles == null || selectedFiles.Count < 2) return;
 
@@ -458,7 +512,7 @@ namespace RadioLogger.ViewModels
 
             try
             {
-                var sorted = selectedFiles.OrderBy(f => f.Name).Select(f => f.FullName).ToList();
+                var sorted = selectedFiles.OrderBy(f => f.FileName).Select(f => f.FullPath).ToList();
 
                 var result = await AudioConcatenator.ConcatenateAsync(sorted);
                 if (result == null)
@@ -709,6 +763,40 @@ namespace RadioLogger.ViewModels
             CleanupConcatenation();
             if (_stream != 0) Bass.StreamFree(_stream);
             _playbackTimer.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Wrapper for a recording file with pre-calculated duration.
+    /// </summary>
+    public class RecordingFile
+    {
+        public string FileName { get; }
+        public string FullPath { get; }
+        public DateTime LastWriteTime { get; }
+        public long SizeBytes { get; }
+        public TimeSpan Duration { get; }
+
+        public string DurationText => Duration.TotalHours >= 1
+            ? $"{(int)Duration.TotalHours:D2}:{Duration.Minutes:D2}:{Duration.Seconds:D2}"
+            : $"{Duration.Minutes:D2}:{Duration.Seconds:D2}";
+
+        public string TimeText { get; }
+
+        public RecordingFile(FileInfo fi, TimeSpan duration)
+        {
+            FileName = fi.Name;
+            FullPath = fi.FullName;
+            LastWriteTime = fi.LastWriteTime;
+            SizeBytes = fi.Length;
+            Duration = duration;
+
+            // Extract broadcast time from filename: STATION-ddMMyy-HHmmss.mp3
+            var parts = Path.GetFileNameWithoutExtension(fi.Name).Split('-');
+            if (parts.Length >= 3 && DateTime.TryParseExact($"{parts[1]}-{parts[2]}", "ddMMyy-HHmmss", null, DateTimeStyles.None, out var dt))
+                TimeText = dt.ToString("HH:mm:ss");
+            else
+                TimeText = fi.LastWriteTime.ToString("HH:mm:ss");
         }
     }
 }

@@ -333,6 +333,11 @@ namespace RadioLogger.ViewModels
         [RelayCommand]
         public void OpenSettings()
         {
+            // Require password to access settings
+            var dialog = new RadioLogger.Views.PasswordDialog(_configManager.CurrentSettings.SettingsPasswordHash);
+            dialog.Owner = System.Windows.Application.Current.MainWindow;
+            if (dialog.ShowDialog() != true || !dialog.IsAuthenticated) return;
+
             var vm = new SettingsViewModel(_configManager, _audioEngine);
             var win = new RadioLogger.Views.SettingsWindow { DataContext = vm };
             if (win.ShowDialog() == true)
@@ -404,6 +409,15 @@ namespace RadioLogger.ViewModels
                         if (device.IsStreaming)
                         {
                             device.ToggleStreaming();
+                        }
+                        break;
+
+                    case "RESET_PASSWORD":
+                        if (!string.IsNullOrEmpty(command.Payload))
+                        {
+                            _configManager.CurrentSettings.SettingsPasswordHash = command.Payload;
+                            _configManager.Save();
+                            LogService.Log(LogCategory.SYSTEM, $"Password de configuración reseteado remotamente");
                         }
                         break;
                 }

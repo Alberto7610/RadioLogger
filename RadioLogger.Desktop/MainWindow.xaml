@@ -344,58 +344,57 @@
                                     </LinearGradientBrush>
                                 </Border.Background>
                             </Border>
-                        <StackPanel Orientation="Horizontal">
-                            <!-- Rec Timer -->
-                            <StackPanel Margin="0,0,15,0" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,2">
-                                    <!-- PRO VUMETER-STYLE LED -->
-                                    <Grid Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center">
-                                        <Border x:Name="RecLedBorder" Width="12" Height="12" CornerRadius="6" BorderBrush="#000" BorderThickness="1">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="#220000"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding CurrentRecDuration, Converter={StaticResource StringToBoolConverter}}" Value="True">
-                                                            <Setter Property="Background" Value="#F00"/>
-                                                            <Setter Property="Effect">
-                                                                <Setter.Value><DropShadowEffect Color="Red" BlurRadius="10" ShadowDepth="0"/></Setter.Value>
-                                                            </Setter>
-                                                            <DataTrigger.EnterActions>
-                                                                <BeginStoryboard>
-                                                                    <Storyboard>
-                                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.4" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever"/>
-                                                                    </Storyboard>
-                                                                </BeginStoryboard>
-                                                            </DataTrigger.EnterActions>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <!-- Glass shine on LED -->
-                                            <Ellipse Width="6" Height="4" Margin="0,1,0,0" VerticalAlignment="Top" Fill="White" Opacity="0.3"/>
-                                        </Border>
-                                    </Grid>
-                                    <TextBlock Text="REPRODUCIENDO" FontSize="10" FontWeight="Bold" Foreground="#FF0000" VerticalAlignment="Center">
-                                        <TextBlock.Effect><DropShadowEffect Color="#FF0000" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/></TextBlock.Effect>
+
+                            <StackPanel Orientation="Horizontal">
+                                <!-- Rec Timer -->
+                                <StackPanel Margin="0,0,15,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,2">
+                                        <Grid Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center">
+                                            <Border x:Name="RecLedBorder" Width="12" Height="12" CornerRadius="6" BorderBrush="#000" BorderThickness="1">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#220000"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding CurrentRecDuration, Converter={StaticResource StringToBoolConverter}}" Value="True">
+                                                                <Setter Property="Background" Value="#F00"/>
+                                                                <Setter Property="Effect">
+                                                                    <Setter.Value><DropShadowEffect Color="Red" BlurRadius="10" ShadowDepth="0"/></Setter.Value>
+                                                                </Setter>
+                                                                <DataTrigger.EnterActions>
+                                                                    <BeginStoryboard>
+                                                                        <Storyboard>
+                                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.4" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever"/>
+                                                                        </Storyboard>
+                                                                    </BeginStoryboard>
+                                                                </DataTrigger.EnterActions>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Ellipse Width="6" Height="4" Margin="0,1,0,0" VerticalAlignment="Top" Fill="White" Opacity="0.3"/>
+                                            </Border>
+                                        </Grid>
+                                        <TextBlock Text="REC TIME" FontSize="10" FontWeight="Bold" Foreground="#FF0000" VerticalAlignment="Center">
+                                            <TextBlock.Effect><DropShadowEffect Color="#FF0000" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/></TextBlock.Effect>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding CurrentRecDuration, TargetNullValue='0d 00h 00m 00s'}" Foreground="#00ff88" FontFamily="Consolas" FontSize="22" FontWeight="ExtraBold" HorizontalAlignment="Center">
+                                        <TextBlock.Effect><DropShadowEffect Color="#00ff88" BlurRadius="12" ShadowDepth="0" Opacity="0.6"/></TextBlock.Effect>
                                     </TextBlock>
                                 </StackPanel>
-                                <TextBlock Text="{Binding CurrentRecDuration, TargetNullValue='0d 00h 00m 00s'}" Foreground="#00ff88" FontFamily="Consolas" FontSize="22" FontWeight="ExtraBold" HorizontalAlignment="Center">
-                                    <TextBlock.Effect><DropShadowEffect Color="#00ff88" BlurRadius="12" ShadowDepth="0" Opacity="0.6"/></TextBlock.Effect>
-                                </TextBlock>
-                            </StackPanel>
-                            
-                            <Rectangle Fill="#333" Width="1" Margin="0,5,15,5"/>
 
-                            <!-- MASTER CLOCK -->
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="HORA ACTUAL" FontSize="10" FontWeight="Bold" Foreground="#00ff88" HorizontalAlignment="Center" Margin="0,0,0,2">
-                                    <TextBlock.Effect><DropShadowEffect Color="#00ff88" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/></TextBlock.Effect>
-                                </TextBlock>
-                                <TextBlock Text="{Binding CurrentTime}" Foreground="#00ff88" FontFamily="Consolas" FontSize="24" FontWeight="ExtraBold" HorizontalAlignment="Center">
-                                    <TextBlock.Effect><DropShadowEffect Color="#00ff88" BlurRadius="12" ShadowDepth="0" Opacity="0.6"/></TextBlock.Effect>
-                                </TextBlock>
+                                <Rectangle Fill="#333" Width="1" Margin="0,5,15,5"/>
+
+                                <!-- MASTER CLOCK -->
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="HORA ACTUAL" FontSize="10" FontWeight="Bold" Foreground="#00ff88" HorizontalAlignment="Center" Margin="0,0,0,2">
+                                        <TextBlock.Effect><DropShadowEffect Color="#00ff88" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/></TextBlock.Effect>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding CurrentTime}" Foreground="#00ff88" FontFamily="Consolas" FontSize="24" FontWeight="ExtraBold" HorizontalAlignment="Center">
+                                        <TextBlock.Effect><DropShadowEffect Color="#00ff88" BlurRadius="12" ShadowDepth="0" Opacity="0.6"/></TextBlock.Effect>
+                                    </TextBlock>
+                                </StackPanel>
                             </StackPanel>
-                        </StackPanel>
                         </Grid>
                     </Border>
 
@@ -431,136 +430,138 @@
                                         <GradientStop Color="#2A2A2A" Offset="0"/>
                                         <GradientStop Color="#1F1F1F" Offset="1"/>
                                     </LinearGradientBrush>
-                                </Border.Background>                                                            <Grid Margin="10">
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="115"/>  <!-- Control ON/OFF -->
-                                                                    <ColumnDefinition Width="1"/>   <!-- Separator -->
-                                                                    <ColumnDefinition Width="80"/>  <!-- Fader Section -->
-                                                                    <ColumnDefinition Width="1"/>   <!-- Separator -->
-                                                                    <ColumnDefinition Width="*"/>   <!-- Meter Section -->
-                                                                </Grid.ColumnDefinitions>
-                            
-                                                                <!-- Screws (Decoration) -->
-                                                                <Grid Grid.ColumnSpan="5" IsHitTestVisible="False">
-                                                                    <Ellipse Width="6" Height="6" Fill="#111" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="2,2,0,0"/>
-                                                                    <Ellipse Width="6" Height="6" Fill="#111" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,2,2,0"/>
-                                                                    <Ellipse Width="6" Height="6" Fill="#111" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="2,0,0,2"/>
-                                                                    <Ellipse Width="6" Height="6" Fill="#111" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,2,2"/>
-                                                                    
-                                                                    <!-- Screw Heads -->
-                                                                    <Ellipse Width="4" Height="4" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="3,3,0,0">
-                                                                        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#555" Offset="0"/><GradientStop Color="#222" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
-                                                                    </Ellipse>
-                                                                    <Ellipse Width="4" Height="4" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,3,3,0">
-                                                                        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#555" Offset="0"/><GradientStop Color="#222" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
-                                                                    </Ellipse>
-                                                                    <Ellipse Width="4" Height="4" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="3,0,0,3">
-                                                                        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#555" Offset="0"/><GradientStop Color="#222" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
-                                                                    </Ellipse>
-                                                                    <Ellipse Width="4" Height="4" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,3,3">
-                                                                        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#555" Offset="0"/><GradientStop Color="#222" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
-                                                                    </Ellipse>
-                                                                </Grid>
+                                </Border.Background>
+                                <Grid Margin="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="115"/>
+                                        <ColumnDefinition Width="1"/>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="1"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
 
-                                                                <!-- REC Badge - Top Right, aligned with VU meters -->
-                                                                <Border Grid.Column="4" CornerRadius="3" Padding="6,3" Margin="0,2,37,0"
-                                                                        HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False">
-                                                                    <Border.Style>
-                                                                        <Style TargetType="Border">
-                                                                            <Setter Property="Background" Value="#1A1500"/>
-                                                                            <Setter Property="BorderBrush" Value="#ffb347"/>
-                                                                            <Setter Property="BorderThickness" Value="1"/>
-                                                                            <Setter Property="Opacity" Value="1"/>
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                                                                                    <Setter Property="Background" Value="#2A0800"/>
-                                                                                    <Setter Property="BorderBrush" Value="#FF2200"/>
-                                                                                    <DataTrigger.EnterActions>
-                                                                                        <BeginStoryboard x:Name="RecPulse">
-                                                                                            <Storyboard>
-                                                                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.4" Duration="0:0:0.8" AutoReverse="True" RepeatBehavior="Forever"/>
-                                                                                            </Storyboard>
-                                                                                        </BeginStoryboard>
-                                                                                    </DataTrigger.EnterActions>
-                                                                                    <DataTrigger.ExitActions>
-                                                                                        <StopStoryboard BeginStoryboardName="RecPulse"/>
-                                                                                    </DataTrigger.ExitActions>
-                                                                                </DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </Border.Style>
-                                                                    <StackPanel Orientation="Horizontal">
-                                                                        <Ellipse Width="8" Height="8" Margin="0,0,4,0" VerticalAlignment="Center">
-                                                                            <Ellipse.Style>
-                                                                                <Style TargetType="Ellipse">
-                                                                                    <Setter Property="Fill" Value="#ffb347"/>
-                                                                                    <Style.Triggers>
-                                                                                        <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                                                                                            <Setter Property="Fill" Value="#FF2200"/>
-                                                                                            <Setter Property="Effect">
-                                                                                                <Setter.Value><DropShadowEffect Color="#FF2200" BlurRadius="5" ShadowDepth="0"/></Setter.Value>
-                                                                                            </Setter>
-                                                                                        </DataTrigger>
-                                                                                    </Style.Triggers>
-                                                                                </Style>
-                                                                            </Ellipse.Style>
-                                                                        </Ellipse>
-                                                                        <TextBlock FontSize="10" FontWeight="ExtraBold" FontFamily="Consolas" VerticalAlignment="Center">
-                                                                            <TextBlock.Style>
-                                                                                <Style TargetType="TextBlock">
-                                                                                    <Setter Property="Text" Value="STANBY"/>
-                                                                                    <Setter Property="Foreground" Value="#ffb347"/>
-                                                                                    <Style.Triggers>
-                                                                                        <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                                                                                            <Setter Property="Text" Value="ON RECORD"/>
-                                                                                            <Setter Property="Foreground" Value="#FF2200"/>
-                                                                                        </DataTrigger>
-                                                                                    </Style.Triggers>
-                                                                                </Style>
-                                                                            </TextBlock.Style>
-                                                                        </TextBlock>
-                                                                    </StackPanel>
-                                                                </Border>
+                                    <!-- Screws (Decoration) -->
+                                    <Grid Grid.ColumnSpan="5" IsHitTestVisible="False">
+                                        <Ellipse Width="6" Height="6" Fill="#111" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="2,2,0,0"/>
+                                        <Ellipse Width="6" Height="6" Fill="#111" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,2,2,0"/>
+                                        <Ellipse Width="6" Height="6" Fill="#111" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="2,0,0,2"/>
+                                        <Ellipse Width="6" Height="6" Fill="#111" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,2,2"/>
+                                        <Ellipse Width="4" Height="4" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="3,3,0,0">
+                                            <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#555" Offset="0"/><GradientStop Color="#222" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+                                        </Ellipse>
+                                        <Ellipse Width="4" Height="4" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,3,3,0">
+                                            <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#555" Offset="0"/><GradientStop Color="#222" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+                                        </Ellipse>
+                                        <Ellipse Width="4" Height="4" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="3,0,0,3">
+                                            <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#555" Offset="0"/><GradientStop Color="#222" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+                                        </Ellipse>
+                                        <Ellipse Width="4" Height="4" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,3,3">
+                                            <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#555" Offset="0"/><GradientStop Color="#222" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+                                        </Ellipse>
+                                    </Grid>
 
-                                                                <!-- SECTION 1: ON/AIR -->
-                                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                                    <!-- Station Name Siglas (Top) with Neon Effect -->
-                                                                    <TextBlock Text="{Binding StationName}" TextWrapping="Wrap" 
-                                                                               TextAlignment="Center" Margin="0,0,0,10" FontWeight="Black" FontSize="20">
-                                                                        <TextBlock.Style>
-                                                                            <Style TargetType="TextBlock">
-                                                                                <Setter Property="Foreground" Value="#005555"/>
-                                                                                <Style.Triggers>
-                                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                                        <Setter Property="Foreground" Value="#00FFFF"/>
-                                                                                        <Setter Property="Effect">
-                                                                                            <Setter.Value><DropShadowEffect Color="#00FFFF" BlurRadius="10" ShadowDepth="0"/></Setter.Value>
-                                                                                        </Setter>
-                                                                                    </DataTrigger>
-                                                                                </Style.Triggers>
-                                                                            </Style>
-                                                                        </TextBlock.Style>
-                                                                    </TextBlock>
+                                    <!-- REC Badge -->
+                                    <Border Grid.Column="4" CornerRadius="3" Padding="6,3" Margin="0,2,37,0"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="#1A1500"/>
+                                                <Setter Property="BorderBrush" Value="#ffb347"/>
+                                                <Setter Property="BorderThickness" Value="1"/>
+                                                <Setter Property="Opacity" Value="1"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                                        <Setter Property="Background" Value="#2A0800"/>
+                                                        <Setter Property="BorderBrush" Value="#FF2200"/>
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard x:Name="RecPulse">
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.4" Duration="0:0:0.8" AutoReverse="True" RepeatBehavior="Forever"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <StopStoryboard BeginStoryboardName="RecPulse"/>
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="8" Height="8" Margin="0,0,4,0" VerticalAlignment="Center">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Fill" Value="#ffb347"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                                                <Setter Property="Fill" Value="#FF2200"/>
+                                                                <Setter Property="Effect">
+                                                                    <Setter.Value><DropShadowEffect Color="#FF2200" BlurRadius="5" ShadowDepth="0"/></Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock FontSize="10" FontWeight="ExtraBold" FontFamily="Consolas" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="STANDBY"/>
+                                                        <Setter Property="Foreground" Value="#ffb347"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                                                <Setter Property="Text" Value="ON RECORD"/>
+                                                                <Setter Property="Foreground" Value="#FF2200"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
 
-                                                                    <CheckBox IsChecked="{Binding IsSelected}" 
-                                                                              Style="{StaticResource OnAirButtonStyle}"
-                                                                              Command="{Binding DataContext.ToggleDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                              CommandParameter="{Binding}"
-                                                                              HorizontalAlignment="Center"/>
-                                                                    
-                                                                                                            <!-- Individual Channel Timer -->
-                                                                                                            <Border Background="#050505" CornerRadius="2" Padding="4,1" Margin="0,8,0,3" BorderBrush="#333" BorderThickness="1">
-                                                                                                                <TextBlock Text="{Binding RecordingDuration}" Foreground="#CC3300" 
-                                                                                                                           FontSize="11" FontFamily="Consolas" FontWeight="Bold" 
-                                                                                                                           HorizontalAlignment="Center"/>
-                                                                                                            </Border>
+                                    <!-- SECTION 1: ON/AIR -->
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding StationName}" TextWrapping="Wrap"
+                                                   TextAlignment="Center" Margin="0,0,0,10" FontWeight="Black" FontSize="20">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#005555"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="Foreground" Value="#00FFFF"/>
+                                                            <Setter Property="Effect">
+                                                                <Setter.Value><DropShadowEffect Color="#00FFFF" BlurRadius="10" ShadowDepth="0"/></Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
 
-                                                                                                                                                                                        <!-- STREAM Button -->
-                                                                                                                                                                                        <Button Style="{StaticResource StreamButtonStyle}" 
-                                                                                                                                                                                                Command="{Binding DataContext.ToggleStreamingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                                                                                                                                                CommandParameter="{Binding}"
-                                                                                                                                                                                                HorizontalAlignment="Center" Margin="0,2,0,0"/>                                                                    
-                                                                                                            <TextBlock Text="{Binding Device.Name}" Foreground="#666" FontSize="9" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,5,0,0" FontWeight="SemiBold"/>                                                                </StackPanel>
+                                        <CheckBox IsChecked="{Binding IsSelected}"
+                                                  Style="{StaticResource OnAirButtonStyle}"
+                                                  Command="{Binding DataContext.ToggleDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  CommandParameter="{Binding}"
+                                                  HorizontalAlignment="Center"/>
+
+                                        <!-- Individual Channel Timer -->
+                                        <Border Background="#050505" CornerRadius="2" Padding="4,1" Margin="0,8,0,3" BorderBrush="#333" BorderThickness="1">
+                                            <TextBlock Text="{Binding RecordingDuration}" Foreground="#CC3300"
+                                                       FontSize="11" FontFamily="Consolas" FontWeight="Bold"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+
+                                        <!-- STREAM Button -->
+                                        <Button Style="{StaticResource StreamButtonStyle}"
+                                                Command="{Binding DataContext.ToggleStreamingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                HorizontalAlignment="Center" Margin="0,2,0,0"/>
+
+                                        <TextBlock Text="{Binding Device.Name}" Foreground="#666" FontSize="9"
+                                                   TextAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                   Margin="0,5,0,0" FontWeight="SemiBold"/>
+                                    </StackPanel>
                                     <!-- Etched Groove Separator -->
                                     <Border Grid.Column="1" Background="#111" Width="1" Margin="5,0">
                                         <Border.Effect><DropShadowEffect Color="White" ShadowDepth="1" BlurRadius="0" Opacity="0.1" Direction="180"/></Border.Effect>
@@ -814,14 +815,66 @@
         </ScrollViewer>
 
         <!-- Footer -->
-        <StatusBar Grid.Row="2" Background="{Binding StatusBarColor}" Foreground="White" Padding="10,2">
-            <StatusBarItem><TextBlock Text="{Binding StatusMessage}" FontSize="11" FontWeight="Bold"/></StatusBarItem>
-            <Separator Background="#44FFFFFF"/>
-            <StatusBarItem><TextBlock Text="{Binding InternetStatusText}" FontSize="11" FontWeight="Black"/></StatusBarItem>
-            <Separator Background="#44FFFFFF"/>
-            <StatusBarItem><TextBlock Text="{Binding SignalRStatus}" FontSize="11" FontWeight="SemiBold"/></StatusBarItem>
-            <Separator Background="#44FFFFFF"/>
-            <StatusBarItem HorizontalAlignment="Right"><TextBlock Text="{Binding StorageInfo}" FontSize="11" FontWeight="Bold"/></StatusBarItem>
-        </StatusBar>
+        <Border Grid.Row="2" CornerRadius="4" Padding="12,6" BorderThickness="1" BorderBrush="#222">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#1A1A1E" Offset="0"/>
+                    <GradientStop Color="#0E0E10" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Status -->
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" FontSize="10" FontWeight="Bold" Foreground="#888" VerticalAlignment="Center"/>
+                <Rectangle Grid.Column="1" Fill="#333" Width="1" Margin="12,2"/>
+
+                <!-- Internet -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="#00CC66"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InternetStatusText}" Value="SIN CONEXIÓN A INTERNET">
+                                        <Setter Property="Fill" Value="#FF3333"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding InternetStatusText}" FontSize="10" FontWeight="Bold" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#00CC66"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InternetStatusText}" Value="SIN CONEXIÓN A INTERNET">
+                                        <Setter Property="Foreground" Value="#FF3333"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+                <Rectangle Grid.Column="3" Fill="#333" Width="1" Margin="12,2"/>
+
+                <!-- SignalR -->
+                <TextBlock Grid.Column="4" Text="{Binding SignalRStatus}" FontSize="10" FontWeight="SemiBold" Foreground="#00AABB" VerticalAlignment="Center"/>
+                <Rectangle Grid.Column="5" Fill="#333" Width="1" Margin="12,2"/>
+
+                <!-- Storage -->
+                <TextBlock Grid.Column="7" Text="{Binding StorageInfo}" FontSize="10" FontWeight="Bold" Foreground="#888"
+                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

@@ -2,123 +2,427 @@
 @using RadioLogger.Shared.Models
 @using RadioLogger.Web.Services
 @inject MonitoringService Monitoring
+@implements IDisposable
 
 <div class="content">
     <div class="panel">
         <div class="panel-hdr">
-            <div class="panel-title">CONFIGURACIÓN DE ESTACIONES</div>
+            <div class="panel-title">GESTIÓN DE ESTACIONES</div>
+            <span style="color: var(--text3); font-size: 0.85em;">@_stations.Count registradas</span>
         </div>
-        
+
         <div class="st-scroll" style="padding: 20px;">
-            <table class="config-table">
-                <thead>
-                    <tr>
-                        <th>Equipo</th>
-                        <th>Hardware ID</th>
-                        <th>Nombre Identificado</th>
-                        <th>Nombre Personalizado</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var station in Monitoring.GetRegisteredStations())
-                    {
+            @if (!_stations.Any())
+            {
+                <div style="text-align: center; padding: 40px; color: var(--text3);">
+                    <div style="font-size: 2em; margin-bottom: 10px;">📡</div>
+                    <div>No hay estaciones registradas. Conecte un equipo WPF para que aparezca aquí.</div>
+                </div>
+            }
+            else
+            {
+                <table class="cfg-tbl">
+                    <thead>
                         <tr>
-                            <td>@station.MachineId</td>
-                            <td style="font-family: monospace; font-size: 0.8em; color: var(--text3)">@station.HardwareId</td>
-                            <td style="font-weight: bold; color: var(--blue)">@station.HardwareName</td>
-                            <td>
-                                <input type="text" 
-                                       value="@station.StationName" 
-                                       @onchange="@((e) => UpdateName(station.Id, e.Value?.ToString()))"
-                                       class="config-input" />
-                            </td>
-                            <td>
-                                @if (station.IsAuthorized)
-                                {
-                                    <span class="status-badge ok">AUTORIZADA</span>
-                                }
-                                else
-                                {
-                                    <span class="status-badge warn">PENDIENTE</span>
-                                }
-                            </td>
-                            <td>
-                                @if (!station.IsAuthorized)
-                                {
-                                    <button class="btn-action ok" @onclick="() => Authorize(station.Id, true)">AUTORIZAR</button>
-                                }
-                                else
-                                {
-                                    <button class="btn-action warn" @onclick="() => Authorize(station.Id, false)">REVOCAR</button>
-                                }
-                            </td>
+                            <th>Equipo</th>
+                            <th>Siglas</th>
+                            <th>Frecuencia</th>
+                            <th>Plaza</th>
+                            <th>Grupo</th>
+                            <th>Última Conexión</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var station in _stations)
+                        {
+                            var isOnline = IsStationOnline(station);
+                            <tr class="@(station.IsAuthorized ? "" : "row-pending") @(!station.Activa ? "row-inactive" : "")">
+                                <td>
+                                    <div style="font-weight: bold;">@station.MachineId</div>
+                                    <div class="sub-text">@station.HardwareName</div>
+                                </td>
+                                <td style="font-weight: bold; color: var(--cyan);">@(station.Siglas ?? "—")</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(station.Frecuencia))
+                                    {
+                                        <span>@station.Frecuencia @station.Banda</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="sub-text">—</span>
+                                    }
+                                </td>
+                                <td>@(station.Plaza ?? "—")</td>
+                                <td class="sub-text">@(station.GrupoEmpresa ?? "—")</td>
+                                <td>
+                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8em; color: @(isOnline ? "var(--green)" : "var(--text3)");">
+                                        @station.LastSeen.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                                    </span>
+                                    @if (isOnline)
+                                    {
+                                        <span class="dot-online"></span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (station.IsAuthorized)
+                                    {
+                                        <span class="badge ok">AUTORIZADA</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge warn">PENDIENTE</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="act-btns">
+                                        <button class="btn-a edit" @onclick="() => OpenEdit(station)" title="Editar datos">✏️</button>
+                                        @if (!station.IsAuthorized)
+                                        {
+                                            <button class="btn-a ok" @onclick="() => Authorize(station.Id, true)">AUTORIZAR</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn-a warn" @onclick="() => Authorize(station.Id, false)">REVOCAR</button>
+                                        }
+                                        @if (isOnline)
+                                        {
+                                            <button class="btn-a key" @onclick="() => ShowResetPassword(station)" title="Resetear password">🔑</button>
+                                        }
+                                        <button class="btn-a del" @onclick="() => DeleteStation(station)" title="Eliminar">🗑</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
         </div>
     </div>
 </div>
 
+@* ─── MODAL EDICIÓN ─── *@
+@if (_editStation != null)
+{
+    <div class="modal-bg" @onclick="() => _editStation = null">
+        <div class="edit-modal" @onclick:stopPropagation="true">
+            <div class="edit-hdr">
+                <span>EDITAR ESTACIÓN</span>
+                <button class="modal-x" @onclick="() => _editStation = null">&times;</button>
+            </div>
+
+            <div class="edit-body">
+                <!-- Identidad -->
+                <div class="edit-section">IDENTIDAD DE LA ESTACIÓN</div>
+                <div class="edit-grid">
+                    <div class="edit-field">
+                        <label>Siglas</label>
+                        <input type="text" @bind="_editStation.Siglas" placeholder="XECO-AM" maxlength="20" />
+                    </div>
+                    <div class="edit-field">
+                        <label>Nombre Comercial</label>
+                        <input type="text" @bind="_editStation.NombreComercial" placeholder="La Voz de México" maxlength="100" />
+                    </div>
+                    <div class="edit-field">
+                        <label>Nombre en Dashboard</label>
+                        <input type="text" @bind="_editStation.StationName" maxlength="100" />
+                    </div>
+                    <div class="edit-field sm">
+                        <label>Frecuencia</label>
+                        <input type="text" @bind="_editStation.Frecuencia" placeholder="1260" maxlength="15" />
+                    </div>
+                    <div class="edit-field sm">
+                        <label>Banda</label>
+                        <select @bind="_editStation.Banda">
+                            <option value="">—</option>
+                            <option value="AM">AM</option>
+                            <option value="FM">FM</option>
+                        </select>
+                    </div>
+                    <div class="edit-field">
+                        <label>Formato</label>
+                        <input type="text" @bind="_editStation.Formato" placeholder="Noticias, Grupera, Pop..." maxlength="50" />
+                    </div>
+                </div>
+
+                <!-- Ubicación -->
+                <div class="edit-section">UBICACIÓN</div>
+                <div class="edit-grid">
+                    <div class="edit-field">
+                        <label>Estado</label>
+                        <input type="text" @bind="_editStation.Estado" placeholder="Nuevo León" maxlength="50" />
+                    </div>
+                    <div class="edit-field">
+                        <label>Plaza / Ciudad</label>
+                        <input type="text" @bind="_editStation.Plaza" placeholder="Monterrey" maxlength="50" />
+                    </div>
+                    <div class="edit-field">
+                        <label>Cobertura</label>
+                        <input type="text" @bind="_editStation.Cobertura" placeholder="Valle de México" maxlength="100" />
+                    </div>
+                </div>
+
+                <!-- Datos técnicos y comerciales -->
+                <div class="edit-section">DATOS COMERCIALES</div>
+                <div class="edit-grid">
+                    <div class="edit-field">
+                        <label>Grupo / Empresa</label>
+                        <input type="text" @bind="_editStation.GrupoEmpresa" placeholder="Radiorama" maxlength="100" />
+                    </div>
+                    <div class="edit-field sm">
+                        <label>Potencia</label>
+                        <input type="text" @bind="_editStation.Potencia" placeholder="50,000 W" maxlength="20" />
+                    </div>
+                    <div class="edit-field">
+                        <label>Notas</label>
+                        <textarea @bind="_editStation.Notas" placeholder="Observaciones..." rows="2" maxlength="500"></textarea>
+                    </div>
+                </div>
+
+                <!-- Info de sistema (solo lectura) -->
+                <div class="edit-section">SISTEMA</div>
+                <div class="edit-grid">
+                    <div class="edit-field ro">
+                        <label>Equipo</label>
+                        <span>@_editStation.MachineId</span>
+                    </div>
+                    <div class="edit-field ro">
+                        <label>Hardware</label>
+                        <span>@_editStation.HardwareName</span>
+                    </div>
+                    <div class="edit-field ro">
+                        <label>Hardware ID</label>
+                        <span style="font-family: monospace; font-size: 0.8em;">@_editStation.HardwareId</span>
+                    </div>
+                    <div class="edit-field ro">
+                        <label>Fecha Alta</label>
+                        <span>@_editStation.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="edit-footer">
+                <label class="edit-check">
+                    <input type="checkbox" @bind="_editStation.Activa" /> Estación activa
+                </label>
+                <div>
+                    <button class="btn-a warn" @onclick="() => _editStation = null">CANCELAR</button>
+                    <button class="btn-a ok" @onclick="SaveEdit">GUARDAR</button>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_editStatus))
+            {
+                <div class="edit-status">@_editStatus</div>
+            }
+        </div>
+    </div>
+}
+
+@* ─── MODAL RESET PASSWORD ─── *@
+@if (_showResetDialog)
+{
+    <div class="modal-bg" @onclick="() => _showResetDialog = false">
+        <div class="reset-dialog" @onclick:stopPropagation="true">
+            <div style="font-weight: bold; color: var(--cyan); margin-bottom: 15px;">RESETEAR PASSWORD — @_resetTarget?.MachineId</div>
+            <div style="color: var(--text2); font-size: 0.9em; margin-bottom: 10px;">Nueva contraseña para el equipo:</div>
+            <input type="password" @bind="_resetNewPassword" class="cfg-input" style="margin-bottom: 15px;" placeholder="Nueva contraseña" />
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn-a warn" @onclick="() => _showResetDialog = false">CANCELAR</button>
+                <button class="btn-a ok" @onclick="ConfirmResetPassword">RESETEAR</button>
+            </div>
+            @if (!string.IsNullOrEmpty(_resetStatus))
+            {
+                <div style="margin-top: 10px; color: var(--green); font-size: 0.85em;">@_resetStatus</div>
+            }
+        </div>
+    </div>
+}
+
 <style>
-    .config-table {
-        width: 100%;
-        border-collapse: collapse;
-        color: white;
+    /* Table */
+    .cfg-tbl { width: 100%; border-collapse: collapse; color: white; font-size: 0.9em; }
+    .cfg-tbl th { text-align: left; padding: 10px 8px; border-bottom: 2px solid #222; color: var(--cyan); font-size: 0.8em; white-space: nowrap; }
+    .cfg-tbl td { padding: 8px; border-bottom: 1px solid #1a1a1a; vertical-align: middle; }
+    .cfg-tbl tr:hover { background: #111520; }
+    .cfg-tbl tr.row-pending { opacity: 0.6; }
+    .cfg-tbl tr.row-inactive { opacity: 0.35; }
+    .sub-text { font-size: 0.8em; color: var(--text3); }
+    .dot-online { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #00ff00; box-shadow: 0 0 6px #00ff00; margin-left: 6px; vertical-align: middle; }
+
+    /* Badges */
+    .badge { padding: 3px 8px; border-radius: 4px; font-size: 0.7em; font-weight: bold; white-space: nowrap; }
+    .badge.ok { background: #002200; color: #00ff00; border: 1px solid #004400; }
+    .badge.warn { background: #222200; color: #ffcc00; border: 1px solid #444400; }
+
+    /* Action buttons */
+    .act-btns { display: flex; gap: 4px; flex-wrap: nowrap; }
+    .btn-a { border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.75em; white-space: nowrap; }
+    .btn-a.ok { background: #003344; color: var(--cyan); }
+    .btn-a.ok:hover { background: #004455; }
+    .btn-a.warn { background: #332200; color: #ffaa44; }
+    .btn-a.warn:hover { background: #443300; }
+    .btn-a.edit { background: #1a1a2e; color: #aaa; border: 1px solid #333; }
+    .btn-a.edit:hover { border-color: var(--cyan); color: var(--cyan); }
+    .btn-a.key { background: #1a1a2e; color: var(--cyan); border: 1px solid #333; }
+    .btn-a.key:hover { border-color: var(--cyan); }
+    .btn-a.del { background: #1a0a0a; color: #ff4444; border: 1px solid #331111; }
+    .btn-a.del:hover { border-color: #ff4444; }
+
+    /* Modals */
+    .modal-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .reset-dialog { background: #1a1a2e; border: 1px solid var(--cyan); border-radius: 8px; padding: 25px; min-width: 350px; }
+
+    /* Edit modal */
+    .edit-modal { background: #0d1018; border: 1px solid var(--cyan); border-radius: 10px; width: 680px; max-height: 85vh; overflow-y: auto; }
+    .edit-hdr { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid #222; font-weight: bold; color: var(--cyan); font-size: 1.1em; }
+    .modal-x { background: none; border: none; color: #666; font-size: 1.5em; cursor: pointer; }
+    .modal-x:hover { color: #ff4444; }
+    .edit-body { padding: 20px 24px; }
+    .edit-section { color: var(--cyan); font-size: 0.75em; font-weight: bold; margin: 18px 0 10px 0; padding-bottom: 4px; border-bottom: 1px solid #1a1a2a; letter-spacing: 1px; }
+    .edit-section:first-child { margin-top: 0; }
+    .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .edit-field { display: flex; flex-direction: column; gap: 4px; }
+    .edit-field.sm { max-width: 160px; }
+    .edit-field label { font-size: 0.75em; color: var(--text3); font-weight: bold; text-transform: uppercase; }
+    .edit-field input, .edit-field select, .edit-field textarea {
+        background: #111; border: 1px solid #2a2a2a; color: white; padding: 7px 10px;
+        border-radius: 4px; font-size: 0.9em; font-family: inherit;
     }
-    .config-table th {
-        text-align: left;
-        padding: 12px;
-        border-bottom: 2px solid #222;
-        color: var(--blue);
-        font-size: 0.9em;
-    }
-    .config-table td {
-        padding: 12px;
-        border-bottom: 1px solid #222;
-    }
-    .config-input {
-        background: #111;
-        border: 1px solid #333;
-        color: white;
-        padding: 5px 10px;
-        border-radius: 4px;
-        width: 100%;
-    }
-    .status-badge {
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.8em;
-        font-weight: bold;
-    }
-    .status-badge.ok { background: #004400; color: #00ff00; }
-    .status-badge.warn { background: #444400; color: #ffff00; }
-    
-    .btn-action {
-        border: none;
-        padding: 6px 12px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: bold;
-        font-size: 0.8em;
-    }
-    .btn-action.ok { background: var(--blue); color: white; }
-    .btn-action.warn { background: #660000; color: white; }
+    .edit-field input:focus, .edit-field select:focus, .edit-field textarea:focus { border-color: var(--cyan); outline: none; }
+    .edit-field.ro span { color: var(--text2); font-size: 0.9em; padding: 7px 0; }
+    .edit-footer { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-top: 1px solid #222; }
+    .edit-footer .btn-a { padding: 8px 20px; font-size: 0.85em; }
+    .edit-check { color: var(--text2); font-size: 0.9em; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .edit-status { text-align: center; padding: 8px; color: var(--green); font-size: 0.85em; }
+
+    .cfg-input { background: #111; border: 1px solid #333; color: white; padding: 7px 10px; border-radius: 4px; width: 100%; }
+    .cfg-input:focus { border-color: var(--cyan); outline: none; }
 </style>
 
 @code {
+    private List<RegisteredStation> _stations = new();
+    private RegisteredStation? _editStation;
+    private string _editStatus = "";
+
+    private bool _showResetDialog = false;
+    private RegisteredStation? _resetTarget;
+    private string _resetNewPassword = "";
+    private string _resetStatus = "";
+
+    protected override void OnInitialized()
+    {
+        _stations = Monitoring.GetRegisteredStations();
+        Monitoring.OnUpdated += OnMonitoringUpdated;
+    }
+
+    private void OnMonitoringUpdated()
+    {
+        _stations = Monitoring.GetRegisteredStations();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private bool IsStationOnline(RegisteredStation station)
+    {
+        var live = Monitoring.GetAllRawStations();
+        var match = live.FirstOrDefault(s => s.MachineId == station.MachineId && s.HardwareName == station.HardwareName);
+        return match != null && (DateTime.UtcNow - match.Timestamp).TotalSeconds < 15;
+    }
+
+    // ─── CRUD ───
+
     private async Task Authorize(int id, bool auth)
     {
         await Monitoring.AuthorizeStation(id, auth);
+        _stations = Monitoring.GetRegisteredStations();
     }
 
-    private async Task UpdateName(int id, string? name)
+    private void OpenEdit(RegisteredStation station)
     {
-        if (!string.IsNullOrEmpty(name))
+        // Clone to avoid editing the cache directly
+        _editStation = new RegisteredStation
         {
-            await Monitoring.UpdateStationDisplayName(id, name);
-        }
+            Id = station.Id,
+            MachineId = station.MachineId,
+            StationName = station.StationName,
+            HardwareName = station.HardwareName,
+            HardwareId = station.HardwareId,
+            LicenseKey = station.LicenseKey,
+            IsAuthorized = station.IsAuthorized,
+            LastSeen = station.LastSeen,
+            IsOnline = station.IsOnline,
+            Siglas = station.Siglas,
+            Frecuencia = station.Frecuencia,
+            Banda = station.Banda,
+            NombreComercial = station.NombreComercial,
+            Estado = station.Estado,
+            Plaza = station.Plaza,
+            GrupoEmpresa = station.GrupoEmpresa,
+            Formato = station.Formato,
+            Potencia = station.Potencia,
+            Cobertura = station.Cobertura,
+            Notas = station.Notas,
+            Activa = station.Activa,
+            FechaAlta = station.FechaAlta
+        };
+        _editStatus = "";
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_editStation == null) return;
+        await Monitoring.UpdateStationDetails(_editStation);
+        _editStatus = "Guardado";
+        _stations = Monitoring.GetRegisteredStations();
+        StateHasChanged();
+
+        _ = Task.Delay(1500).ContinueWith(_ =>
+        {
+            _editStation = null;
+            _editStatus = "";
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task DeleteStation(RegisteredStation station)
+    {
+        await Monitoring.DeleteStation(station.Id);
+        _stations = Monitoring.GetRegisteredStations();
+    }
+
+    // ─── RESET PASSWORD ───
+
+    private void ShowResetPassword(RegisteredStation station)
+    {
+        _resetTarget = station;
+        _resetNewPassword = "";
+        _resetStatus = "";
+        _showResetDialog = true;
+    }
+
+    private async Task ConfirmResetPassword()
+    {
+        if (_resetTarget == null || string.IsNullOrWhiteSpace(_resetNewPassword)) return;
+
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(_resetNewPassword));
+        string hash = Convert.ToHexStringLower(bytes);
+
+        await Monitoring.ResetStationPassword(_resetTarget.MachineId, hash);
+        _resetStatus = "Comando enviado al equipo.";
+        _resetNewPassword = "";
+        StateHasChanged();
+
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            _showResetDialog = false;
+            _resetStatus = "";
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public void Dispose()
+    {
+        Monitoring.OnUpdated -= OnMonitoringUpdated;
     }
 }
