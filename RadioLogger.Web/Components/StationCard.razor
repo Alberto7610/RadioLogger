@@ -17,8 +17,22 @@
 
     <div class="sc-top">
         <div class="sc-info">
-            <div class="sc-name">@Update.StationName</div>
-            <div class="sc-srv">@Update.MachineId</div>
+            <div class="sc-name">@(!string.IsNullOrEmpty(Update.Siglas) ? Update.Siglas : Update.StationName)</div>
+            <div class="sc-srv">
+                @if (!string.IsNullOrEmpty(Update.Frecuencia))
+                {
+                    <span>@Update.Frecuencia @Update.Banda</span>
+                    <span style="margin: 0 4px; opacity: 0.3;">|</span>
+                }
+                @if (!string.IsNullOrEmpty(Update.Plaza))
+                {
+                    <span>@Update.Plaza</span>
+                }
+                else
+                {
+                    <span>@Update.MachineId</span>
+                }
+            </div>
         </div>
         <div class="badges">
             @if (Update.IsRecordingEnabled)

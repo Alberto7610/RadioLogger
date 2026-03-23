@@ -19,8 +19,18 @@
                 <div class="modal-hdr-left">
                     <div class="modal-led @(isLive ? "green" : "red")"></div>
                     <div>
-                        <div class="modal-title">@s.StationName</div>
-                        <div class="modal-sub">@s.MachineId &mdash; @s.HardwareName</div>
+                        <div class="modal-title">@(!string.IsNullOrEmpty(s.Siglas) ? s.Siglas : s.StationName)</div>
+                        <div class="modal-sub">
+                            @if (!string.IsNullOrEmpty(s.NombreComercial))
+                            {
+                                <span>@s.NombreComercial &mdash; </span>
+                            }
+                            @if (!string.IsNullOrEmpty(s.Frecuencia))
+                            {
+                                <span>@s.Frecuencia @s.Banda &mdash; </span>
+                            }
+                            @s.MachineId
+                        </div>
                     </div>
                 </div>
                 <button class="modal-close" @onclick="Close">&times;</button>
@@ -191,13 +201,30 @@
 
             <!-- Info extra -->
             <div class="modal-info">
+                @if (!string.IsNullOrEmpty(s.GrupoEmpresa))
+                {
+                    <div class="modal-info-row">
+                        <span class="modal-lbl">Grupo</span>
+                        <span class="modal-val">@s.GrupoEmpresa</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(s.Plaza) || !string.IsNullOrEmpty(s.Estado))
+                {
+                    <div class="modal-info-row">
+                        <span class="modal-lbl">Ubicación</span>
+                        <span class="modal-val">@s.Plaza @(!string.IsNullOrEmpty(s.Estado) ? $", {s.Estado}" : "")</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(s.Formato))
+                {
+                    <div class="modal-info-row">
+                        <span class="modal-lbl">Formato</span>
+                        <span class="modal-val">@s.Formato</span>
+                    </div>
+                }
                 <div class="modal-info-row">
-                    <span class="modal-lbl">Hardware ID</span>
-                    <span class="modal-val mono">@s.HardwareId</span>
-                </div>
-                <div class="modal-info-row">
-                    <span class="modal-lbl">Licencia</span>
-                    <span class="modal-val mono">@s.LicenseKey</span>
+                    <span class="modal-lbl">Equipo</span>
+                    <span class="modal-val mono">@s.MachineId — @s.HardwareName</span>
                 </div>
                 @if (s.IsStreaming && !string.IsNullOrEmpty(s.StreamUrl))
                 {

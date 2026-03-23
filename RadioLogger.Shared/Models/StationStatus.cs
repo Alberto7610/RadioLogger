@@ -30,8 +30,18 @@ namespace RadioLogger.Shared.Models
         public string LicenseKey { get; set; } = "FREE-TRIAL";
         public string HardwareId { get; set; } = "UNKNOWN";
         public bool IsAuthorized { get; set; } = false;
-        
+
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+        // Display fields (populated from RegisteredStation DB, not sent by WPF)
+        public string? Siglas { get; set; }
+        public string? Frecuencia { get; set; }
+        public string? Banda { get; set; }
+        public string? NombreComercial { get; set; }
+        public string? Estado { get; set; }
+        public string? Plaza { get; set; }
+        public string? GrupoEmpresa { get; set; }
+        public string? Formato { get; set; }
     }
 
     /// <summary>

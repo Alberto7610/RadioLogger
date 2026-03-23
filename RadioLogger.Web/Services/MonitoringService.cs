@@ -237,26 +237,39 @@ namespace RadioLogger.Web.Services
                 
                 if (_stations.TryGetValue(key, out var live) && live.Timestamp > threshold)
                 {
-                    live.IsAuthorized = reg.IsAuthorized;
-                    live.StationName = reg.StationName; 
+                    ApplyRegisteredData(live, reg);
                     list.Add(live);
                 }
                 else
                 {
-                    list.Add(new StationStatusUpdate
+                    var offline = new StationStatusUpdate
                     {
                         MachineId = reg.MachineId,
                         HardwareName = reg.HardwareName,
-                        StationName = reg.StationName,
-                        IsAuthorized = reg.IsAuthorized,
                         Timestamp = reg.LastSeen,
                         LeftLevel = 0, RightLevel = 0,
-                        IsSilence = false 
-                    });
+                        IsSilence = false
+                    };
+                    ApplyRegisteredData(offline, reg);
+                    list.Add(offline);
                 }
             }
 
             return list.OrderBy(s => s.MachineId).ThenBy(s => s.StationName).ToList();
+        }
+
+        private static void ApplyRegisteredData(StationStatusUpdate update, RegisteredStation reg)
+        {
+            update.StationName = reg.StationName;
+            update.IsAuthorized = reg.IsAuthorized;
+            update.Siglas = reg.Siglas;
+            update.Frecuencia = reg.Frecuencia;
+            update.Banda = reg.Banda;
+            update.NombreComercial = reg.NombreComercial;
+            update.Estado = reg.Estado;
+            update.Plaza = reg.Plaza;
+            update.GrupoEmpresa = reg.GrupoEmpresa;
+            update.Formato = reg.Formato;
         }
 
         /// <summary>
