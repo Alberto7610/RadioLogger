@@ -666,73 +666,89 @@
                       Visibility="{Binding IsChecked, ElementName=TabLogs, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
                     <!-- Row 0: Filters Bar -->
                     <Border Grid.Row="0" Background="#252526" CornerRadius="4" Padding="12,10" Margin="0,0,0,8" BorderBrush="#333" BorderThickness="1">
-                        <WrapPanel>
-                            <!-- Date Selector -->
-                            <TextBlock Text="FECHA:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <ComboBox ItemsSource="{Binding LogDates}" SelectedItem="{Binding SelectedLogDate}"
-                                      Width="200" Height="26" FontSize="11" Margin="0,0,12,0"/>
-
-                            <!-- Station Filter -->
-                            <TextBlock Text="ESTACION:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <ComboBox ItemsSource="{Binding LogStations}" SelectedItem="{Binding SelectedLogStation}"
-                                      Width="150" Height="26" FontSize="11" Margin="0,0,12,0"/>
-
-                            <!-- Level Filter -->
-                            <TextBlock Text="NIVEL:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <ComboBox SelectedItem="{Binding SelectedLogLevel}" Width="85" Height="26" FontSize="11" Margin="0,0,12,0">
-                                <ComboBoxItem Content="Todos" IsSelected="True"/>
-                                <ComboBoxItem Content="INF"/>
-                                <ComboBoxItem Content="WRN"/>
-                                <ComboBoxItem Content="ERR"/>
-                                <ComboBoxItem Content="FTL"/>
-                                <ComboBoxItem Content="DBG"/>
-                            </ComboBox>
-
-                            <!-- Search Box -->
-                            <TextBox Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}"
-                                     Width="160" Height="26" Background="#111" Foreground="White" BorderBrush="#444"
-                                     VerticalContentAlignment="Center" Padding="8,0" FontSize="11" Margin="0,0,8,0"/>
-
-                            <!-- Refresh Button -->
-                            <Button Command="{Binding RefreshLogsCommand}" Cursor="Hand" Width="26" Height="26" ToolTip="Actualizar">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="bd" Background="#333" CornerRadius="3" BorderBrush="#555" BorderThickness="1">
-                                            <TextBlock Text="↻" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="bd" Property="Background" Value="#00AABB"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
-                        </WrapPanel>
-                    </Border>
-
-                    <!-- Row 1: Date Label + Line Count -->
-                    <Border Grid.Row="1" Margin="0,0,0,4">
                         <Grid>
-                            <TextBlock Foreground="#00AABB" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center">
-                                <TextBlock.Text>
-                                    <MultiBinding StringFormat="{}Logs del {0}">
-                                        <Binding Path="LogDateDisplay"/>
-                                    </MultiBinding>
-                                </TextBlock.Text>
-                            </TextBlock>
-                            <TextBlock Text="{Binding LogLineCount}" Foreground="#555" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Fila 1: Fecha + Estación + Nivel + Refresh -->
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="FECHA:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox Grid.Column="1" ItemsSource="{Binding LogDates}" SelectedItem="{Binding SelectedLogDate}"
+                                          Width="200" Height="26" FontSize="11" Margin="0,0,15,0"/>
+
+                                <TextBlock Grid.Column="2" Text="FUENTE:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox Grid.Column="3" ItemsSource="{Binding LogStations}" SelectedItem="{Binding SelectedLogStation}"
+                                          Width="150" Height="26" FontSize="11" Margin="0,0,15,0"/>
+
+                                <TextBlock Grid.Column="4" Text="NIVEL:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox Grid.Column="5" SelectedItem="{Binding SelectedLogLevel}" Width="85" Height="26" FontSize="11">
+                                    <ComboBoxItem Content="Todos" IsSelected="True"/>
+                                    <ComboBoxItem Content="INF"/>
+                                    <ComboBoxItem Content="WRN"/>
+                                    <ComboBoxItem Content="ERR"/>
+                                    <ComboBoxItem Content="FTL"/>
+                                    <ComboBoxItem Content="DBG"/>
+                                </ComboBox>
+
+                                <!-- Refresh Button alineado a la derecha -->
+                                <Button Grid.Column="7" Command="{Binding RefreshLogsCommand}" Cursor="Hand" Width="26" Height="26" ToolTip="Actualizar logs">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="#333" CornerRadius="3" BorderBrush="#555" BorderThickness="1">
+                                                <TextBlock Text="↻" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#00AABB"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </Grid>
+
+                            <!-- Fila 2: Búsqueda + Info -->
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="250"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="BUSCAR:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBox Grid.Column="1" Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         Height="26" Background="#111" Foreground="White" BorderBrush="#444"
+                                         VerticalContentAlignment="Center" Padding="8,0" FontSize="11"/>
+
+                                <TextBlock Grid.Column="2" Text="{Binding LogDateDisplay}" Foreground="#00AABB" FontSize="10" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                                <TextBlock Grid.Column="3" Text="{Binding LogLineCount}" Foreground="#555" FontSize="10" VerticalAlignment="Center"/>
+                            </Grid>
                         </Grid>
                     </Border>
 
-                    <!-- Row 2: Log Console -->
-                    <Border Grid.Row="2" Background="#080808" CornerRadius="4" BorderBrush="#222" BorderThickness="1" Padding="0">
+                    <!-- Row 1: Log Console -->
+                    <Border Grid.Row="1" Background="#080808" CornerRadius="4" BorderBrush="#222" BorderThickness="1" Padding="0">
                         <ListBox x:Name="LogListBox" ItemsSource="{Binding FilteredLogLines}" Background="Transparent" BorderThickness="0"
                                  FontFamily="Cascadia Code, Consolas, Courier New" FontSize="11.5"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"

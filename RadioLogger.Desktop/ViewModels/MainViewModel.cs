@@ -235,16 +235,24 @@ namespace RadioLogger.ViewModels
                 bool previouslySilence = dev.IsSilenceDetected;
                 dev.RefreshLevels();
 
-                if (_configManager.CurrentSettings.EnableTelegram)
+                // Detectar cambios de silencio — siempre loguear, opcionalmente enviar Telegram
+                if (dev.IsSilenceDetected && !previouslySilence)
                 {
-                    if (dev.IsSilenceDetected && !previouslySilence)
+                    _log.Warning("SILENCIO detectado en {Station}", dev.StationName);
+
+                    if (_configManager.CurrentSettings.EnableTelegram)
                     {
                         _ = TelegramService.SendAlertAsync(
                             _configManager.CurrentSettings.TelegramToken,
                             _configManager.CurrentSettings.TelegramChatId,
                             $"🔴 <b>ALERTA DE SILENCIO</b>\nEstación: <b>{dev.StationName}</b>\nHora: {DateTime.Now:HH:mm:ss}\nEstado: No se detecta audio.");
                     }
-                    else if (!dev.IsSilenceDetected && previouslySilence)
+                }
+                else if (!dev.IsSilenceDetected && previouslySilence)
+                {
+                    _log.Information("Audio RESTABLECIDO en {Station} (duración silencio: {Duration})", dev.StationName, dev.SilenceDuration);
+
+                    if (_configManager.CurrentSettings.EnableTelegram)
                     {
                         _ = TelegramService.SendAlertAsync(
                             _configManager.CurrentSettings.TelegramToken,
