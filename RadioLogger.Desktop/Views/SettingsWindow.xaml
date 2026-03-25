@@ -62,6 +62,7 @@
                         <RadioButton Content="Monitoreo Remoto" x:Name="TabRemote"/>
                         <RadioButton Content="Programación" x:Name="TabSchedule"/>
                         <RadioButton Content="Seguridad" x:Name="TabSecurity"/>
+                        <RadioButton Content="Logs" x:Name="TabLogs"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -659,6 +660,131 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
+
+                <!-- LOGS TAB -->
+                <Grid Grid.Row="1" Margin="30,0"
+                      Visibility="{Binding IsChecked, ElementName=TabLogs, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Controls Bar -->
+                    <Border Grid.Row="0" Background="#252526" CornerRadius="4" Padding="15" Margin="0,0,0,10" BorderBrush="#333" BorderThickness="1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Date Selector -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="FECHA:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <ComboBox ItemsSource="{Binding LogDates}" SelectedItem="{Binding SelectedLogDate}"
+                                          Width="180" Height="28" Background="#111" Foreground="Black" FontSize="11"/>
+                            </StackPanel>
+
+                            <!-- Level Filter -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,0,0,0">
+                                <TextBlock Text="NIVEL:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <ComboBox SelectedItem="{Binding SelectedLogLevel}" Width="100" Height="28" Background="#111" Foreground="Black" FontSize="11">
+                                    <ComboBoxItem Content="Todos" IsSelected="True"/>
+                                    <ComboBoxItem Content="INF"/>
+                                    <ComboBoxItem Content="WRN"/>
+                                    <ComboBoxItem Content="ERR"/>
+                                    <ComboBoxItem Content="FTL"/>
+                                    <ComboBoxItem Content="DBG"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <!-- Search Box -->
+                            <TextBox Grid.Column="2" Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="28" Margin="15,0,0,0" Background="#111" Foreground="White" BorderBrush="#444"
+                                     VerticalContentAlignment="Center" Padding="8,0" FontSize="11"
+                                     Tag="Buscar en logs..."/>
+
+                            <!-- Refresh Button -->
+                            <Button Grid.Column="3" Command="{Binding RefreshLogsCommand}" Cursor="Hand" Margin="10,0,0,0" Width="28" Height="28" ToolTip="Actualizar">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" Background="#333" CornerRadius="3" BorderBrush="#555" BorderThickness="1">
+                                            <TextBlock Text="↻" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#00AABB"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Log Console -->
+                    <Border Grid.Row="1" Background="#0A0A0A" CornerRadius="4" BorderBrush="#333" BorderThickness="1" Padding="0">
+                        <ListBox x:Name="LogListBox" ItemsSource="{Binding FilteredLogLines}" Background="Transparent" BorderThickness="0"
+                                 FontFamily="Cascadia Code, Consolas, Courier New" FontSize="11"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="10,2"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
+                                                        BorderBrush="#1A1A1A" BorderThickness="0,0,0,1">
+                                                    <ContentPresenter/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#151515"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" TextWrapping="NoWrap">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#8B8B8B"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Converter={StaticResource LogLevelColorConverter}}" Value="ERR">
+                                                        <Setter Property="Foreground" Value="#FF4444"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Converter={StaticResource LogLevelColorConverter}}" Value="FTL">
+                                                        <Setter Property="Foreground" Value="#FF0000"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Converter={StaticResource LogLevelColorConverter}}" Value="WRN">
+                                                        <Setter Property="Foreground" Value="#FFAA00"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Converter={StaticResource LogLevelColorConverter}}" Value="INF">
+                                                        <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Converter={StaticResource LogLevelColorConverter}}" Value="DBG">
+                                                        <Setter Property="Foreground" Value="#666666"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </Grid>
 
                 <!-- FOOTER (Action Buttons) -->
                 <Border Grid.Row="2" Padding="20" Background="#151515" BorderBrush="#252525" BorderThickness="0,1,0,0">

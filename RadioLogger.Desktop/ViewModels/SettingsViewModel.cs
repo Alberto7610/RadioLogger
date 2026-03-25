@@ -3,7 +3,9 @@ using CommunityToolkit.Mvvm.Input;
 using RadioLogger.Models;
 using RadioLogger.Services;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms; // For FolderBrowserDialog
 
@@ -102,6 +104,95 @@ namespace RadioLogger.ViewModels
         [ObservableProperty] private string _confirmPassword = "";
         [ObservableProperty] private string _passwordStatus = "";
         [ObservableProperty] private string _passwordStatusColor = "#666";
+
+        // === LOG VIEWER ===
+        public ObservableCollection<string> LogDates { get; } = new();
+        public ObservableCollection<string> FilteredLogLines { get; } = new();
+
+        [ObservableProperty] private string? _selectedLogDate;
+        [ObservableProperty] private string _selectedLogLevel = "Todos";
+        [ObservableProperty] private string _logSearchText = "";
+
+        private List<string> _allLogLines = new();
+        private string _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+
+        partial void OnSelectedLogDateChanged(string? value) => LoadLogFile();
+        partial void OnSelectedLogLevelChanged(string value) => ApplyLogFilter();
+        partial void OnLogSearchTextChanged(string value) => ApplyLogFilter();
+
+        [RelayCommand]
+        public void RefreshLogs()
+        {
+            LoadLogDates();
+        }
+
+        private void LoadLogDates()
+        {
+            LogDates.Clear();
+            if (!Directory.Exists(_logDirectory)) return;
+
+            var files = Directory.GetFiles(_logDirectory, "radiologger-*.log")
+                .OrderByDescending(f => f)
+                .ToList();
+
+            foreach (var file in files)
+            {
+                var name = Path.GetFileName(file);
+                LogDates.Add(name);
+            }
+
+            if (LogDates.Any())
+                SelectedLogDate = LogDates.First();
+        }
+
+        private void LoadLogFile()
+        {
+            _allLogLines.Clear();
+            FilteredLogLines.Clear();
+
+            if (string.IsNullOrEmpty(SelectedLogDate)) return;
+
+            var filePath = Path.Combine(_logDirectory, SelectedLogDate);
+            if (!File.Exists(filePath)) return;
+
+            try
+            {
+                // shared: true en Serilog permite leer mientras escribe
+                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs);
+                string? line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(line))
+                        _allLogLines.Add(line);
+                }
+            }
+            catch { }
+
+            ApplyLogFilter();
+        }
+
+        private void ApplyLogFilter()
+        {
+            FilteredLogLines.Clear();
+
+            var levelFilter = SelectedLogLevel;
+            var searchFilter = LogSearchText?.Trim() ?? "";
+
+            foreach (var line in _allLogLines)
+            {
+                // Filter by level
+                if (levelFilter != "Todos" && !line.Contains($"[{levelFilter}]"))
+                    continue;
+
+                // Filter by search text
+                if (!string.IsNullOrEmpty(searchFilter) &&
+                    !line.Contains(searchFilter, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                FilteredLogLines.Add(line);
+            }
+        }
 
         [RelayCommand]
         public void ChangePassword()
@@ -264,6 +355,7 @@ namespace RadioLogger.ViewModels
                 AutoLoginUsername = _configManager.CurrentSettings.AutoLoginUsername;
 
             LoadDevices();
+            LoadLogDates();
         }
 
         private void LoadDevices()

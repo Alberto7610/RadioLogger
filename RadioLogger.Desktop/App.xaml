@@ -10,6 +10,7 @@
                     <local:StringToBoolConverter x:Key="StringToBoolConverter"/>
                     <local:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
                     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+                    <local:LogLevelColorConverter x:Key="LogLevelColorConverter"/>
             
                     <!-- DARK COMBOBOX STYLE -->
                     <ControlTemplate x:Key="ComboBoxToggleButton" TargetType="ToggleButton">
