@@ -37,5 +37,13 @@ public partial class MainWindow : Window
             e.Cancel = true;
             this.Hide();
         }
+        else
+        {
+            // Persistir estado de grabación y streaming antes de cerrar
+            if (DataContext is RadioLogger.ViewModels.MainViewModel vm)
+            {
+                vm.PersistCurrentState();
+            }
+        }
     }
 }

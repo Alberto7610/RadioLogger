@@ -142,6 +142,79 @@
                                     </CheckBox.Template>
                                 </CheckBox>
                                 <TextBlock Text="La aplicación se iniciará minimizada en el tray al encender el equipo." Foreground="#555" FontSize="10"/>
+
+                                <!-- Auto-Login Windows -->
+                                <Border BorderBrush="#333" BorderThickness="0,1,0,0" Margin="0,15,0,0" Padding="0,15,0,0">
+                                    <StackPanel>
+                                        <CheckBox IsChecked="{Binding IsAutoLoginEnabled}" Margin="0,0,0,10">
+                                            <CheckBox.Template>
+                                                <ControlTemplate TargetType="CheckBox">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Grid Width="40" Height="20" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                            <Border x:Name="Track" Background="#333" CornerRadius="10"/>
+                                                            <Ellipse x:Name="Knob" Fill="#888" Width="16" Height="16" HorizontalAlignment="Left" Margin="2,0"/>
+                                                        </Grid>
+                                                        <TextBlock Text="AUTO-LOGIN DE WINDOWS" Foreground="White" VerticalAlignment="Center" FontSize="11" FontWeight="Bold"/>
+                                                    </StackPanel>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="Track" Property="Background" Value="#00AABB"/>
+                                                            <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+                                                            <Setter TargetName="Knob" Property="Fill" Value="White"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </CheckBox.Template>
+                                        </CheckBox>
+                                        <TextBlock Text="El equipo iniciará sesión de Windows automáticamente sin pedir contraseña." Foreground="#555" FontSize="10" Margin="0,0,0,10"/>
+
+                                        <StackPanel Visibility="{Binding IsAutoLoginEnabled, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="Usuario de Windows" Foreground="#888" FontSize="11" Margin="0,0,0,4"/>
+                                            <TextBox Text="{Binding AutoLoginUsername}" Height="30" VerticalContentAlignment="Center" Background="#111" Foreground="White" BorderBrush="#444" Padding="5" Margin="0,0,0,10"/>
+
+                                            <TextBlock Text="Contraseña de Windows" Foreground="#888" FontSize="11" Margin="0,0,0,4"/>
+                                            <Grid Margin="0,0,0,10">
+                                                <PasswordBox x:Name="AutoLoginPasswordBox" Height="30" VerticalContentAlignment="Center" Background="#111" Foreground="White" BorderBrush="#444" Padding="5,5,30,5"
+                                                             PasswordChanged="AutoLoginPasswordBox_PasswordChanged"/>
+                                                <TextBox x:Name="AutoLoginPasswordVisible" Height="30" VerticalContentAlignment="Center" Background="#111" Foreground="White" BorderBrush="#444" Padding="5,5,30,5"
+                                                         Text="{Binding AutoLoginPassword, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed"/>
+                                                <Button x:Name="TogglePasswordBtn" HorizontalAlignment="Right" VerticalAlignment="Center" Width="26" Height="26" Margin="0,0,3,0" Cursor="Hand"
+                                                        Click="TogglePasswordVisibility_Click">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border Background="Transparent">
+                                                                <Path x:Name="EyeIcon" Data="M12,4.5 C7,4.5 2.73,7.61 1,12 C2.73,16.39 7,19.5 12,19.5 C17,19.5 21.27,16.39 23,12 C21.27,7.61 17,4.5 12,4.5 Z M12,17 C9.24,17 7,14.76 7,12 C7,9.24 9.24,7 12,7 C14.76,7 17,9.24 17,12 C17,14.76 14.76,17 12,17 Z M12,9 C10.34,9 9,10.34 9,12 C9,13.66 10.34,15 12,15 C13.66,15 15,13.66 15,12 C15,10.34 13.66,9 12,9 Z"
+                                                                      Fill="#666" Stretch="Uniform" Width="16" Height="16"/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="EyeIcon" Property="Fill" Value="#00AABB"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </Grid>
+
+                                            <Button Command="{Binding ApplyAutoLoginCommand}" Margin="0,5,0,0" Height="32" Cursor="Hand">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="bd" Background="#00AABB" CornerRadius="4" Padding="15,0">
+                                                            <TextBlock Text="APLICAR AUTO-LOGIN" Foreground="White" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="bd" Property="Background" Value="#00CCDD"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+
+                                            <TextBlock Text="{Binding AutoLoginStatus}" Foreground="{Binding AutoLoginStatusColor}" FontSize="10" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </Border>
 

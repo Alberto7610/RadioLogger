@@ -427,7 +427,7 @@ namespace RadioLogger.ViewModels
             });
         }
 
-        private void PersistCurrentState()
+        public void PersistCurrentState()
         {
             _configManager.CurrentSettings.AutoRecordDevices = InputDevices
                 .Where(d => d.IsSelected)
@@ -505,21 +505,44 @@ namespace RadioLogger.ViewModels
 
             LogService.Log(LogCategory.SYSTEM, $"Restaurando estado previo: {autoRecord.Count} grabando, {autoStream.Count} en streaming");
 
+            // Paso 1: Restaurar grabación
             foreach (var device in InputDevices)
             {
-                // Restore recording
                 if (autoRecord.Contains(device.Device.Name) && !device.IsRecording)
                 {
                     device.IsSelected = true;
                     device.UpdateState();
                     LogService.Log(LogCategory.AUDIO, $"Auto-restaurado grabación: {device.StationName}");
                 }
+            }
 
-                // Restore streaming (only if recording is active and config exists)
-                if (autoStream.Contains(device.Device.Name) && device.IsRecording && !device.IsStreaming)
+            // Paso 2: Restaurar streaming con delay para asegurar que la grabación esté activa
+            if (autoStream.Count > 0)
+            {
+                var streamDeviceNames = autoStream.ToList();
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                if (dispatcher != null)
                 {
-                    device.ToggleStreaming();
-                    LogService.Log(LogCategory.AUDIO, $"Auto-restaurado streaming: {device.StationName}");
+                    // Usar dispatcher con delay para que los dispositivos terminen de inicializar
+                    _ = System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        await System.Threading.Tasks.Task.Delay(2000); // 2 segundos para que la grabación se estabilice
+                        dispatcher.Invoke(() =>
+                        {
+                            foreach (var device in InputDevices)
+                            {
+                                if (streamDeviceNames.Contains(device.Device.Name) && device.IsRecording && !device.IsStreaming)
+                                {
+                                    device.ToggleStreaming();
+                                    LogService.Log(LogCategory.AUDIO, $"Auto-restaurado streaming: {device.StationName}");
+                                }
+                                else if (streamDeviceNames.Contains(device.Device.Name) && !device.IsRecording)
+                                {
+                                    LogService.Log(LogCategory.SYSTEM, $"No se pudo restaurar streaming para {device.StationName}: grabación no activa");
+                                }
+                            }
+                        });
+                    });
                 }
             }
         }

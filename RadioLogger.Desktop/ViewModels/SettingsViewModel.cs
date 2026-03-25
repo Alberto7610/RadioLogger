@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RadioLogger.Models;
 using RadioLogger.Services;
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Forms; // For FolderBrowserDialog
@@ -89,6 +90,13 @@ namespace RadioLogger.ViewModels
 
         [ObservableProperty] private bool _isAutoStartEnabled;
 
+        // Auto-Login Windows
+        [ObservableProperty] private bool _isAutoLoginEnabled;
+        [ObservableProperty] private string _autoLoginUsername = Environment.UserName;
+        [ObservableProperty] private string _autoLoginPassword = "";
+        [ObservableProperty] private string _autoLoginStatus = "";
+        [ObservableProperty] private string _autoLoginStatusColor = "#666";
+
         [ObservableProperty] private string _currentPassword = "";
         [ObservableProperty] private string _newPassword = "";
         [ObservableProperty] private string _confirmPassword = "";
@@ -131,6 +139,41 @@ namespace RadioLogger.ViewModels
             CurrentPassword = "";
             NewPassword = "";
             ConfirmPassword = "";
+        }
+
+        [RelayCommand]
+        public void ApplyAutoLogin()
+        {
+            if (IsAutoLoginEnabled)
+            {
+                if (string.IsNullOrWhiteSpace(AutoLoginUsername) || string.IsNullOrEmpty(AutoLoginPassword))
+                {
+                    AutoLoginStatus = "Ingrese usuario y contraseña de Windows";
+                    AutoLoginStatusColor = "#FF4444";
+                    return;
+                }
+
+                var (success, message) = AutoStartService.SetAutoLogin(true, AutoLoginUsername, AutoLoginPassword);
+                AutoLoginStatus = message;
+                AutoLoginStatusColor = success ? "#00CC66" : "#FF4444";
+
+                if (success)
+                {
+                    _configManager.CurrentSettings.IsAutoLoginEnabled = true;
+                    _configManager.CurrentSettings.AutoLoginUsername = AutoLoginUsername;
+                }
+            }
+            else
+            {
+                var (success, message) = AutoStartService.SetAutoLogin(false);
+                AutoLoginStatus = message;
+                AutoLoginStatusColor = success ? "#00CC66" : "#FF4444";
+
+                if (success)
+                    _configManager.CurrentSettings.IsAutoLoginEnabled = false;
+            }
+
+            _configManager.Save();
         }
 
         [RelayCommand]
@@ -219,6 +262,9 @@ namespace RadioLogger.ViewModels
             IsSignalREnabled = _configManager.CurrentSettings.IsSignalREnabled;
             SignalRHubUrl = _configManager.CurrentSettings.SignalRHubUrl;
             IsAutoStartEnabled = _configManager.CurrentSettings.IsAutoStartEnabled;
+            IsAutoLoginEnabled = AutoStartService.IsAutoLoginEnabled();
+            if (!string.IsNullOrEmpty(_configManager.CurrentSettings.AutoLoginUsername))
+                AutoLoginUsername = _configManager.CurrentSettings.AutoLoginUsername;
 
             LoadDevices();
         }

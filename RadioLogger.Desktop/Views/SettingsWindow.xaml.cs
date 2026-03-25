@@ -41,5 +41,31 @@ namespace RadioLogger.Views
             if (DataContext is RadioLogger.ViewModels.SettingsViewModel vm)
                 vm.ConfirmPassword = PwdConfirm.Password;
         }
+
+        private void AutoLoginPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is RadioLogger.ViewModels.SettingsViewModel vm)
+                vm.AutoLoginPassword = AutoLoginPasswordBox.Password;
+        }
+
+        private bool _isPasswordVisible;
+        private void TogglePasswordVisibility_Click(object sender, RoutedEventArgs e)
+        {
+            _isPasswordVisible = !_isPasswordVisible;
+            if (_isPasswordVisible)
+            {
+                AutoLoginPasswordVisible.Text = AutoLoginPasswordBox.Password;
+                AutoLoginPasswordBox.Visibility = Visibility.Collapsed;
+                AutoLoginPasswordVisible.Visibility = Visibility.Visible;
+                AutoLoginPasswordVisible.Focus();
+            }
+            else
+            {
+                AutoLoginPasswordBox.Password = AutoLoginPasswordVisible.Text;
+                AutoLoginPasswordVisible.Visibility = Visibility.Collapsed;
+                AutoLoginPasswordBox.Visibility = Visibility.Visible;
+                AutoLoginPasswordBox.Focus();
+            }
+        }
     }
 }

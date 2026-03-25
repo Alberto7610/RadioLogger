@@ -39,6 +39,10 @@ namespace RadioLogger.Models
 
         public bool IsAutoStartEnabled { get; set; } = false;
 
+        // Windows Auto-Login
+        public bool IsAutoLoginEnabled { get; set; } = false;
+        public string AutoLoginUsername { get; set; } = "";
+
         // Per-device recording enabled (if false for a device, it only streams without recording to disk)
         public Dictionary<string, bool> DeviceRecordingEnabled { get; set; } = new Dictionary<string, bool>();
 
