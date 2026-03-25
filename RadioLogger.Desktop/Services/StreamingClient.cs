@@ -1,6 +1,7 @@
 using ManagedBass;
 using ManagedBass.Enc;
 using RadioLogger.Models;
+using Serilog;
 using System;
 using System.IO;
 
@@ -8,6 +9,8 @@ namespace RadioLogger.Services
 {
     public class StreamingClient : IDisposable
     {
+        private static readonly ILogger _log = AppLog.For<StreamingClient>();
+
         private int _encodeHandle;
         private readonly StreamingConfig _config;
         private readonly string _stationName;
@@ -41,12 +44,10 @@ namespace RadioLogger.Services
         {
             try
             {
-                // Limpiar cualquier conexión previa antes de empezar para evitar bloqueos
                 Stop();
 
-                DebugLog.Write($"[STREAM] Starting Native Cast Engine to {_config.Host}:{_config.Port} (SID Support)");
+                _log.Debug("Iniciando Cast Engine hacia {Host}:{Port} (SID Support)", _config.Host, _config.Port);
 
-                // 1. Setup LAME con parámetros profesionales
                 string lamePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
                 string command = $"\"{lamePath}\" -r -s 44100 -b {_config.Bitrate} -";
 
@@ -54,12 +55,10 @@ namespace RadioLogger.Services
 
                 if (_encodeHandle == 0)
                 {
-                    DebugLog.Write($"[STREAM ERROR] Encoder failed: {Bass.LastError}");
+                    _log.Error("Encoder failed: {Error}", Bass.LastError);
                     return false;
                 }
 
-                // 2. Formatear contraseña para soporte de SID (Shoutcast v2/v1 mix)
-                // Si el mount point es algo como "/stream/3", extraemos el SID
                 string passWithSid = _config.Password;
                 if (!string.IsNullOrEmpty(_config.MountPoint) && _config.MountPoint.Contains("/"))
                 {
@@ -68,7 +67,7 @@ namespace RadioLogger.Services
                     if (int.TryParse(sid, out _))
                     {
                         passWithSid = $"{_config.Password},{sid}";
-                        DebugLog.Write($"[STREAM] Using SID formatting: ****,SID={sid}");
+                        _log.Debug("Usando formato SID: ****,SID={Sid}", sid);
                     }
                 }
 
@@ -76,22 +75,21 @@ namespace RadioLogger.Services
                 string contentType = "audio/mpeg";
                 bool isV1 = _config.ServerType.Contains("v1") || _config.ServerType == "Shoutcast";
 
-                // 3. Iniciar Cast con la contraseña formateada para SID
                 bool success = BassEnc.CastInit(_encodeHandle, url, passWithSid, contentType, _stationName, null, null, null, null, _config.Bitrate, isV1);
 
                 if (!success)
                 {
-                    LogService.Log(LogCategory.NETWORK, $"Falla Stream ({_stationName}): CastInit Error {Bass.LastError}");
+                    _log.Warning("Stream fallido ({Station}): CastInit Error {Error}", _stationName, Bass.LastError);
                     Stop();
                     return false;
                 }
 
-                LogService.Log(LogCategory.NETWORK, $"Stream Conectado ({_stationName}): {_config.Host}:{_config.Port}");
+                _log.Information("Stream conectado ({Station}): {Host}:{Port}", _stationName, _config.Host, _config.Port);
                 return true;
             }
             catch (Exception ex)
             {
-                LogService.Log(LogCategory.NETWORK, $"Excepción Stream ({_stationName}): {ex.Message}");
+                _log.Error(ex, "Excepción en stream ({Station})", _stationName);
                 return false;
             }
         }
@@ -108,10 +106,10 @@ namespace RadioLogger.Services
                     }
                     catch (Exception ex)
                     {
-                        DebugLog.Write($"[STREAM] Error stopping encoder: {ex.Message}");
+                        _log.Error(ex, "Error deteniendo encoder");
                     }
                     _encodeHandle = 0;
-                    DebugLog.Write("[STREAM] Native engine stopped and ports released.");
+                    _log.Debug("Stream engine detenido, puertos liberados");
                 }
             }
         }

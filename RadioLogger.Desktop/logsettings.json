@@ -1,0 +1,23 @@
+{
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft": "Warning",
+        "System": "Warning"
+      }
+    },
+    "WriteTo": [
+      {
+        "Name": "File",
+        "Args": {
+          "path": "logs/radiologger-.log",
+          "rollingInterval": "Day",
+          "retainedFileCountLimit": 30,
+          "fileSizeLimitBytes": 52428800,
+          "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ]
+  }
+}

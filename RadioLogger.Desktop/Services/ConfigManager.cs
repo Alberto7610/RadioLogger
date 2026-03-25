@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using RadioLogger.Models;
+using Serilog;
 using System;
 using System.IO;
 
@@ -29,9 +30,7 @@ namespace RadioLogger.Services
                 }
                 catch (Exception ex)
                 {
-                    // If file is corrupt, load defaults and log warning
-                    System.Diagnostics.Debug.WriteLine($"Config corrupted, loading defaults: {ex.Message}");
-                    DebugLog.Write($"[CONFIG] Archivo de configuración corrupto, usando valores por defecto: {ex.Message}");
+                    Log.Warning(ex, "Archivo de configuración corrupto, usando valores por defecto");
                     CurrentSettings = new AppSettings();
                 }
             }

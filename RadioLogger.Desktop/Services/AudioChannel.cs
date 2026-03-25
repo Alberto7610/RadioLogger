@@ -1,6 +1,7 @@
 using ManagedBass;
 using ManagedBass.Enc;
 using RadioLogger.Models;
+using Serilog;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -10,19 +11,21 @@ namespace RadioLogger.Services
 {
     public class AudioChannel : IDisposable
     {
-        private int _handle; 
+        private static readonly ILogger _log = AppLog.For<AudioChannel>();
+
+        private int _handle;
         private int _deviceId;
         private readonly AppSettings _settings;
         private readonly System.Timers.Timer _levelTimer;
         private readonly System.Timers.Timer _fileRotatorTimer;
         private readonly System.Timers.Timer _reconnectTimer;
-        
+
         private bool _isClosing = false;
         private int _encoderHandle;
         private EncodeProcedure _encodeProcedure;
         private FileStream? _currentFileStream;
         private object _fileLock = new object();
-        
+
         // Delegates
         private RecordProcedure _recordProcedure;
         private DSPProcedure _gainDsp;
@@ -40,12 +43,12 @@ namespace RadioLogger.Services
         public string? StreamUrl => _currentConfig?.GetPublicUrl();
         public DateTime StartTime { get; private set; }
         public bool RecordToFile { get; set; } = true;
-        
+
         public AudioDevice DeviceInfo { get; private set; }
-        
+
         private string _stationName = string.Empty;
-        public string StationName 
-        { 
+        public string StationName
+        {
             get => _stationName;
             set
             {
@@ -74,10 +77,10 @@ namespace RadioLogger.Services
             _gainDsp = new DSPProcedure(GainCallback);
             _encodeProcedure = new EncodeProcedure(EncoderCallback);
 
-            _levelTimer = new System.Timers.Timer(50); 
+            _levelTimer = new System.Timers.Timer(50);
             _levelTimer.Elapsed += UpdateLevels;
-            
-            _fileRotatorTimer = new System.Timers.Timer(1000); 
+
+            _fileRotatorTimer = new System.Timers.Timer(1000);
             _fileRotatorTimer.Elapsed += CheckFileRotation;
 
             _reconnectTimer = new System.Timers.Timer(10000); // 10s retry
@@ -93,7 +96,7 @@ namespace RadioLogger.Services
             {
                 if (_currentFileStream != null && length > 0)
                 {
-                    try 
+                    try
                     {
                         byte[] data = new byte[length];
                         Marshal.Copy(buffer, data, 0, length);
@@ -101,7 +104,7 @@ namespace RadioLogger.Services
                     }
                     catch (Exception ex)
                     {
-                        DebugLog.Write($"[BASS] EncoderCallback write error: {ex.Message}");
+                        _log.Error(ex, "Error escribiendo datos al archivo MP3");
                     }
                 }
             }
@@ -131,7 +134,7 @@ namespace RadioLogger.Services
             }
             catch (Exception ex)
             {
-                DebugLog.Write($"[BASS] GainCallback error: {ex.Message}");
+                _log.Error(ex, "Error en GainCallback");
             }
         }
 
@@ -143,7 +146,7 @@ namespace RadioLogger.Services
             }
             catch (Exception ex)
             {
-                DebugLog.Write($"[BASS] RecordingCallback error: {ex.Message}");
+                _log.Error(ex, "Error en RecordingCallback");
                 return true;
             }
         }
@@ -217,7 +220,7 @@ namespace RadioLogger.Services
                 string baseFull = Path.GetFullPath(Path.Combine(_settings.RecordingBasePath, "RadioLogger"));
                 if (!fullPath.StartsWith(baseFull, StringComparison.OrdinalIgnoreCase))
                 {
-                    LogService.Log(LogCategory.AUDIO, $"SEGURIDAD: Ruta sospechosa bloqueada: {fullPath}");
+                    _log.Warning("SEGURIDAD: Ruta sospechosa bloqueada: {Path}", fullPath);
                     return;
                 }
 
@@ -228,7 +231,7 @@ namespace RadioLogger.Services
                 _currentFilePath = Path.Combine(folderPath, fileName);
 
                 _currentFileStream = new FileStream(_currentFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
-                LogService.Log(LogCategory.AUDIO, $"Nuevo archivo: {fileName}");
+                _log.Information("Nuevo archivo: {FileName} ({Station})", fileName, safeStationName);
             }
         }
 
@@ -256,8 +259,8 @@ namespace RadioLogger.Services
             IsStreaming = false;
 
             _streamingClient = new StreamingClient(config, StationName, _handle);
-            
-            System.Threading.Tasks.Task.Run(() => 
+
+            System.Threading.Tasks.Task.Run(() =>
             {
                 if (_streamingClient.Connect())
                 {
@@ -274,7 +277,7 @@ namespace RadioLogger.Services
         private void OnClientDisconnected(string reason)
         {
             IsStreaming = false;
-            
+
             if (_streamingClient != null)
             {
                 _streamingClient.Dispose();
@@ -401,7 +404,7 @@ namespace RadioLogger.Services
                     }
                     catch (Exception ex)
                     {
-                        DebugLog.Write($"[AUDIO] Error closing file stream: {ex.Message}");
+                        _log.Error(ex, "Error cerrando archivo de grabación");
                     }
                     finally { _currentFileStream = null; }
                 }

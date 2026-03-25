@@ -12,11 +12,13 @@ using System.Globalization;
 using System.Collections.Generic;
 using System.Windows.Media.Imaging;
 using RadioLogger.Services;
+using Serilog;
 
 namespace RadioLogger.ViewModels
 {
     public partial class PlayerViewModel : ObservableObject, IDisposable
     {
+        private static readonly ILogger _log = AppLog.For<PlayerViewModel>();
         private int _stream;
         private readonly System.Timers.Timer _playbackTimer;
 
@@ -145,7 +147,7 @@ namespace RadioLogger.ViewModels
             {
                 var error = Bass.LastError;
                 if (error != Errors.Already)
-                    DebugLog.Write($"[PLAYER] Bass.Init failed: {error}");
+                    _log.Warning("Bass.Init failed: {Error}", error);
             }
             
             RefreshStations();

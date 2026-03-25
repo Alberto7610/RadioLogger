@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RadioLogger.Services;
+using Serilog;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Timers;
@@ -11,6 +12,8 @@ namespace RadioLogger.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
+        private static readonly ILogger _log = AppLog.For<MainViewModel>();
+
         private readonly ConfigManager _configManager = null!;
         private readonly AudioEngine _audioEngine = null!;
         private readonly HeartbeatService _heartbeatService = null!;
@@ -57,18 +60,16 @@ namespace RadioLogger.ViewModels
             }
 
             _configManager = new ConfigManager();
-            
-            // Init Logs
-            LogService.Initialize(_configManager.CurrentSettings.RecordingBasePath);
-            LogService.Log(LogCategory.SYSTEM, $"Aplicación iniciada. PC: {Environment.MachineName}");
+
+            _log.Information("Aplicación iniciada. PC: {MachineName}", Environment.MachineName);
 
             _audioEngine = new AudioEngine(_configManager);
             _heartbeatService = new HeartbeatService(_configManager);
             _heartbeatService.Start();
-            
+
             _signalRService = new SignalRService(_configManager.CurrentSettings);
             _signalRStatus = _configManager.CurrentSettings.IsSignalREnabled ? "Monitoreo: Iniciando..." : "Monitoreo: Desactivado";
-            
+
             // Timer para checar internet real independientemente del Dashboard
             _internetCheckTimer = new System.Timers.Timer(5000); // Cada 5s
             _internetCheckTimer.Elapsed += (s, e) => CheckInternetReal();
@@ -89,12 +90,12 @@ namespace RadioLogger.ViewModels
             LoadDevices();
 
             _uiTimer = new System.Timers.Timer(50); // 20 FPS
-            _uiTimer.Elapsed += (s, e) => 
+            _uiTimer.Elapsed += (s, e) =>
             {
                 UpdateLevels();
                 UpdateClock();
                 _frames++;
-                
+
                 // SignalR batch update (Approx every 200ms = 4 frames)
                 if (_frames % 4 == 0)
                 {
@@ -121,7 +122,6 @@ namespace RadioLogger.ViewModels
                 {
                     using (var ping = new System.Net.NetworkInformation.Ping())
                     {
-                        // 1. Probar Google DNS
                         var reply8 = ping.Send("8.8.8.8", 1000);
                         if (reply8.Status == System.Net.NetworkInformation.IPStatus.Success)
                         {
@@ -129,7 +129,6 @@ namespace RadioLogger.ViewModels
                         }
                         else
                         {
-                            // 2. Probar Cloudflare DNS (Doble check)
                             var reply1 = ping.Send("1.1.1.1", 1000);
                             if (reply1.Status == System.Net.NetworkInformation.IPStatus.Success)
                             {
@@ -138,8 +137,6 @@ namespace RadioLogger.ViewModels
                         }
                     }
 
-                    // 3. Si los pings fallan, intentar llegar a nuestro propio servidor via HTTP
-                    // A veces el protocolo ICMP (ping) está bloqueado pero el internet funciona.
                     if (!isInternetUp)
                     {
                         try
@@ -151,7 +148,7 @@ namespace RadioLogger.ViewModels
                                 if (response.IsSuccessStatusCode) isInternetUp = true;
                             }
                         }
-                        catch { /* Ignorar falla de HTTP */ }
+                        catch { }
                     }
                 }
             }
@@ -161,7 +158,7 @@ namespace RadioLogger.ViewModels
             {
                 if (isInternetUp)
                 {
-                    _internetFailCount = 0; // Resetear contador al éxito
+                    _internetFailCount = 0;
                     StatusBarColor = "#007ACC";
                     InternetStatusText = "INTERNET OK";
                 }
@@ -169,18 +166,15 @@ namespace RadioLogger.ViewModels
                 {
                     _internetFailCount++;
 
-                    // Solo cambiar a ROJO si se acumulan fallos seguidos
                     if (_internetFailCount >= MaxInternetFails)
                     {
                         StatusBarColor = "#CC0000";
                         InternetStatusText = "SIN CONEXIÓN A INTERNET";
-                        // Solo loguear el primer fallo crítico para no saturar
                         if (_internetFailCount == MaxInternetFails)
-                            LogService.Log(LogCategory.NETWORK, "CRÍTICO: Sin acceso a internet confirmado tras 3 intentos.");
+                            _log.Warning("Sin acceso a internet confirmado tras {Attempts} intentos", MaxInternetFails);
                     }
                     else
                     {
-                        // Estado intermedio (Opcional: podrías ponerlo amarillo o dejarlo azul)
                         InternetStatusText = $"INTERNET INESTABLE ({_internetFailCount})";
                     }
                 }
@@ -207,16 +201,16 @@ namespace RadioLogger.ViewModels
 
             var batch = new RadioLogger.Shared.Models.BatchStatusUpdate { MachineId = Environment.MachineName };
             var hwid = GetHardwareId();
-            
+
             foreach (var d in InputDevices)
             {
                 batch.Stations.Add(new RadioLogger.Shared.Models.StationStatusUpdate
                 {
                     MachineId = Environment.MachineName,
                     StationName = d.StationName,
-                    HardwareName = d.Device.Name, // Use the stable hardware name
+                    HardwareName = d.Device.Name,
                     HardwareId = hwid,
-                    LicenseKey = "FREE-TRIAL-001", // Default for now
+                    LicenseKey = "FREE-TRIAL-001",
                     LeftLevel = Math.Round(d.LeftLevel / 100.0, 3),
                     RightLevel = Math.Round(d.RightLevel / 100.0, 3),
                     LeftPeak = Math.Round(d.LeftPeak / 100.0, 3),
@@ -241,12 +235,10 @@ namespace RadioLogger.ViewModels
                 bool previouslySilence = dev.IsSilenceDetected;
                 dev.RefreshLevels();
 
-                // Notificaciones de Telegram
                 if (_configManager.CurrentSettings.EnableTelegram)
                 {
                     if (dev.IsSilenceDetected && !previouslySilence)
                     {
-                        // Inicio de falla
                         _ = TelegramService.SendAlertAsync(
                             _configManager.CurrentSettings.TelegramToken,
                             _configManager.CurrentSettings.TelegramChatId,
@@ -254,7 +246,6 @@ namespace RadioLogger.ViewModels
                     }
                     else if (!dev.IsSilenceDetected && previouslySilence)
                     {
-                        // Fin de falla
                         _ = TelegramService.SendAlertAsync(
                             _configManager.CurrentSettings.TelegramToken,
                             _configManager.CurrentSettings.TelegramChatId,
@@ -267,9 +258,9 @@ namespace RadioLogger.ViewModels
         private void UpdateClock()
         {
             CurrentTime = DateTime.Now.ToString("HH:mm:ss");
-            
+
             var activeDevices = InputDevices.Where(d => d.IsRecording && d.RecordingStartTime.HasValue).ToList();
-            
+
             if (activeDevices.Any())
             {
                 var minStart = activeDevices.Min(d => d.RecordingStartTime!.Value);
@@ -327,14 +318,13 @@ namespace RadioLogger.ViewModels
             catch (Exception ex)
             {
                 StatusMessage = "No se pudo abrir el dashboard web.";
-                System.Diagnostics.Debug.WriteLine(ex.Message);
+                _log.Warning(ex, "Error al abrir dashboard");
             }
         }
 
         [RelayCommand]
         public void OpenSettings()
         {
-            // Require password to access settings
             var dialog = new RadioLogger.Views.PasswordDialog(_configManager.CurrentSettings.SettingsPasswordHash);
             dialog.Owner = System.Windows.Application.Current.MainWindow;
             if (dialog.ShowDialog() != true || !dialog.IsAuthenticated) return;
@@ -355,9 +345,9 @@ namespace RadioLogger.ViewModels
             device.UpdateState();
 
             if (device.IsSelected)
-                LogService.Log(LogCategory.AUDIO, $"Grabación INICIADA manualmente: {device.StationName}");
+                _log.Information("Grabación INICIADA manualmente: {Station}", device.StationName);
             else
-                LogService.Log(LogCategory.AUDIO, $"Grabación DETENIDA manualmente: {device.StationName}");
+                _log.Information("Grabación DETENIDA manualmente: {Station}", device.StationName);
 
             PersistCurrentState();
         }
@@ -369,9 +359,6 @@ namespace RadioLogger.ViewModels
             PersistCurrentState();
         }
 
-        /// <summary>
-        /// Handle remote commands from the Dashboard via SignalR.
-        /// </summary>
         private void OnRemoteCommand(RadioLogger.Shared.Models.StationCommand command)
         {
             System.Windows.Application.Current?.Dispatcher.Invoke(() =>
@@ -379,7 +366,7 @@ namespace RadioLogger.ViewModels
                 var device = InputDevices.FirstOrDefault(d => d.Device.Name == command.HardwareName);
                 if (device == null) return;
 
-                LogService.Log(LogCategory.SYSTEM, $"Comando remoto: {command.Command} para {command.HardwareName}");
+                _log.Information("Comando remoto: {Command} para {HardwareName}", command.Command, command.HardwareName);
 
                 switch (command.Command)
                 {
@@ -387,7 +374,7 @@ namespace RadioLogger.ViewModels
                         if (!device.IsRecording)
                         {
                             device.IsSelected = true;
-                            device.UpdateState(); // Respects IsRecordingEnabled from settings
+                            device.UpdateState();
                         }
                         break;
 
@@ -418,12 +405,11 @@ namespace RadioLogger.ViewModels
                         {
                             _configManager.CurrentSettings.SettingsPasswordHash = command.Payload;
                             _configManager.Save();
-                            LogService.Log(LogCategory.SYSTEM, $"Password de configuración reseteado remotamente");
+                            _log.Information("Password de configuración reseteado remotamente");
                         }
                         break;
                 }
 
-                // Persist state after remote command so it survives restarts
                 PersistCurrentState();
             });
         }
@@ -458,18 +444,15 @@ namespace RadioLogger.ViewModels
 
             bool showAll = savedActive.Count == 0;
 
-            // Determine target devices to show
             var targetDevices = devices
                 .Where(dev => showAll || savedActive.Contains(dev.Name))
                 .ToList();
 
-            // 1. Remove devices that are no longer active
             var toRemove = InputDevices
                 .Where(vm => !targetDevices.Any(td => td.Name == vm.Device.Name))
                 .ToList();
             foreach (var vm in toRemove) InputDevices.Remove(vm);
 
-            // 2. Update or Add devices
             foreach (var td in targetDevices)
             {
                 if (!nameMapping.TryGetValue(td.Name, out string? customName) || string.IsNullOrWhiteSpace(customName))
@@ -490,13 +473,11 @@ namespace RadioLogger.ViewModels
                 }
                 else
                 {
-                    // Add as new device
                     var vm = new DeviceViewModel(td, _audioEngine, _configManager, customName, false);
                     InputDevices.Add(vm);
                 }
             }
 
-            // 3. Auto-restore: resume recording and streaming from previous session
             RestorePreviousState(autoRecord, autoStream);
         }
 
@@ -515,30 +496,27 @@ namespace RadioLogger.ViewModels
         {
             if (autoRecord.Count == 0 && autoStream.Count == 0) return;
 
-            LogService.Log(LogCategory.SYSTEM, $"Restaurando estado previo: {autoRecord.Count} grabando, {autoStream.Count} en streaming");
+            _log.Information("Restaurando estado previo: {RecCount} grabando, {StreamCount} en streaming", autoRecord.Count, autoStream.Count);
 
-            // Paso 1: Restaurar grabación
             foreach (var device in InputDevices)
             {
                 if (autoRecord.Contains(device.Device.Name) && !device.IsRecording)
                 {
                     device.IsSelected = true;
                     device.UpdateState();
-                    LogService.Log(LogCategory.AUDIO, $"Auto-restaurado grabación: {device.StationName}");
+                    _log.Information("Auto-restaurado grabación: {Station}", device.StationName);
                 }
             }
 
-            // Paso 2: Restaurar streaming con delay para asegurar que la grabación esté activa
             if (autoStream.Count > 0)
             {
                 var streamDeviceNames = autoStream.ToList();
                 var dispatcher = System.Windows.Application.Current?.Dispatcher;
                 if (dispatcher != null)
                 {
-                    // Usar dispatcher con delay para que los dispositivos terminen de inicializar
                     _ = System.Threading.Tasks.Task.Run(async () =>
                     {
-                        await System.Threading.Tasks.Task.Delay(2000); // 2 segundos para que la grabación se estabilice
+                        await System.Threading.Tasks.Task.Delay(2000);
                         dispatcher.Invoke(() =>
                         {
                             foreach (var device in InputDevices)
@@ -546,11 +524,11 @@ namespace RadioLogger.ViewModels
                                 if (streamDeviceNames.Contains(device.Device.Name) && device.IsRecording && !device.IsStreaming)
                                 {
                                     device.ToggleStreaming();
-                                    LogService.Log(LogCategory.AUDIO, $"Auto-restaurado streaming: {device.StationName}");
+                                    _log.Information("Auto-restaurado streaming: {Station}", device.StationName);
                                 }
                                 else if (streamDeviceNames.Contains(device.Device.Name) && !device.IsRecording)
                                 {
-                                    LogService.Log(LogCategory.SYSTEM, $"No se pudo restaurar streaming para {device.StationName}: grabación no activa");
+                                    _log.Warning("No se pudo restaurar streaming para {Station}: grabación no activa", device.StationName);
                                 }
                             }
                         });

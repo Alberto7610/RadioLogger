@@ -1,3 +1,4 @@
+using Serilog;
 using System;
 using System.Net.Http;
 using System.Text;
@@ -8,6 +9,7 @@ namespace RadioLogger.Services
 {
     public static class TelegramService
     {
+        private static readonly ILogger _log = AppLog.For("TelegramService");
         private static readonly HttpClient _httpClient = new HttpClient();
 
         public static async Task SendAlertAsync(string token, string chatId, string message)
@@ -25,12 +27,12 @@ namespace RadioLogger.Services
                 var response = await _httpClient.PostAsync(url, content);
                 if (!response.IsSuccessStatusCode)
                 {
-                    LogService.Log(LogCategory.NETWORK, $"Falla al enviar Telegram: {response.StatusCode}");
+                    _log.Warning("Falla al enviar Telegram: {StatusCode}", response.StatusCode);
                 }
             }
             catch (Exception ex)
             {
-                LogService.Log(LogCategory.NETWORK, $"Error conexión Telegram: {ex.Message}");
+                _log.Error(ex, "Error conexión Telegram");
             }
         }
     }
