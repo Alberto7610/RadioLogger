@@ -186,6 +186,7 @@ namespace RadioLogger.Services
             _levelTimer.Start();
             IsRecording = true;
             StartTime = DateTime.Now;
+            _log.Information("Grabación iniciada ({Station}) en dispositivo {Device}", StationName, DeviceInfo.Name);
         }
 
         private void StartEncoder()
@@ -255,6 +256,7 @@ namespace RadioLogger.Services
             _currentConfig = config;
             StopStreaming(false);
 
+            _log.Information("Iniciando streaming ({Station}) hacia {Host}:{Port}", StationName, config.Host, config.Port);
             IsReconnecting = true;
             IsStreaming = false;
 
@@ -276,6 +278,7 @@ namespace RadioLogger.Services
 
         private void OnClientDisconnected(string reason)
         {
+            _log.Warning("Streaming desconectado ({Station}): {Reason} — reintentando en 10s", StationName, reason);
             IsStreaming = false;
 
             if (_streamingClient != null)
@@ -295,6 +298,7 @@ namespace RadioLogger.Services
         {
             if (_currentConfig != null)
             {
+                _log.Debug("Reintentando streaming ({Station})", StationName);
                 StartStreaming(_currentConfig);
             }
         }
@@ -303,6 +307,7 @@ namespace RadioLogger.Services
         {
             if (manualStop)
             {
+                _log.Information("Streaming DETENIDO manualmente ({Station})", StationName);
                 _currentConfig = null;
                 _reconnectTimer.Stop();
             }
@@ -379,6 +384,7 @@ namespace RadioLogger.Services
             if (_isClosing) return;
             _isClosing = true;
 
+            _log.Information("Grabación detenida ({Station})", StationName);
             IsRecording = false;
             _levelTimer.Stop();
             _fileRotatorTimer.Stop();

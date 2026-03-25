@@ -47,11 +47,11 @@ namespace RadioLogger.Services
             {
                 var json = JsonConvert.SerializeObject(CurrentSettings, Formatting.Indented);
                 File.WriteAllText(_configPath, json);
+                Log.Debug("Configuración guardada");
             }
             catch (Exception ex)
             {
-                // Handle or log error
-                System.Diagnostics.Debug.WriteLine($"Error saving config: {ex.Message}");
+                Log.Error(ex, "Error guardando configuración");
             }
         }
     }

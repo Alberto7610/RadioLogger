@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using RadioLogger.Models;
-using RadioLogger.Shared.Models; // Import Shared Models
+using RadioLogger.Shared.Models;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -9,6 +10,8 @@ namespace RadioLogger.Services
 {
     public class SignalRService : IDisposable
     {
+        private static readonly ILogger _log = AppLog.For<SignalRService>();
+
         private HubConnection? _connection;
         private readonly AppSettings _settings;
         private bool _isDisposed;
@@ -56,17 +59,30 @@ namespace RadioLogger.Services
 
             _connection = builder.Build();
 
-            // Listen for remote commands from Dashboard
             _connection.On<RadioLogger.Shared.Models.StationCommand>("ReceiveCommand", (command) =>
             {
-                System.Diagnostics.Debug.WriteLine($"[SignalR] Command received: {command.Command} for {command.HardwareName}");
+                _log.Information("Comando recibido vía SignalR: {Command} para {HardwareName}", command.Command, command.HardwareName);
                 CommandReceived?.Invoke(command);
             });
+
+            _connection.Reconnecting += (error) =>
+            {
+                _log.Warning("SignalR reconectando: {Error}", error?.Message ?? "conexión perdida");
+                ConnectionStatusChanged?.Invoke("Monitoreo: Reconectando...", false);
+                return Task.CompletedTask;
+            };
+
+            _connection.Reconnected += (connectionId) =>
+            {
+                _log.Information("SignalR reconectado exitosamente (ID: {ConnectionId})", connectionId);
+                ConnectionStatusChanged?.Invoke("Monitoreo Web Conectado", true);
+                return Task.CompletedTask;
+            };
 
             _connection.Closed += async (error) =>
             {
                 if (_isDisposed) return;
-                System.Diagnostics.Debug.WriteLine($"SignalR Connection Closed: {error?.Message}");
+                _log.Warning("SignalR conexión cerrada: {Error}", error?.Message ?? "sin error");
                 await Task.Delay(new Random().Next(0, 5) * 1000);
                 if (!_isDisposed)
                     await StartAsync();
@@ -75,24 +91,22 @@ namespace RadioLogger.Services
             // PERSISTENT RETRY LOOP
             bool connected = false;
             int attempts = 0;
-            
+
             while (!connected && !_isDisposed)
             {
                 try
                 {
                     attempts++;
-                    System.Diagnostics.Debug.WriteLine($"SignalR Connection Attempt {attempts}...");
+                    _log.Debug("SignalR intento de conexión #{Attempt} a {Url}", attempts, sanitizedUrl);
                     await _connection.StartAsync();
-                    System.Diagnostics.Debug.WriteLine("SignalR Connected Successfully.");
+                    _log.Information("SignalR conectado a {Url}", sanitizedUrl);
                     ConnectionStatusChanged?.Invoke("Monitoreo Web Conectado", true);
                     connected = true;
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"SignalR Connection Error (Attempt {attempts}): {ex.Message}");
+                    _log.Warning("SignalR conexión fallida (intento {Attempt}): {Error}", attempts, ex.Message);
                     ConnectionStatusChanged?.Invoke($"Esperando servidor ({attempts})...", false);
-                    
-                    // Wait 5 seconds before trying again
                     await Task.Delay(5000);
                 }
             }
@@ -102,15 +116,13 @@ namespace RadioLogger.Services
         {
             if (_connection != null)
             {
+                _log.Debug("SignalR deteniendo conexión");
                 await _connection.StopAsync();
                 await _connection.DisposeAsync();
                 _connection = null;
             }
         }
 
-        /// <summary>
-        /// Individual station update using shared model
-        /// </summary>
         public async Task SendStatusUpdateAsync(StationStatusUpdate update)
         {
             if (!IsConnected) return;
@@ -121,13 +133,10 @@ namespace RadioLogger.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"SignalR Send Error: {ex.Message}");
+                _log.Error(ex, "Error enviando actualización SignalR");
             }
         }
 
-        /// <summary>
-        /// Batch update for performance using shared model
-        /// </summary>
         public async Task SendBatchUpdateAsync(BatchStatusUpdate batch)
         {
             if (!IsConnected) return;
@@ -138,7 +147,7 @@ namespace RadioLogger.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"SignalR Batch Send Error: {ex.Message}");
+                _log.Error(ex, "Error enviando batch SignalR");
             }
         }
 
@@ -147,13 +156,14 @@ namespace RadioLogger.Services
             if (!_isDisposed)
             {
                 _isDisposed = true;
+                _log.Debug("SignalR disposing");
                 try
                 {
                     _connection?.StopAsync().GetAwaiter().GetResult();
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"SignalR Stop error on dispose: {ex.Message}");
+                    _log.Error(ex, "Error deteniendo SignalR en dispose");
                 }
                 try
                 {
@@ -161,7 +171,7 @@ namespace RadioLogger.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"SignalR Dispose error: {ex.Message}");
+                    _log.Error(ex, "Error disposing SignalR");
                 }
                 _connection = null;
             }
