@@ -141,7 +141,12 @@ namespace RadioLogger.ViewModels
         {
             _basePath = basePath;
             LoadOutputDevices();
-            if (!Bass.Init(-1, 44100, DeviceInitFlags.Default, IntPtr.Zero)) { }
+            if (!Bass.Init(-1, 44100, DeviceInitFlags.Default, IntPtr.Zero))
+            {
+                var error = Bass.LastError;
+                if (error != Errors.Already)
+                    DebugLog.Write($"[PLAYER] Bass.Init failed: {error}");
+            }
             
             RefreshStations();
 

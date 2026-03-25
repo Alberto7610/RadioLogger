@@ -118,31 +118,34 @@ namespace RadioLogger.Services
             }
         }
         
-        public (bool success, string message) TestConnection(StreamingConfig config)
+        public async System.Threading.Tasks.Task<(bool success, string message)> TestConnectionAsync(StreamingConfig config)
         {
-            try 
+            return await System.Threading.Tasks.Task.Run(() =>
             {
-                // To test connection, we need a dummy recording handle
-                Bass.RecordInit(1);
-                int dummyHandle = Bass.RecordStart(44100, 2, BassFlags.RecordPause, null, IntPtr.Zero);
-                
-                using var client = new StreamingClient(config, "TEST_CONN", dummyHandle);
-                if (client.Connect())
+                try
                 {
-                    System.Threading.Thread.Sleep(3000); 
-                    Bass.ChannelStop(dummyHandle);
-                    return (true, "Conexión Exitosa (Servidor aceptó Handshake)");
+                    // To test connection, we need a dummy recording handle
+                    Bass.RecordInit(1);
+                    int dummyHandle = Bass.RecordStart(44100, 2, BassFlags.RecordPause, null, IntPtr.Zero);
+
+                    using var client = new StreamingClient(config, "TEST_CONN", dummyHandle);
+                    if (client.Connect())
+                    {
+                        System.Threading.Thread.Sleep(2000);
+                        Bass.ChannelStop(dummyHandle);
+                        return (true, "Conexión Exitosa (Servidor aceptó Handshake)");
+                    }
+                    else
+                    {
+                        Bass.ChannelStop(dummyHandle);
+                        return (false, "Error: El servidor rechazó la conexión o puerto cerrado.");
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    Bass.ChannelStop(dummyHandle);
-                    return (false, "Error: El servidor rechazó la conexión o puerto cerrado.");
+                    return (false, $"Error de Red: {ex.Message}");
                 }
-            }
-            catch (Exception ex)
-            {
-                return (false, $"Error de Red: {ex.Message}");
-            }
+            });
         }
 
         public void SetChannelGain(AudioDevice device, float gain)

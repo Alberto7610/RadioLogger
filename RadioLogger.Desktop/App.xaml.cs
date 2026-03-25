@@ -1,4 +1,5 @@
 ﻿using Microsoft.Win32;
+using RadioLogger.Services;
 using System;
 using System.Linq;
 using System.Windows;
@@ -35,7 +36,10 @@ public partial class App : System.Windows.Application
                     key.SetValue("DefaultPassword", password);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[AUTO-LOGIN] Error configurando auto-login: {ex.Message}");
+            }
             Shutdown(0);
             return;
         }
@@ -51,7 +55,10 @@ public partial class App : System.Windows.Application
                     key.DeleteValue("DefaultPassword", false);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[AUTO-LOGIN] Error removiendo auto-login: {ex.Message}");
+            }
             Shutdown(0);
             return;
         }

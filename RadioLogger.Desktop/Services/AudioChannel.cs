@@ -99,7 +99,10 @@ namespace RadioLogger.Services
                         Marshal.Copy(buffer, data, 0, length);
                         _currentFileStream.Write(data, 0, length);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Write($"[BASS] EncoderCallback write error: {ex.Message}");
+                    }
                 }
             }
         }
@@ -111,23 +114,38 @@ namespace RadioLogger.Services
 
         private unsafe void GainCallback(int handle, int channel, IntPtr buffer, int length, IntPtr user)
         {
-            if (_currentGain == 1.0f) return;
-
-            short* data = (short*)buffer;
-            int samples = length / 2;
-
-            for (int i = 0; i < samples; i++)
+            try
             {
-                int s = (int)(data[i] * _currentGain);
-                if (s > 32767) s = 32767;
-                else if (s < -32768) s = -32768;
-                data[i] = (short)s;
+                if (_currentGain == 1.0f) return;
+
+                short* data = (short*)buffer;
+                int samples = length / 2;
+
+                for (int i = 0; i < samples; i++)
+                {
+                    int s = (int)(data[i] * _currentGain);
+                    if (s > 32767) s = 32767;
+                    else if (s < -32768) s = -32768;
+                    data[i] = (short)s;
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[BASS] GainCallback error: {ex.Message}");
             }
         }
 
         private bool RecordingCallback(int handle, IntPtr buffer, int length, IntPtr user)
         {
-            return true; 
+            try
+            {
+                return !_isClosing;
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[BASS] RecordingCallback error: {ex.Message}");
+                return true;
+            }
         }
 
         public bool Initialize()
@@ -307,27 +325,30 @@ namespace RadioLogger.Services
 
         private void CheckFileRotation(object? sender, ElapsedEventArgs e)
         {
-            int intervalMinutes = _settings.SegmentDurationMinutes;
+            int intervalMinutes = Math.Max(1, _settings.SegmentDurationMinutes);
             DateTime now = DateTime.Now;
             bool shouldRotate = false;
 
-            if (intervalMinutes >= 60)
+            lock (_fileLock)
             {
-                int hours = intervalMinutes / 60;
-                if (now.Hour != _currentFileDate.Hour && now.Hour % hours == 0)
+                if (intervalMinutes >= 60)
                 {
-                    shouldRotate = true;
+                    int hours = intervalMinutes / 60;
+                    if (now.Hour != _currentFileDate.Hour && now.Hour % hours == 0)
+                    {
+                        shouldRotate = true;
+                    }
                 }
-            }
-            else
-            {
-                if (now.Minute != _currentFileDate.Minute && now.Minute % intervalMinutes == 0)
+                else
                 {
-                    shouldRotate = true;
+                    if (now.Minute != _currentFileDate.Minute && now.Minute % intervalMinutes == 0)
+                    {
+                        shouldRotate = true;
+                    }
                 }
-            }
 
-            if (now.Date > _currentFileDate.Date) shouldRotate = true;
+                if (now.Date > _currentFileDate.Date) shouldRotate = true;
+            }
 
             if (shouldRotate)
             {
@@ -378,13 +399,21 @@ namespace RadioLogger.Services
                         _currentFileStream.Close();
                         _currentFileStream.Dispose();
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Write($"[AUDIO] Error closing file stream: {ex.Message}");
+                    }
                     finally { _currentFileStream = null; }
                 }
             }
 
             if (_handle != 0)
             {
+                if (_dspHandle != 0)
+                {
+                    Bass.ChannelRemoveDSP(_handle, _dspHandle);
+                    _dspHandle = 0;
+                }
                 Bass.ChannelStop(_handle);
                 _handle = 0;
             }

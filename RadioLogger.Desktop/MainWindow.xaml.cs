@@ -39,11 +39,14 @@ public partial class MainWindow : Window
         }
         else
         {
-            // Persistir estado de grabación y streaming antes de cerrar
+            // Persistir estado y limpiar recursos antes de cerrar
             if (DataContext is RadioLogger.ViewModels.MainViewModel vm)
             {
                 vm.PersistCurrentState();
+                vm.Cleanup();
             }
+            _trayService?.Dispose();
+            _trayService = null;
         }
     }
 }

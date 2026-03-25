@@ -88,6 +88,7 @@ namespace RadioLogger.Services
 
         public void Dispose()
         {
+            _mainWindow.StateChanged -= OnWindowStateChanged;
             _notifyIcon.Dispose();
         }
     }

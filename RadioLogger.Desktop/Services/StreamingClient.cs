@@ -13,8 +13,22 @@ namespace RadioLogger.Services
         private readonly string _stationName;
         private readonly int _sourceChannel;
         private bool _isDisposed;
+        private readonly object _lock = new();
 
-        public bool IsConnected => _encodeHandle != 0 && BassEnc.EncodeIsActive(_encodeHandle) == PlaybackState.Playing;
+        public bool IsConnected
+        {
+            get
+            {
+                try
+                {
+                    return _encodeHandle != 0 && BassEnc.EncodeIsActive(_encodeHandle) == PlaybackState.Playing;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
 
         public StreamingClient(StreamingConfig config, string stationName, int sourceChannel)
         {
@@ -35,7 +49,7 @@ namespace RadioLogger.Services
                 // 1. Setup LAME con parámetros profesionales
                 string lamePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
                 string command = $"\"{lamePath}\" -r -s 44100 -b {_config.Bitrate} -";
-                
+
                 _encodeHandle = BassEnc.EncodeStart(_sourceChannel, command, EncodeFlags.NoHeader | EncodeFlags.AutoFree, null, IntPtr.Zero);
 
                 if (_encodeHandle == 0)
@@ -84,12 +98,21 @@ namespace RadioLogger.Services
 
         public void Stop()
         {
-            if (_encodeHandle != 0)
+            lock (_lock)
             {
-                // Detener el Cast y el Encoder inmediatamente
-                BassEnc.EncodeStop(_encodeHandle);
-                _encodeHandle = 0;
-                DebugLog.Write("[STREAM] Native engine stopped and ports released.");
+                if (_encodeHandle != 0)
+                {
+                    try
+                    {
+                        BassEnc.EncodeStop(_encodeHandle);
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Write($"[STREAM] Error stopping encoder: {ex.Message}");
+                    }
+                    _encodeHandle = 0;
+                    DebugLog.Write("[STREAM] Native engine stopped and ports released.");
+                }
             }
         }
 
@@ -97,8 +120,8 @@ namespace RadioLogger.Services
         {
             if (!_isDisposed)
             {
-                Stop();
                 _isDisposed = true;
+                Stop();
             }
         }
     }

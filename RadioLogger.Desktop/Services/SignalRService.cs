@@ -34,6 +34,8 @@ namespace RadioLogger.Services
             if (_connection != null)
                 await StopAsync();
 
+            // ADVERTENCIA: En DEBUG se acepta cualquier certificado SSL para desarrollo local.
+            // En producción (Release), se validan certificados normalmente.
             var builder = new HubConnectionBuilder()
                 .WithUrl(sanitizedUrl
 #if DEBUG
@@ -63,9 +65,11 @@ namespace RadioLogger.Services
 
             _connection.Closed += async (error) =>
             {
+                if (_isDisposed) return;
                 System.Diagnostics.Debug.WriteLine($"SignalR Connection Closed: {error?.Message}");
                 await Task.Delay(new Random().Next(0, 5) * 1000);
-                await StartAsync();
+                if (!_isDisposed)
+                    await StartAsync();
             };
 
             // PERSISTENT RETRY LOOP
@@ -142,8 +146,24 @@ namespace RadioLogger.Services
         {
             if (!_isDisposed)
             {
-                _connection?.DisposeAsync().AsTask().Wait();
                 _isDisposed = true;
+                try
+                {
+                    _connection?.StopAsync().GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SignalR Stop error on dispose: {ex.Message}");
+                }
+                try
+                {
+                    _connection?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SignalR Dispose error: {ex.Message}");
+                }
+                _connection = null;
             }
         }
     }

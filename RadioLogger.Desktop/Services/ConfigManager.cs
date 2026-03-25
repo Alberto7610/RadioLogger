@@ -27,9 +27,11 @@ namespace RadioLogger.Services
                     var json = File.ReadAllText(_configPath);
                     CurrentSettings = JsonConvert.DeserializeObject<AppSettings>(json) ?? new AppSettings();
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // If file is corrupt, load defaults
+                    // If file is corrupt, load defaults and log warning
+                    System.Diagnostics.Debug.WriteLine($"Config corrupted, loading defaults: {ex.Message}");
+                    DebugLog.Write($"[CONFIG] Archivo de configuración corrupto, usando valores por defecto: {ex.Message}");
                     CurrentSettings = new AppSettings();
                 }
             }

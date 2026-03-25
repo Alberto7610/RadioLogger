@@ -182,22 +182,19 @@ namespace RadioLogger.ViewModels
             TestStatus = "Conectando...";
             TestStatusColor = "#AAA"; // Waiting
 
-            await System.Threading.Tasks.Task.Run(() =>
+            var tempConfig = new StreamingConfig
             {
-                var tempConfig = new StreamingConfig
-                {
-                    Host = StreamHost,
-                    Port = StreamPort,
-                    Password = StreamPassword,
-                    MountPoint = StreamMount,
-                    ServerType = StreamServerType
-                };
+                Host = StreamHost,
+                Port = StreamPort,
+                Password = StreamPassword,
+                MountPoint = StreamMount,
+                ServerType = StreamServerType
+            };
 
-                var (success, msg) = _audioEngine.TestConnection(tempConfig);
-                
-                TestStatus = msg;
-                TestStatusColor = success ? "#00FF00" : "#FF0000"; // Green vs Red
-            });
+            var (success, msg) = await _audioEngine.TestConnectionAsync(tempConfig);
+
+            TestStatus = msg;
+            TestStatusColor = success ? "#00FF00" : "#FF0000"; // Green vs Red
         }
 
         partial void OnSelectedStreamingDeviceChanged(DeviceSelection? value)

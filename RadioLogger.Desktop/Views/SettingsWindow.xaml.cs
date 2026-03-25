@@ -9,10 +9,15 @@ namespace RadioLogger.Views
         {
             InitializeComponent();
             
-            // Allow dragging the window by clicking anywhere on the background
-            this.MouseLeftButtonDown += (s, e) => 
+            // Allow dragging the window by clicking on non-interactive areas
+            this.MouseLeftButtonDown += (s, e) =>
             {
-                if (e.ButtonState == MouseButtonState.Pressed)
+                if (e.ButtonState == MouseButtonState.Pressed && e.OriginalSource is not System.Windows.Controls.TextBox
+                    && e.OriginalSource is not System.Windows.Controls.PasswordBox
+                    && e.OriginalSource is not System.Windows.Controls.Button
+                    && e.OriginalSource is not System.Windows.Controls.CheckBox
+                    && e.OriginalSource is not System.Windows.Controls.ComboBox
+                    && e.OriginalSource is not System.Windows.Controls.Slider)
                     this.DragMove();
             };
         }

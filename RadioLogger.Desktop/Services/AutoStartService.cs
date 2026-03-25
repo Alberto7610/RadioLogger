@@ -36,8 +36,12 @@ namespace RadioLogger.Services
                     var proc = Process.Start(psi);
                     if (proc != null)
                     {
-                        proc.WaitForExit(5000);
-                        if (proc.ExitCode == 0)
+                        bool exited = proc.WaitForExit(5000);
+                        if (!exited)
+                        {
+                            Debug.WriteLine("AutoStart: schtasks timeout after 5s");
+                        }
+                        else if (proc.ExitCode == 0)
                         {
                             // Limpiar entrada vieja del registro Run si existe
                             RemoveFromRegistryRun();

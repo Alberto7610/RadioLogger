@@ -16,6 +16,7 @@ namespace RadioLogger.ViewModels
         private readonly HeartbeatService _heartbeatService = null!;
         private readonly SignalRService _signalRService = null!;
         private readonly System.Timers.Timer _uiTimer = null!;
+        private System.Timers.Timer? _internetCheckTimer;
         private int _frames = 0;
 
         [ObservableProperty]
@@ -69,9 +70,9 @@ namespace RadioLogger.ViewModels
             _signalRStatus = _configManager.CurrentSettings.IsSignalREnabled ? "Monitoreo: Iniciando..." : "Monitoreo: Desactivado";
             
             // Timer para checar internet real independientemente del Dashboard
-            var internetCheckTimer = new System.Timers.Timer(5000); // Cada 5s
-            internetCheckTimer.Elapsed += (s, e) => CheckInternetReal();
-            internetCheckTimer.Start();
+            _internetCheckTimer = new System.Timers.Timer(5000); // Cada 5s
+            _internetCheckTimer.Elapsed += (s, e) => CheckInternetReal();
+            _internetCheckTimer.Start();
 
             _signalRService.ConnectionStatusChanged += (msg, connected) =>
             {
@@ -145,7 +146,7 @@ namespace RadioLogger.ViewModels
                         {
                             using (var client = new System.Net.Http.HttpClient())
                             {
-                                client.Timeout = TimeSpan.FromSeconds(2);
+                                client.Timeout = TimeSpan.FromSeconds(5);
                                 var response = client.GetAsync("https://cloudradiologger.com/heartbeat").Result;
                                 if (response.IsSuccessStatusCode) isInternetUp = true;
                             }
@@ -156,22 +157,22 @@ namespace RadioLogger.ViewModels
             }
             catch { isInternetUp = false; }
 
-            App.Current.Dispatcher.Invoke(() => 
+            App.Current?.Dispatcher.BeginInvoke(() =>
             {
                 if (isInternetUp)
                 {
                     _internetFailCount = 0; // Resetear contador al éxito
-                    StatusBarColor = "#007ACC"; 
+                    StatusBarColor = "#007ACC";
                     InternetStatusText = "INTERNET OK";
                 }
                 else
                 {
                     _internetFailCount++;
-                    
+
                     // Solo cambiar a ROJO si se acumulan fallos seguidos
                     if (_internetFailCount >= MaxInternetFails)
                     {
-                        StatusBarColor = "#CC0000"; 
+                        StatusBarColor = "#CC0000";
                         InternetStatusText = "SIN CONEXIÓN A INTERNET";
                         // Solo loguear el primer fallo crítico para no saturar
                         if (_internetFailCount == MaxInternetFails)
@@ -497,6 +498,17 @@ namespace RadioLogger.ViewModels
 
             // 3. Auto-restore: resume recording and streaming from previous session
             RestorePreviousState(autoRecord, autoStream);
+        }
+
+        public void Cleanup()
+        {
+            _uiTimer?.Stop();
+            _uiTimer?.Dispose();
+            _internetCheckTimer?.Stop();
+            _internetCheckTimer?.Dispose();
+            _heartbeatService?.Stop();
+            _heartbeatService?.Dispose();
+            _signalRService?.Dispose();
         }
 
         private void RestorePreviousState(List<string> autoRecord, List<string> autoStream)
