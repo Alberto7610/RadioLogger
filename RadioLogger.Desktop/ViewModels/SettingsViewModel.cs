@@ -107,23 +107,33 @@ namespace RadioLogger.ViewModels
 
         // === LOG VIEWER ===
         public ObservableCollection<string> LogDates { get; } = new();
+        public ObservableCollection<string> LogStations { get; } = new();
         public ObservableCollection<string> FilteredLogLines { get; } = new();
 
         [ObservableProperty] private string? _selectedLogDate;
+        [ObservableProperty] private string _selectedLogStation = "Todas";
         [ObservableProperty] private string _selectedLogLevel = "Todos";
         [ObservableProperty] private string _logSearchText = "";
+        [ObservableProperty] private string _logDateDisplay = "";
+        [ObservableProperty] private string _logLineCount = "";
 
         private List<string> _allLogLines = new();
         private string _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
 
         partial void OnSelectedLogDateChanged(string? value) => LoadLogFile();
+        partial void OnSelectedLogStationChanged(string value) => ApplyLogFilter();
         partial void OnSelectedLogLevelChanged(string value) => ApplyLogFilter();
         partial void OnLogSearchTextChanged(string value) => ApplyLogFilter();
 
         [RelayCommand]
         public void RefreshLogs()
         {
+            var currentDate = SelectedLogDate;
             LoadLogDates();
+            if (currentDate != null && LogDates.Contains(currentDate))
+                SelectedLogDate = currentDate;
+            else
+                LoadLogFile();
         }
 
         private void LoadLogDates()
@@ -137,8 +147,7 @@ namespace RadioLogger.ViewModels
 
             foreach (var file in files)
             {
-                var name = Path.GetFileName(file);
-                LogDates.Add(name);
+                LogDates.Add(Path.GetFileName(file));
             }
 
             if (LogDates.Any())
@@ -149,27 +158,79 @@ namespace RadioLogger.ViewModels
         {
             _allLogLines.Clear();
             FilteredLogLines.Clear();
+            LogStations.Clear();
+            LogStations.Add("Todas");
 
-            if (string.IsNullOrEmpty(SelectedLogDate)) return;
+            if (string.IsNullOrEmpty(SelectedLogDate))
+            {
+                LogDateDisplay = "";
+                LogLineCount = "";
+                return;
+            }
+
+            // Extraer fecha legible del nombre: radiologger-2026-03-25.log → 25/03/2026
+            var dateStr = SelectedLogDate
+                .Replace("radiologger-", "")
+                .Replace(".log", "");
+            if (DateTime.TryParse(dateStr, out var dt))
+                LogDateDisplay = dt.ToString("dd/MM/yyyy — dddd", new System.Globalization.CultureInfo("es-MX"));
+            else
+                LogDateDisplay = dateStr;
 
             var filePath = Path.Combine(_logDirectory, SelectedLogDate);
             if (!File.Exists(filePath)) return;
 
+            var stationSet = new HashSet<string>();
+
             try
             {
-                // shared: true en Serilog permite leer mientras escribe
                 using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 using var reader = new StreamReader(fs);
                 string? line;
                 while ((line = reader.ReadLine()) != null)
                 {
-                    if (!string.IsNullOrWhiteSpace(line))
-                        _allLogLines.Add(line);
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    _allLogLines.Add(line);
+
+                    // Extraer nombre de estación del SourceContext: [...] [AudioChannel] ...
+                    // o del contenido: ... (Station1) ...
+                    var sourceContext = ExtractBracketValue(line, 2);
+                    if (!string.IsNullOrEmpty(sourceContext))
+                        stationSet.Add(sourceContext);
                 }
             }
             catch { }
 
+            foreach (var s in stationSet.OrderBy(s => s))
+                LogStations.Add(s);
+
+            SelectedLogStation = "Todas";
             ApplyLogFilter();
+        }
+
+        /// <summary>
+        /// Extracts the Nth bracketed value from a log line.
+        /// Line format: "2026-03-25 14:32:15.443 [INF] [AudioChannel] message..."
+        /// Index 0 = level tag, index 1 = source context, etc.
+        /// </summary>
+        private static string? ExtractBracketValue(string line, int bracketIndex)
+        {
+            int current = 0;
+            int pos = 0;
+            while (current <= bracketIndex && pos < line.Length)
+            {
+                int open = line.IndexOf('[', pos);
+                if (open < 0) return null;
+                int close = line.IndexOf(']', open);
+                if (close < 0) return null;
+
+                if (current == bracketIndex)
+                    return line[(open + 1)..close];
+
+                current++;
+                pos = close + 1;
+            }
+            return null;
         }
 
         private void ApplyLogFilter()
@@ -177,21 +238,37 @@ namespace RadioLogger.ViewModels
             FilteredLogLines.Clear();
 
             var levelFilter = SelectedLogLevel;
+            var stationFilter = SelectedLogStation;
             var searchFilter = LogSearchText?.Trim() ?? "";
 
-            foreach (var line in _allLogLines)
+            foreach (var rawLine in _allLogLines)
             {
                 // Filter by level
-                if (levelFilter != "Todos" && !line.Contains($"[{levelFilter}]"))
+                if (levelFilter != "Todos" && !rawLine.Contains($"[{levelFilter}]"))
                     continue;
+
+                // Filter by station (source context)
+                if (stationFilter != "Todas")
+                {
+                    var source = ExtractBracketValue(rawLine, 2);
+                    if (source != stationFilter)
+                        continue;
+                }
 
                 // Filter by search text
                 if (!string.IsNullOrEmpty(searchFilter) &&
-                    !line.Contains(searchFilter, StringComparison.OrdinalIgnoreCase))
+                    !rawLine.Contains(searchFilter, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                FilteredLogLines.Add(line);
+                // Strip date prefix, keep only time: "2026-03-25 14:32:15.443 ..." → "14:32:15.443 ..."
+                var displayLine = rawLine;
+                if (rawLine.Length > 24 && rawLine[4] == '-' && rawLine[10] == ' ')
+                    displayLine = rawLine[11..]; // Skip "2026-03-25 "
+
+                FilteredLogLines.Add(displayLine);
             }
+
+            LogLineCount = $"{FilteredLogLines.Count} / {_allLogLines.Count} entradas";
         }
 
         [RelayCommand]
