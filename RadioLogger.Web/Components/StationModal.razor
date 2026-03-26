@@ -234,6 +234,97 @@
                     </div>
                 }
             </div>
+
+            <!-- Info del Equipo (colapsable) -->
+            @{
+                var mi = Monitoring.GetMachineInfo(s.MachineId);
+                var mx = Monitoring.GetMachineMetrics(s.MachineId);
+                double diskPct = mx != null && mx.DiskTotalGb > 0 ? ((mx.DiskTotalGb - mx.DiskFreeGb) / mx.DiskTotalGb * 100) : 0;
+                double ramPct = mx != null && mx.RamTotalGb > 0 ? (mx.RamUsedGb / mx.RamTotalGb * 100) : 0;
+            }
+            <div class="modal-machine-section">
+                <div class="modal-machine-hdr" @onclick="() => _showMachineInfo = !_showMachineInfo">
+                    <span>@(_showMachineInfo ? "▾" : "▸")</span>
+                    <span>INFO DEL EQUIPO</span>
+                    @if (mx != null)
+                    {
+                        @if (diskPct > 90) { <span class="machine-alert-badge amber">DISCO</span> }
+                        @if (mx.CpuPercent > 90) { <span class="machine-alert-badge red">CPU</span> }
+                        @if (ramPct > 90) { <span class="machine-alert-badge red">RAM</span> }
+                    }
+                </div>
+                @if (_showMachineInfo)
+                {
+                    <div class="modal-machine-body">
+                        @if (mi != null)
+                        {
+                            <div class="machine-row">
+                                <span class="machine-lbl">Versión</span>
+                                <span class="machine-val">v@(mi.AppVersion)</span>
+                            </div>
+                            <div class="machine-row">
+                                <span class="machine-lbl">Auto-login</span>
+                                <span class="machine-val @(mi.AutoLoginEnabled ? "val-on" : "val-off")">@(mi.AutoLoginEnabled ? "Activo" : "Inactivo")</span>
+                            </div>
+                            <div class="machine-row">
+                                <span class="machine-lbl">Auto-start</span>
+                                <span class="machine-val @(mi.AutoStartEnabled ? "val-on" : "val-off")">@(mi.AutoStartEnabled ? "Activo" : "Inactivo")</span>
+                            </div>
+                            <div class="machine-row">
+                                <span class="machine-lbl">IP Local</span>
+                                <span class="machine-val mono">@mi.LocalIp</span>
+                            </div>
+                            <div class="machine-row">
+                                <span class="machine-lbl">IP Pública</span>
+                                <span class="machine-val mono">@mi.PublicIp</span>
+                            </div>
+                        }
+                        @if (mx != null)
+                        {
+                            <div class="machine-divider"></div>
+
+                            <div class="machine-row">
+                                <span class="machine-lbl">Disco</span>
+                                <span class="machine-val">@mx.DiskFreeGb.ToString("F1") GB libres / @mx.DiskTotalGb.ToString("F1") GB</span>
+                            </div>
+                            <div class="machine-gauge">
+                                <div class="machine-gauge-fill @GetGaugeColor(diskPct)" style="width: @diskPct.ToString("F0")%"></div>
+                            </div>
+
+                            <div class="machine-row">
+                                <span class="machine-lbl">CPU</span>
+                                <span class="machine-val">@mx.CpuPercent.ToString("F0")%</span>
+                            </div>
+                            <div class="machine-gauge">
+                                <div class="machine-gauge-fill @GetGaugeColor(mx.CpuPercent)" style="width: @mx.CpuPercent.ToString("F0")%"></div>
+                            </div>
+
+                            <div class="machine-row">
+                                <span class="machine-lbl">RAM</span>
+                                <span class="machine-val">@mx.RamUsedGb.ToString("F1") / @mx.RamTotalGb.ToString("F1") GB</span>
+                            </div>
+                            <div class="machine-gauge">
+                                <div class="machine-gauge-fill @GetGaugeColor(ramPct)" style="width: @ramPct.ToString("F0")%"></div>
+                            </div>
+
+                            <div class="machine-divider"></div>
+
+                            <div class="machine-row">
+                                <span class="machine-lbl">Uptime Windows</span>
+                                <span class="machine-val">@FormatUptime(mx.WindowsUptimeHours)</span>
+                            </div>
+                            <div class="machine-row">
+                                <span class="machine-lbl">Uptime App</span>
+                                <span class="machine-val">@FormatUptime(mx.AppUptimeHours)</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="machine-no-data">Esperando datos del equipo...</div>
+                        }
+                    </div>
+                }
+            </div>
         </div>
     </div>
 }
@@ -246,6 +337,7 @@
     private bool IsSending = false;
     private string CommandStatus = "";
     private bool IsStreamPlaying = false;
+    private bool _showMachineInfo = false;
 
     private async Task SendCommand(string command)
     {
@@ -325,4 +417,19 @@
     private bool IsClipping(double peak) => peak >= 0.98;
 
     private string SafePct(double val) => FormattableString.Invariant($"{Math.Clamp(val * 100, 0, 100):F1}");
+
+    private static string GetGaugeColor(double pct) => pct switch
+    {
+        > 90 => "gauge-red",
+        > 70 => "gauge-amber",
+        _ => "gauge-green"
+    };
+
+    private static string FormatUptime(double hours)
+    {
+        var ts = TimeSpan.FromHours(hours);
+        return ts.TotalDays >= 1
+            ? $"{(int)ts.TotalDays}d {ts.Hours}h {ts.Minutes}m"
+            : $"{ts.Hours}h {ts.Minutes}m";
+    }
 }

@@ -160,6 +160,20 @@ namespace RadioLogger.Services
             }
         }
 
+        public async Task SendMachineInfoAsync(MachineInfo info)
+        {
+            if (!IsConnected) return;
+            try
+            {
+                await _connection!.InvokeAsync("RegisterMachineInfo", info);
+                _log.Information("MachineInfo enviado: v{Version}, AutoLogin={AL}, AutoStart={AS}", info.AppVersion, info.AutoLoginEnabled, info.AutoStartEnabled);
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex, "Error enviando MachineInfo");
+            }
+        }
+
         public async Task SendLogEntriesAsync(LogEntryBatch batch)
         {
             if (!IsConnected) return;

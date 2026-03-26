@@ -103,7 +103,36 @@ namespace RadioLogger.Shared.Models
     {
         public string MachineId { get; set; } = Environment.MachineName;
         public System.Collections.Generic.List<StationStatusUpdate> Stations { get; set; } = new();
+        public MachineMetrics? Metrics { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Static info about the machine. Sent once on connect/reconnect.
+    /// </summary>
+    public class MachineInfo
+    {
+        public string MachineId { get; set; } = Environment.MachineName;
+        public string AppVersion { get; set; } = string.Empty;
+        public bool AutoLoginEnabled { get; set; }
+        public bool AutoStartEnabled { get; set; }
+        public string LocalIp { get; set; } = string.Empty;
+        public string PublicIp { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Dynamic machine resource metrics. Sent with every batch update.
+    /// </summary>
+    public class MachineMetrics
+    {
+        public double DiskFreeGb { get; set; }
+        public double DiskTotalGb { get; set; }
+        public double CpuPercent { get; set; }
+        public double RamUsedGb { get; set; }
+        public double RamTotalGb { get; set; }
+        public double WindowsUptimeHours { get; set; }
+        public double AppUptimeHours { get; set; }
     }
 
     /// <summary>

@@ -18,6 +18,7 @@ namespace RadioLogger.ViewModels
         private readonly AudioEngine _audioEngine = null!;
         private readonly HeartbeatService _heartbeatService = null!;
         private readonly SignalRService _signalRService = null!;
+        private readonly MachineInfoCollector _machineInfo = null!;
         private readonly System.Timers.Timer _uiTimer = null!;
         private System.Timers.Timer? _internetCheckTimer;
         private int _frames = 0;
@@ -64,21 +65,27 @@ namespace RadioLogger.ViewModels
             _log.Information("Aplicación iniciada. PC: {MachineName}", Environment.MachineName);
 
             _audioEngine = new AudioEngine(_configManager);
+            _machineInfo = new MachineInfoCollector(_configManager.CurrentSettings);
+            _ = _machineInfo.FetchPublicIpAsync(); // Fetch IP pública en background
+
             _heartbeatService = new HeartbeatService(_configManager);
             _heartbeatService.Start();
 
             _signalRService = new SignalRService(_configManager.CurrentSettings);
-            SignalRLogSink.Instance.Activate(_signalRService); // Conectar sink de logs al SignalR
+            SignalRLogSink.Instance.Activate(_signalRService);
             _signalRStatus = _configManager.CurrentSettings.IsSignalREnabled ? "Monitoreo: Iniciando..." : "Monitoreo: Desactivado";
 
-            // Timer para checar internet real independientemente del Dashboard
-            _internetCheckTimer = new System.Timers.Timer(5000); // Cada 5s
+            _internetCheckTimer = new System.Timers.Timer(5000);
             _internetCheckTimer.Elapsed += (s, e) => CheckInternetReal();
             _internetCheckTimer.Start();
 
             _signalRService.ConnectionStatusChanged += (msg, connected) =>
             {
                 SignalRStatus = msg;
+                if (connected)
+                {
+                    _ = _signalRService.SendMachineInfoAsync(_machineInfo.GetMachineInfo());
+                }
             };
 
             _signalRService.CommandReceived += OnRemoteCommand;
@@ -226,6 +233,7 @@ namespace RadioLogger.ViewModels
                 });
             }
 
+            batch.Metrics = _machineInfo.GetMetrics();
             _ = _signalRService.SendBatchUpdateAsync(batch);
         }
 

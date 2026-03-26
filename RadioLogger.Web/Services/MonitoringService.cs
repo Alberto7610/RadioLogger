@@ -22,6 +22,10 @@ namespace RadioLogger.Web.Services
         private List<RegisteredStation> _registeredCache = new();
         private DateTime _lastCacheUpdate = DateTime.MinValue;
 
+        // Machine info & metrics
+        private readonly ConcurrentDictionary<string, MachineInfo> _machineInfos = new();
+        private readonly ConcurrentDictionary<string, MachineMetrics> _machineMetrics = new();
+
         public event Action? OnUpdated;
         public bool IsDatabaseHealthy { get; set; } = true;
 
@@ -119,7 +123,11 @@ namespace RadioLogger.Web.Services
                     
                 await UpdateStationInternal(station);
             }
-            OnUpdated?.Invoke(); // Una sola notificación para todo el grupo
+
+            if (batch.Metrics != null)
+                _machineMetrics[batch.MachineId] = batch.Metrics;
+
+            OnUpdated?.Invoke();
         }
 
         private async Task SyncStationToDb(StationStatusUpdate update)
@@ -381,6 +389,30 @@ namespace RadioLogger.Web.Services
             {
                 System.Diagnostics.Debug.WriteLine($"DB Error End: {ex.Message}");
             }
+        }
+
+        // ─── MACHINE INFO & METRICS ────────────────────────────
+
+        public void StoreMachineInfo(MachineInfo info)
+        {
+            _machineInfos[info.MachineId] = info;
+        }
+
+        public MachineInfo? GetMachineInfo(string machineId)
+        {
+            _machineInfos.TryGetValue(machineId, out var info);
+            return info;
+        }
+
+        public MachineMetrics? GetMachineMetrics(string machineId)
+        {
+            _machineMetrics.TryGetValue(machineId, out var metrics);
+            return metrics;
+        }
+
+        public List<string> GetAllMachineIds()
+        {
+            return _machineMetrics.Keys.ToList();
         }
 
         // ─── LOG ENTRIES ──────────────────────────────────────

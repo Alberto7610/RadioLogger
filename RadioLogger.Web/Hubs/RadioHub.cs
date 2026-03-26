@@ -61,6 +61,16 @@ namespace RadioLogger.Web.Hubs
         }
 
         /// <summary>
+        /// Receive static machine info (sent once on connect/reconnect).
+        /// </summary>
+        public async Task RegisterMachineInfo(MachineInfo info)
+        {
+            _connectionMap[Context.ConnectionId] = info.MachineId;
+            _monitoringService.StoreMachineInfo(info);
+            await Clients.All.SendAsync("ReceiveMachineInfo", info);
+        }
+
+        /// <summary>
         /// Receive log entries from WPF clients and persist to DB.
         /// </summary>
         public async Task SendLogEntries(LogEntryBatch batch)

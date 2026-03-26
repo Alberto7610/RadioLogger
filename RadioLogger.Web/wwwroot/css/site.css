@@ -749,3 +749,47 @@ body {
     padding: 10px; text-align: center;
     border: 1px dashed var(--border); border-radius: 4px;
 }
+
+/* ============================
+   ALERTAS DE RECURSOS
+   ============================ */
+@keyframes pulse-amber {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 179, 71, 0.3); }
+    50% { box-shadow: 0 0 10px 3px rgba(255, 179, 71, 0.5); }
+}
+@keyframes pulse-red-resource {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.3); }
+    50% { box-shadow: 0 0 10px 3px rgba(255, 71, 87, 0.5); }
+}
+.sc.alert-disk { animation: pulse-amber 1.5s ease-in-out infinite; border-color: var(--amber) !important; }
+.sc.alert-resource { animation: pulse-red-resource 1.5s ease-in-out infinite; border-color: var(--red) !important; }
+.bdg.alert-amber { color: var(--amber); background: rgba(255, 179, 71, 0.15); font-size: 8px; }
+.bdg.alert-red { color: var(--red); background: rgba(255, 71, 87, 0.15); font-size: 8px; }
+
+/* ============================
+   INFO DEL EQUIPO (MODAL)
+   ============================ */
+.modal-machine-section { margin-top: 12px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.modal-machine-hdr {
+    padding: 10px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    font-size: 10px; font-weight: 700; color: var(--text2); letter-spacing: 1.5px;
+    background: var(--bg2);
+}
+.modal-machine-hdr:hover { background: var(--bg3); }
+.modal-machine-body { padding: 12px 14px; background: var(--bg); }
+.machine-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 11px; }
+.machine-lbl { color: var(--text3); }
+.machine-val { color: var(--text); font-weight: 500; }
+.machine-val.mono { font-family: var(--mono); font-size: 10px; }
+.machine-val.val-on { color: var(--green); }
+.machine-val.val-off { color: var(--text3); }
+.machine-divider { border-top: 1px solid var(--border); margin: 8px 0; }
+.machine-gauge { height: 5px; background: var(--bg2); border-radius: 3px; overflow: hidden; margin: 2px 0 6px; }
+.machine-gauge-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.gauge-green { background: var(--green); }
+.gauge-amber { background: var(--amber); }
+.gauge-red { background: var(--red); }
+.machine-alert-badge { font-size: 8px; padding: 1px 5px; border-radius: 3px; margin-left: 6px; font-weight: 700; }
+.machine-alert-badge.amber { color: var(--amber); background: rgba(255,179,71,0.15); }
+.machine-alert-badge.red { color: var(--red); background: rgba(255,71,87,0.15); }
+.machine-no-data { color: var(--text3); font-size: 11px; text-align: center; padding: 10px; }

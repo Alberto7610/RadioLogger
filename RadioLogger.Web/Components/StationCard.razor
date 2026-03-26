@@ -1,12 +1,19 @@
 @using RadioLogger.Shared.Models
+@using RadioLogger.Web.Services
+@inject MonitoringService Monitoring
 
 @{
     var isLive = (DateTime.UtcNow - Update.Timestamp).TotalSeconds < 15;
     var isActive = isLive && Update.IsRecording;
     var isDisconnected = !isLive;
+
+    var metrics = Monitoring.GetMachineMetrics(Update.MachineId);
+    bool diskAlert = metrics != null && metrics.DiskTotalGb > 0 && ((metrics.DiskTotalGb - metrics.DiskFreeGb) / metrics.DiskTotalGb * 100) > 90;
+    bool cpuAlert = metrics != null && metrics.CpuPercent > 90;
+    bool ramAlert = metrics != null && metrics.RamTotalGb > 0 && (metrics.RamUsedGb / metrics.RamTotalGb * 100) > 90;
 }
 
-<div class="sc @(isActive ? "online" : "offline") @(isDisconnected ? "disconnected" : "") @(Update.IsSilence && isLive ? "silence" : "")">
+<div class="sc @(isActive ? "online" : "offline") @(isDisconnected ? "disconnected" : "") @(Update.IsSilence && isLive ? "silence" : "") @(diskAlert ? "alert-disk" : "") @(cpuAlert || ramAlert ? "alert-resource" : "")">
     @if (!Update.IsAuthorized)
     {
         <div class="authorized-overlay">
@@ -45,6 +52,9 @@
             }
             <div class="rec-clock @(Update.IsRecording ? "" : "inactive")">@GetDuration()</div>
             <div class="bdg @(Update.IsStreaming ? "on" : "off")">STREAM</div>
+            @if (diskAlert) { <div class="bdg alert-amber" title="Disco > 90% usado">DISCO</div> }
+            @if (cpuAlert) { <div class="bdg alert-red" title="CPU > 90%">CPU</div> }
+            @if (ramAlert) { <div class="bdg alert-red" title="RAM > 90%">RAM</div> }
         </div>
     </div>
 
@@ -85,7 +95,7 @@
         {
             <div class="sc-status-led">
                 <div class="led-light green"></div>
-                <span class="led-label on">EN LÍNEA</span>
+                <span class="led-label on">EN LINEA</span>
             </div>
         }
     </div>
