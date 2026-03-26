@@ -68,6 +68,7 @@ namespace RadioLogger.ViewModels
             _heartbeatService.Start();
 
             _signalRService = new SignalRService(_configManager.CurrentSettings);
+            SignalRLogSink.Instance.Activate(_signalRService); // Conectar sink de logs al SignalR
             _signalRStatus = _configManager.CurrentSettings.IsSignalREnabled ? "Monitoreo: Iniciando..." : "Monitoreo: Desactivado";
 
             // Timer para checar internet real independientemente del Dashboard

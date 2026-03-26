@@ -65,6 +65,15 @@ namespace RadioLogger.Services
                 CommandReceived?.Invoke(command);
             });
 
+            // Dashboard solicita archivo de log de una fecha específica
+            _connection.On<LogFileRequest>("RequestLogFile", async (request) =>
+            {
+                _log.Debug("Solicitud de log remoto: {Date}", request.Date);
+                var response = ReadLocalLogFile(request);
+                if (_connection != null)
+                    await _connection.InvokeAsync("SendLogFileResponse", response);
+            });
+
             _connection.Reconnecting += (error) =>
             {
                 _log.Warning("SignalR reconectando: {Error}", error?.Message ?? "conexión perdida");
@@ -149,6 +158,51 @@ namespace RadioLogger.Services
             {
                 _log.Error(ex, "Error enviando batch SignalR");
             }
+        }
+
+        public async Task SendLogEntriesAsync(LogEntryBatch batch)
+        {
+            if (!IsConnected) return;
+
+            try
+            {
+                await _connection!.InvokeAsync("SendLogEntries", batch);
+            }
+            catch
+            {
+                // Silenciar — no loguear aquí para evitar recursión infinita
+            }
+        }
+
+        private static LogFileResponse ReadLocalLogFile(LogFileRequest request)
+        {
+            var response = new LogFileResponse
+            {
+                MachineId = Environment.MachineName,
+                Date = request.Date
+            };
+
+            try
+            {
+                var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                var fileName = $"radiologger-{request.Date}.log";
+                var filePath = System.IO.Path.Combine(logDir, fileName);
+
+                if (System.IO.File.Exists(filePath))
+                {
+                    using var fs = new System.IO.FileStream(filePath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite);
+                    using var reader = new System.IO.StreamReader(fs);
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                            response.Lines.Add(line);
+                    }
+                }
+            }
+            catch { }
+
+            return response;
         }
 
         public void Dispose()

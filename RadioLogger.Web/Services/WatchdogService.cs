@@ -8,6 +8,7 @@ namespace RadioLogger.Web.Services
         private readonly MonitoringService _monitoring;
         private readonly TelegramService _telegram;
         private readonly ConcurrentDictionary<string, DateTime> _offlineAlerts = new();
+        private DateTime _lastLogCleanup = DateTime.MinValue;
 
         public WatchdogService(MonitoringService monitoring, TelegramService telegram)
         {
@@ -58,6 +59,13 @@ namespace RadioLogger.Web.Services
                                 $"Estado: Conexión SignalR recuperada.");
                         }
                     }
+                }
+
+                // Cleanup de logs viejos cada hora
+                if ((DateTime.UtcNow - _lastLogCleanup).TotalHours >= 1)
+                {
+                    await _monitoring.CleanupOldLogEntries();
+                    _lastLogCleanup = DateTime.UtcNow;
                 }
 
                 await Task.Delay(5000, stoppingToken); // Revisar cada 5s

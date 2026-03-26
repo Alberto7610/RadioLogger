@@ -119,6 +119,48 @@ namespace RadioLogger.Shared.Models
     }
 
     /// <summary>
+    /// Log entry sent from WPF to Dashboard for centralized viewing.
+    /// </summary>
+    public class LogEntry
+    {
+        public long Id { get; set; }
+        public string MachineId { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+        public string Level { get; set; } = "INF";      // INF, WRN, ERR, FTL, DBG
+        public string Source { get; set; } = string.Empty; // SourceContext (AudioChannel, SignalRService, etc.)
+        public string Message { get; set; } = string.Empty;
+        public string? Exception { get; set; }
+    }
+
+    /// <summary>
+    /// Batch of log entries sent from WPF via SignalR.
+    /// </summary>
+    public class LogEntryBatch
+    {
+        public string MachineId { get; set; } = string.Empty;
+        public System.Collections.Generic.List<LogEntry> Entries { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Request for log file content from a specific machine (days 16-30).
+    /// </summary>
+    public class LogFileRequest
+    {
+        public string MachineId { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty; // yyyy-MM-dd
+    }
+
+    /// <summary>
+    /// Response with log file content from a WPF machine.
+    /// </summary>
+    public class LogFileResponse
+    {
+        public string MachineId { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty;
+        public System.Collections.Generic.List<string> Lines { get; set; } = new();
+    }
+
+    /// <summary>
     /// Historic record of a silence or disconnection incident.
     /// </summary>
     public class IncidentLog

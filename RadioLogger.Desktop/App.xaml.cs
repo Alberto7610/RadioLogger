@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Win32;
+using RadioLogger.Services;
 using Serilog;
 using System;
 using System.IO;
@@ -124,6 +125,7 @@ public partial class App : System.Windows.Application
                 fileSizeLimitBytes: 52_428_800, // 50 MB
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}",
                 shared: true)
+            .WriteTo.Sink(SignalRLogSink.Instance) // Envía Info+ al Dashboard vía SignalR
 #if DEBUG
             .MinimumLevel.Debug()
             .WriteTo.Debug()

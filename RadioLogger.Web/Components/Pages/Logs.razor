@@ -1,0 +1,355 @@
+@page "/logs"
+@using RadioLogger.Shared.Models
+@using RadioLogger.Web.Services
+@using Microsoft.AspNetCore.SignalR.Client
+@inject MonitoringService Monitoring
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<div class="logs-page">
+    <!-- Header -->
+    <div class="logs-header">
+        <h2>LOGS DEL SISTEMA</h2>
+        <span class="logs-sub">Registros de actividad por equipo</span>
+    </div>
+
+    <!-- Filters -->
+    <div class="logs-filters">
+        <div class="filter-group">
+            <label>EQUIPO</label>
+            <select @bind="SelectedMachine" @bind:after="OnFiltersChanged">
+                <option value="">-- Seleccionar --</option>
+                @foreach (var m in Machines)
+                {
+                    <option value="@m">@m</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>FECHA</label>
+            <select @bind="SelectedDate" @bind:after="OnFiltersChanged">
+                @foreach (var d in AvailableDates)
+                {
+                    <option value="@d.ToString("yyyy-MM-dd")">@d.ToString("dd/MM/yyyy")</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>NIVEL</label>
+            <select @bind="SelectedLevel" @bind:after="ApplyClientFilter">
+                <option value="Todos">Todos</option>
+                <option value="INF">INF</option>
+                <option value="WRN">WRN</option>
+                <option value="ERR">ERR</option>
+                <option value="FTL">FTL</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>FUENTE</label>
+            <select @bind="SelectedSource" @bind:after="ApplyClientFilter">
+                <option value="Todas">Todas</option>
+                @foreach (var s in Sources)
+                {
+                    <option value="@s">@s</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-group filter-search">
+            <label>BUSCAR</label>
+            <input type="text" @bind="SearchText" @bind:event="oninput" @bind:after="ApplyClientFilter" placeholder="Texto..." />
+        </div>
+
+        <button class="btn-refresh" @onclick="LoadLogs" title="Actualizar">↻</button>
+    </div>
+
+    <!-- Date info bar -->
+    <div class="logs-info-bar">
+        <span class="info-date">@DateDisplayText</span>
+        <span class="info-count">@FilteredEntries.Count / @AllEntries.Count entradas</span>
+        @if (_isLoadingRemote)
+        {
+            <span class="info-remote">Solicitando logs al equipo...</span>
+        }
+    </div>
+
+    <!-- Console -->
+    <div class="logs-console">
+        @if (FilteredEntries.Count == 0 && !string.IsNullOrEmpty(SelectedMachine))
+        {
+            <div class="logs-empty">No hay logs para mostrar con los filtros seleccionados</div>
+        }
+        @foreach (var entry in FilteredEntries)
+        {
+            <div class="log-line @GetLevelClass(entry.Level)">
+                <span class="log-time">@entry.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff")</span>
+                <span class="log-level">[@entry.Level]</span>
+                <span class="log-source">[@entry.Source]</span>
+                <span class="log-msg">@entry.Message</span>
+                @if (!string.IsNullOrEmpty(entry.Exception))
+                {
+                    <div class="log-exception">@entry.Exception</div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .logs-page { display:flex; flex-direction:column; height:100%; padding:0 20px 10px; }
+    .logs-header { margin-bottom:12px; }
+    .logs-header h2 { color:var(--green); font-size:16px; margin:0; letter-spacing:2px; }
+    .logs-sub { color:var(--text3); font-size:11px; }
+
+    .logs-filters {
+        display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;
+        background:var(--bg2); border:1px solid var(--border); border-radius:6px;
+        padding:12px 16px; margin-bottom:8px;
+    }
+    .filter-group { display:flex; flex-direction:column; gap:3px; }
+    .filter-group label { color:var(--text3); font-size:9px; font-weight:700; letter-spacing:1px; }
+    .filter-group select, .filter-group input {
+        background:var(--bg); color:var(--text); border:1px solid var(--border);
+        border-radius:4px; padding:5px 10px; font-size:12px; font-family:var(--mono);
+        min-width:120px;
+    }
+    .filter-group select:focus, .filter-group input:focus { border-color:var(--green); outline:none; }
+    .filter-search { flex:1; min-width:150px; }
+    .filter-search input { width:100%; }
+
+    .btn-refresh {
+        background:var(--bg3); color:var(--text); border:1px solid var(--border);
+        border-radius:4px; width:34px; height:34px; font-size:18px; cursor:pointer;
+        display:flex; align-items:center; justify-content:center; align-self:flex-end;
+    }
+    .btn-refresh:hover { background:var(--green); color:var(--bg); }
+
+    .logs-info-bar {
+        display:flex; justify-content:space-between; align-items:center;
+        padding:4px 0; font-size:10px;
+    }
+    .info-date { color:var(--cyan); font-weight:600; }
+    .info-count { color:var(--text3); }
+    .info-remote { color:var(--amber); animation:pulse 1.5s infinite; }
+    @@keyframes pulse { 50% { opacity:0.5; } }
+
+    .logs-console {
+        flex:1; overflow-y:auto; overflow-x:auto;
+        background:#050709; border:1px solid var(--border); border-radius:6px;
+        padding:8px 0; font-size:12px; line-height:1.6;
+    }
+    .log-line { padding:1px 14px; white-space:nowrap; border-bottom:1px solid #0a0d12; }
+    .log-line:hover { background:#0a0f14; }
+
+    .log-time { color:var(--text3); margin-right:6px; }
+    .log-level { margin-right:4px; font-weight:700; }
+    .log-source { color:var(--text3); margin-right:6px; }
+    .log-msg { color:var(--green); }
+
+    .log-line.lvl-wrn .log-level { color:var(--amber); }
+    .log-line.lvl-wrn .log-msg { color:var(--amber); }
+    .log-line.lvl-err .log-level { color:var(--red); }
+    .log-line.lvl-err .log-msg { color:var(--red); }
+    .log-line.lvl-ftl .log-level { color:#ff0000; font-weight:900; }
+    .log-line.lvl-ftl .log-msg { color:#ff0000; }
+    .log-line.lvl-dbg .log-msg { color:var(--text3); }
+
+    .log-exception { color:var(--red); white-space:pre-wrap; margin-top:2px; padding-left:20px; font-size:11px; }
+    .logs-empty { color:var(--text3); text-align:center; padding:40px; font-size:13px; }
+</style>
+
+@code {
+    private List<string> Machines = new();
+    private List<DateTime> AvailableDates = new();
+    private List<string> Sources = new();
+    private List<LogEntry> AllEntries = new();
+    private List<LogEntry> FilteredEntries = new();
+
+    private string SelectedMachine = "";
+    private string SelectedDate = "";
+    private string SelectedLevel = "Todos";
+    private string SelectedSource = "Todas";
+    private string SearchText = "";
+    private string DateDisplayText = "";
+    private bool _isLoadingRemote;
+
+    private HubConnection? _hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Machines = await Monitoring.GetLogMachinesAsync();
+
+        // Agregar equipos conectados aunque no tengan logs en BD todavía
+        var activeMachines = Monitoring.GetActiveStations()
+            .Select(s => s.MachineId).Distinct();
+        foreach (var m in activeMachines)
+        {
+            if (!Machines.Contains(m)) Machines.Add(m);
+        }
+        Machines.Sort();
+
+        if (Machines.Count > 0)
+        {
+            SelectedMachine = Machines[0];
+            await LoadDates();
+        }
+
+        // Escuchar respuestas de logs bajo demanda
+        var baseUrl = Nav.BaseUri.TrimEnd('/');
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(baseUrl + "/radiohub")
+            .Build();
+
+        _hubConnection.On<LogFileResponse>("ReceiveLogFileResponse", (response) =>
+        {
+            if (response.MachineId == SelectedMachine && response.Date == SelectedDate)
+            {
+                // Parsear líneas en LogEntry objects
+                AllEntries.Clear();
+                foreach (var line in response.Lines)
+                {
+                    AllEntries.Add(ParseLogLine(line));
+                }
+                ExtractSources();
+                ApplyClientFilter();
+                _isLoadingRemote = false;
+                InvokeAsync(StateHasChanged);
+            }
+        });
+
+        await _hubConnection.StartAsync();
+    }
+
+    private async Task OnFiltersChanged()
+    {
+        await LoadDates();
+        await LoadLogs();
+    }
+
+    private async Task LoadDates()
+    {
+        if (string.IsNullOrEmpty(SelectedMachine)) return;
+
+        AvailableDates = await Monitoring.GetLogDatesAsync(SelectedMachine);
+
+        // Si no hay fechas en BD, agregar hoy como default
+        if (AvailableDates.Count == 0)
+            AvailableDates.Add(DateTime.Today);
+
+        SelectedDate = AvailableDates.FirstOrDefault().ToString("yyyy-MM-dd");
+        StateHasChanged();
+    }
+
+    private async Task LoadLogs()
+    {
+        if (string.IsNullOrEmpty(SelectedMachine) || string.IsNullOrEmpty(SelectedDate)) return;
+
+        if (!DateTime.TryParse(SelectedDate, out var date)) return;
+
+        // Determinar si la fecha está dentro de los 15 días de retención en BD
+        var daysSinceDate = (DateTime.UtcNow.Date - date.Date).TotalDays;
+
+        if (daysSinceDate <= 15)
+        {
+            // Leer de BD
+            AllEntries = await Monitoring.GetLogEntriesAsync(SelectedMachine, date);
+            DateDisplayText = date.ToString("dd/MM/yyyy — dddd", new System.Globalization.CultureInfo("es-MX"));
+        }
+        else
+        {
+            // Pedir al equipo vía SignalR
+            AllEntries.Clear();
+            _isLoadingRemote = true;
+            DateDisplayText = date.ToString("dd/MM/yyyy — dddd", new System.Globalization.CultureInfo("es-MX")) + " (solicitando al equipo...)";
+            StateHasChanged();
+            await Monitoring.RequestLogFileFromClient(SelectedMachine, SelectedDate);
+            return; // La respuesta llegará por el evento ReceiveLogFileResponse
+        }
+
+        ExtractSources();
+        ApplyClientFilter();
+    }
+
+    private void ExtractSources()
+    {
+        Sources = AllEntries
+            .Where(e => !string.IsNullOrEmpty(e.Source))
+            .Select(e => e.Source)
+            .Distinct()
+            .OrderBy(s => s)
+            .ToList();
+        SelectedSource = "Todas";
+    }
+
+    private void ApplyClientFilter()
+    {
+        FilteredEntries = AllEntries.Where(e =>
+        {
+            if (SelectedLevel != "Todos" && e.Level != SelectedLevel) return false;
+            if (SelectedSource != "Todas" && e.Source != SelectedSource) return false;
+            if (!string.IsNullOrEmpty(SearchText) &&
+                !e.Message.Contains(SearchText, StringComparison.OrdinalIgnoreCase) &&
+                !e.Source.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+                return false;
+            return true;
+        }).ToList();
+
+        if (DateTime.TryParse(SelectedDate, out var d))
+            DateDisplayText = d.ToString("dd/MM/yyyy — dddd", new System.Globalization.CultureInfo("es-MX"));
+
+        StateHasChanged();
+    }
+
+    private static string GetLevelClass(string level) => level switch
+    {
+        "WRN" => "lvl-wrn",
+        "ERR" => "lvl-err",
+        "FTL" => "lvl-ftl",
+        "DBG" => "lvl-dbg",
+        _ => ""
+    };
+
+    /// <summary>
+    /// Parse a raw log line from a file into a LogEntry.
+    /// Format: "2026-03-25 14:32:15.443 [INF] [AudioChannel] Message here"
+    /// </summary>
+    private static LogEntry ParseLogLine(string line)
+    {
+        var entry = new LogEntry { Message = line };
+        try
+        {
+            // Timestamp: first 23 chars
+            if (line.Length > 24 && DateTime.TryParse(line[..23], out var ts))
+                entry.Timestamp = ts;
+
+            // Level: first [...] after timestamp
+            int lvlStart = line.IndexOf('[', 24);
+            int lvlEnd = lvlStart >= 0 ? line.IndexOf(']', lvlStart) : -1;
+            if (lvlStart >= 0 && lvlEnd > lvlStart)
+                entry.Level = line[(lvlStart + 1)..lvlEnd];
+
+            // Source: second [...]
+            int srcStart = line.IndexOf('[', lvlEnd + 1);
+            int srcEnd = srcStart >= 0 ? line.IndexOf(']', srcStart) : -1;
+            if (srcStart >= 0 && srcEnd > srcStart)
+            {
+                entry.Source = line[(srcStart + 1)..srcEnd];
+                entry.Message = line[(srcEnd + 2)..].TrimStart();
+            }
+        }
+        catch { }
+        return entry;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection != null)
+        {
+            await _hubConnection.StopAsync();
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}

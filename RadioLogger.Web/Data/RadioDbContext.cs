@@ -12,6 +12,7 @@ namespace RadioLogger.Web.Data
         public DbSet<IncidentLog> Incidents => Set<IncidentLog>();
         public DbSet<RegisteredStation> RegisteredStations => Set<RegisteredStation>();
         public DbSet<License> Licenses => Set<License>();
+        public DbSet<LogEntry> LogEntries => Set<LogEntry>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -24,6 +25,12 @@ namespace RadioLogger.Web.Data
 
             modelBuilder.Entity<License>().HasKey(e => e.Id);
             modelBuilder.Entity<License>().HasIndex(e => e.Key).IsUnique();
+
+            modelBuilder.Entity<LogEntry>().HasKey(e => e.Id);
+            modelBuilder.Entity<LogEntry>().Property(e => e.MachineId).HasMaxLength(100).IsRequired();
+            modelBuilder.Entity<LogEntry>().Property(e => e.Level).HasMaxLength(10).IsRequired();
+            modelBuilder.Entity<LogEntry>().Property(e => e.Source).HasMaxLength(200);
+            modelBuilder.Entity<LogEntry>().HasIndex(e => new { e.MachineId, e.Timestamp });
         }
     }
 }

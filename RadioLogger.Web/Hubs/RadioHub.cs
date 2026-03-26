@@ -59,5 +59,24 @@ namespace RadioLogger.Web.Hubs
                 await Clients.Client(connectionId).SendAsync("ReceiveCommand", command);
             }
         }
+
+        /// <summary>
+        /// Receive log entries from WPF clients and persist to DB.
+        /// </summary>
+        public async Task SendLogEntries(LogEntryBatch batch)
+        {
+            if (batch.Entries.Count == 0) return;
+            _connectionMap[Context.ConnectionId] = batch.MachineId;
+            await _monitoringService.PersistLogEntries(batch);
+        }
+
+        /// <summary>
+        /// WPF client responds with log file content (for dates older than 15 days).
+        /// </summary>
+        public async Task SendLogFileResponse(LogFileResponse response)
+        {
+            // Forward to all dashboard clients (they filter by MachineId + Date)
+            await Clients.All.SendAsync("ReceiveLogFileResponse", response);
+        }
     }
 }

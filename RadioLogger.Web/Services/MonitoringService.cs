@@ -382,5 +382,148 @@ namespace RadioLogger.Web.Services
                 System.Diagnostics.Debug.WriteLine($"DB Error End: {ex.Message}");
             }
         }
+
+        // ─── LOG ENTRIES ──────────────────────────────────────
+
+        /// <summary>
+        /// Persist log entries from WPF clients to DB.
+        /// </summary>
+        public async Task PersistLogEntries(LogEntryBatch batch)
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+
+                foreach (var entry in batch.Entries)
+                {
+                    entry.MachineId = batch.MachineId;
+                }
+
+                db.LogEntries.AddRange(batch.Entries);
+                await db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MONITORING] Error PersistLogEntries: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get log entries from DB for a specific machine and date.
+        /// </summary>
+        public async Task<List<LogEntry>> GetLogEntriesAsync(string machineId, DateTime date, string? level = null)
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+
+                var startOfDay = date.Date;
+                var endOfDay = startOfDay.AddDays(1);
+
+                var query = db.LogEntries
+                    .Where(e => e.MachineId == machineId && e.Timestamp >= startOfDay && e.Timestamp < endOfDay);
+
+                if (!string.IsNullOrEmpty(level) && level != "Todos")
+                    query = query.Where(e => e.Level == level);
+
+                return await query.OrderBy(e => e.Timestamp).ToListAsync();
+            }
+            catch
+            {
+                return new List<LogEntry>();
+            }
+        }
+
+        /// <summary>
+        /// Get distinct machine IDs that have log entries.
+        /// </summary>
+        public async Task<List<string>> GetLogMachinesAsync()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+                return await db.LogEntries.Select(e => e.MachineId).Distinct().OrderBy(m => m).ToListAsync();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Get available dates with logs for a machine (last 15 days).
+        /// </summary>
+        public async Task<List<DateTime>> GetLogDatesAsync(string machineId)
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+
+                var cutoff = DateTime.UtcNow.AddDays(-15);
+                return await db.LogEntries
+                    .Where(e => e.MachineId == machineId && e.Timestamp >= cutoff)
+                    .Select(e => e.Timestamp.Date)
+                    .Distinct()
+                    .OrderByDescending(d => d)
+                    .ToListAsync();
+            }
+            catch
+            {
+                return new List<DateTime>();
+            }
+        }
+
+        /// <summary>
+        /// Cleanup log entries older than 15 days. Called by WatchdogService.
+        /// </summary>
+        public async Task CleanupOldLogEntries()
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+
+                var cutoff = DateTime.UtcNow.AddDays(-15);
+                var old = await db.LogEntries.Where(e => e.Timestamp < cutoff).ToListAsync();
+                if (old.Count > 0)
+                {
+                    db.LogEntries.RemoveRange(old);
+                    await db.SaveChangesAsync();
+                    Console.WriteLine($"[MONITORING] Limpiados {old.Count} log entries > 15 días");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MONITORING] Error cleanup logs: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Request log file from a WPF client for dates older than DB retention.
+        /// </summary>
+        public async Task RequestLogFileFromClient(string machineId, string date)
+        {
+            try
+            {
+                var hubContext = _serviceProvider.GetRequiredService<IHubContext<RadioHub>>();
+                var connectionId = RadioHub.GetConnectionId(machineId);
+                if (connectionId != null)
+                {
+                    await hubContext.Clients.Client(connectionId).SendAsync("RequestLogFile", new LogFileRequest
+                    {
+                        MachineId = machineId,
+                        Date = date
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MONITORING] Error RequestLogFile: {ex.Message}");
+            }
+        }
     }
 }
