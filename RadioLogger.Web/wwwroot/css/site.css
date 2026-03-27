@@ -793,3 +793,13 @@ body {
 .machine-alert-badge.amber { color: var(--amber); background: rgba(255,179,71,0.15); }
 .machine-alert-badge.red { color: var(--red); background: rgba(255,71,87,0.15); }
 .machine-no-data { color: var(--text3); font-size: 11px; text-align: center; padding: 10px; }
+
+/* Disco en modal header */
+.modal-disk-row { align-items: flex-start; }
+.modal-disk-info { flex: 1; text-align: right; }
+.modal-disk-text { font-size: 11px; font-weight: 600; }
+.modal-disk-gauge { height: 4px; background: var(--bg); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+.modal-disk-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+.val-green { color: var(--green); }
+.val-amber { color: var(--amber); }
+.val-red { color: var(--red); }

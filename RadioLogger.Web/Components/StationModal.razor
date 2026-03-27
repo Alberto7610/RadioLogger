@@ -61,9 +61,21 @@
                     var diskMx = Monitoring.GetMachineMetrics(s.MachineId);
                     double dskPct = diskMx != null && diskMx.DiskTotalGb > 0 ? ((diskMx.DiskTotalGb - diskMx.DiskFreeGb) / diskMx.DiskTotalGb * 100) : 0;
                 }
-                <div class="modal-status-item">
+                <div class="modal-status-item modal-disk-row">
                     <span class="modal-lbl">Disco</span>
-                    <span class="modal-val @(dskPct > 90 ? "val-red" : dskPct > 70 ? "val-amber" : "")">@(diskMx != null ? $"{diskMx.DiskFreeGb:F0} GB libres ({100-dskPct:F0}%)" : "—")</span>
+                    @if (diskMx != null)
+                    {
+                        <div class="modal-disk-info">
+                            <span class="modal-disk-text @(dskPct > 90 ? "val-red" : dskPct > 70 ? "val-amber" : "val-green")">@diskMx.DiskFreeGb.ToString("F0") GB libres de @diskMx.DiskTotalGb.ToString("F0") GB</span>
+                            <div class="modal-disk-gauge">
+                                <div class="modal-disk-fill @(dskPct > 90 ? "gauge-red" : dskPct > 70 ? "gauge-amber" : "gauge-green")" style="width:@dskPct.ToString("F0")%"></div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="modal-val">—</span>
+                    }
                 </div>
             </div>
 
