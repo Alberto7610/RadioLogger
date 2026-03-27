@@ -46,10 +46,20 @@ namespace RadioLogger.Services
             {
                 Stop();
 
-                _log.Debug("Iniciando Cast Engine hacia {Host}:{Port} (SID Support)", _config.Host, _config.Port);
+                bool isIcecast = _config.ServerType.Contains("Icecast", StringComparison.OrdinalIgnoreCase);
+                bool isV1 = _config.ServerType.Contains("v1") || _config.ServerType == "Shoutcast";
 
+                int sampleRate = _config.SampleRate > 0 ? _config.SampleRate : 44100;
+                int channels = _config.Channels == 1 ? 1 : 2;
+                string channelMode = channels == 1 ? "-m m" : "-m s";
+
+                _log.Information("Iniciando stream ({Station}) → {Host}:{Port} [{ServerType}] {Bitrate}kbps {SampleRate}Hz {Channels}",
+                    _stationName, _config.Host, _config.Port, _config.ServerType,
+                    _config.Bitrate, sampleRate, channels == 1 ? "Mono" : "Stereo");
+
+                // 1. Encoder LAME con parámetros configurables
                 string lamePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
-                string command = $"\"{lamePath}\" -r -s 44100 -b {_config.Bitrate} -";
+                string command = $"\"{lamePath}\" -r -s {sampleRate} -b {_config.Bitrate} {channelMode} -";
 
                 _encodeHandle = BassEnc.EncodeStart(_sourceChannel, command, EncodeFlags.NoHeader | EncodeFlags.AutoFree, null, IntPtr.Zero);
 
@@ -59,23 +69,52 @@ namespace RadioLogger.Services
                     return false;
                 }
 
-                string passWithSid = _config.Password;
-                if (!string.IsNullOrEmpty(_config.MountPoint) && _config.MountPoint.Contains("/"))
+                // 2. Construir URL y contraseña según tipo de servidor
+                string url;
+                string pass;
+
+                if (isIcecast)
                 {
-                    var parts = _config.MountPoint.Split('/');
-                    var sid = parts[parts.Length - 1];
-                    if (int.TryParse(sid, out _))
+                    // Icecast: URL incluye mount point, password incluye username
+                    var mount = _config.MountPoint.StartsWith("/") ? _config.MountPoint : "/" + _config.MountPoint;
+                    url = $"{_config.Host}:{_config.Port}{mount}";
+                    var username = string.IsNullOrEmpty(_config.Username) ? "source" : _config.Username;
+                    pass = $"{username}:{_config.Password}";
+
+                    _log.Debug("Icecast: URL={Url}, User={User}, Mount={Mount}", url, username, mount);
+                }
+                else
+                {
+                    // Shoutcast v1/v2
+                    url = $"{_config.Host}:{_config.Port}";
+                    pass = _config.Password;
+
+                    // Shoutcast v2: SID support desde mount point
+                    if (!isV1 && !string.IsNullOrEmpty(_config.MountPoint) && _config.MountPoint.Contains('/'))
                     {
-                        passWithSid = $"{_config.Password},{sid}";
-                        _log.Debug("Usando formato SID: ****,SID={Sid}", sid);
+                        var parts = _config.MountPoint.Split('/');
+                        var sid = parts[^1]; // último segmento
+                        if (int.TryParse(sid, out _))
+                        {
+                            pass = $"{_config.Password},{sid}";
+                            _log.Debug("Shoutcast v2 SID: ****,SID={Sid}", sid);
+                        }
                     }
                 }
 
-                string url = $"{_config.Host}:{_config.Port}";
+                // 3. CastInit — genre y metadata opcionales
                 string contentType = "audio/mpeg";
-                bool isV1 = _config.ServerType.Contains("v1") || _config.ServerType == "Shoutcast";
+                string? genre = string.IsNullOrWhiteSpace(_config.Genre) ? null : _config.Genre;
 
-                bool success = BassEnc.CastInit(_encodeHandle, url, passWithSid, contentType, _stationName, null, null, null, null, _config.Bitrate, isV1);
+                bool success = BassEnc.CastInit(
+                    _encodeHandle, url, pass, contentType,
+                    _stationName,   // name
+                    null,           // url (website)
+                    genre,          // genre
+                    null,           // desc
+                    null,           // headers
+                    _config.Bitrate,
+                    isV1);          // public (Shoutcast v1 uses this as "is public" flag)
 
                 if (!success)
                 {
@@ -84,7 +123,7 @@ namespace RadioLogger.Services
                     return false;
                 }
 
-                _log.Information("Stream conectado ({Station}): {Host}:{Port}", _stationName, _config.Host, _config.Port);
+                _log.Information("Stream conectado ({Station}): {Url}", _stationName, url);
                 return true;
             }
             catch (Exception ex)

@@ -82,6 +82,10 @@ namespace RadioLogger.ViewModels
         [ObservableProperty] private string _streamMount = "/live";
         [ObservableProperty] private int _streamBitrate = 128;
         [ObservableProperty] private string _streamServerType = "Shoutcast";
+        [ObservableProperty] private int _streamSampleRate = 44100;
+        [ObservableProperty] private int _streamChannels = 2;
+        [ObservableProperty] private string _streamUsername = "source";
+        [ObservableProperty] private string _streamGenre = "";
 
         [ObservableProperty] private string _testStatus = "";
         [ObservableProperty] private string _testStatusColor = "#666"; // Default Grey
@@ -384,6 +388,10 @@ namespace RadioLogger.ViewModels
                 StreamMount = conf.MountPoint;
                 StreamBitrate = conf.Bitrate;
                 StreamServerType = conf.ServerType;
+                StreamSampleRate = conf.SampleRate;
+                StreamChannels = conf.Channels;
+                StreamUsername = conf.Username;
+                StreamGenre = conf.Genre;
             }
         }
 
@@ -394,6 +402,10 @@ namespace RadioLogger.ViewModels
         partial void OnStreamMountChanged(string value) => UpdateCurrentStreamConfig(c => c.MountPoint = value);
         partial void OnStreamBitrateChanged(int value) => UpdateCurrentStreamConfig(c => c.Bitrate = value);
         partial void OnStreamServerTypeChanged(string value) => UpdateCurrentStreamConfig(c => c.ServerType = value);
+        partial void OnStreamSampleRateChanged(int value) => UpdateCurrentStreamConfig(c => c.SampleRate = value);
+        partial void OnStreamChannelsChanged(int value) => UpdateCurrentStreamConfig(c => c.Channels = value);
+        partial void OnStreamUsernameChanged(string value) => UpdateCurrentStreamConfig(c => c.Username = value);
+        partial void OnStreamGenreChanged(string value) => UpdateCurrentStreamConfig(c => c.Genre = value);
 
         private void UpdateCurrentStreamConfig(Action<StreamingConfig> action)
         {
@@ -499,6 +511,10 @@ namespace RadioLogger.ViewModels
                 conf.MountPoint = StreamMount;
                 conf.Bitrate = StreamBitrate;
                 conf.ServerType = StreamServerType;
+                conf.SampleRate = StreamSampleRate;
+                conf.Channels = StreamChannels;
+                conf.Username = StreamUsername;
+                conf.Genre = StreamGenre;
             }
 
             _configManager.CurrentSettings.StationName = StationName;

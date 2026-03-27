@@ -411,9 +411,10 @@
                             <StackPanel>
                                 <TextBlock Text="Configuración de Streaming" FontSize="16" Foreground="#00AABB" Margin="0,0,0,20"/>
                                 
+                                <!-- Fila 1: Servidor + Bitrate -->
                                 <Grid Margin="0,0,0,15">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                    
+
                                     <StackPanel Margin="0,0,10,0">
                                         <TextBlock Text="Tipo de Servidor" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
                                         <ComboBox SelectedValue="{Binding StreamServerType}" SelectedValuePath="Content" Height="30" Background="#111">
@@ -422,15 +423,37 @@
                                             <ComboBoxItem Content="Icecast"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    
+
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Calidad (Bitrate)" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                        <TextBlock Text="Bitrate (kbps)" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
                                         <ComboBox SelectedValue="{Binding StreamBitrate}" SelectedValuePath="Content" Height="30" Background="#111">
                                             <ComboBoxItem Content="64"/>
                                             <ComboBoxItem Content="96"/>
                                             <ComboBoxItem Content="128"/>
                                             <ComboBoxItem Content="192"/>
                                             <ComboBoxItem Content="320"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Fila 2: Sample Rate + Canales -->
+                                <Grid Margin="0,0,0,15">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="Sample Rate (Hz)" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                        <ComboBox SelectedValue="{Binding StreamSampleRate}" SelectedValuePath="Tag" Height="30" Background="#111">
+                                            <ComboBoxItem Content="22050 Hz" Tag="22050"/>
+                                            <ComboBoxItem Content="44100 Hz" Tag="44100"/>
+                                            <ComboBoxItem Content="48000 Hz" Tag="48000"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Canales" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                        <ComboBox SelectedValue="{Binding StreamChannels}" SelectedValuePath="Tag" Height="30" Background="#111">
+                                            <ComboBoxItem Content="Mono" Tag="1"/>
+                                            <ComboBoxItem Content="Stereo" Tag="2"/>
                                         </ComboBox>
                                     </StackPanel>
                                 </Grid>
@@ -454,10 +477,28 @@
                                     </StackPanel>
                                 </Grid>
 
+                                <!-- Mount Point + Username (Icecast) -->
+                                <Grid Margin="0,0,0,15">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="Punto de Montaje" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding StreamMount}" Height="30" Background="#111" Foreground="White" BorderBrush="#444" VerticalContentAlignment="Center" Padding="5"/>
+                                        <TextBlock Text="Icecast: /live — Shoutcast v2: /stream/SID" Foreground="#555" FontSize="9"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Usuario" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding StreamUsername}" Height="30" Background="#111" Foreground="White" BorderBrush="#444" VerticalContentAlignment="Center" Padding="5"/>
+                                        <TextBlock Text="Icecast (def: source)" Foreground="#555" FontSize="9"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Género (metadata opcional) -->
                                 <StackPanel Margin="0,0,0,15">
-                                    <TextBlock Text="Punto de Montaje (Solo Icecast)" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
-                                    <TextBox Text="{Binding StreamMount}" Height="30" Background="#111" Foreground="White" BorderBrush="#444" VerticalContentAlignment="Center" Padding="5"/>
-                                    <TextBlock Text="Ejemplo: /live o /stream" Foreground="#555" FontSize="9"/>
+                                    <TextBlock Text="Género (opcional)" Foreground="#888" FontSize="10" Margin="0,0,0,3"/>
+                                    <TextBox Text="{Binding StreamGenre}" Height="30" Background="#111" Foreground="White" BorderBrush="#444" VerticalContentAlignment="Center" Padding="5"/>
+                                    <TextBlock Text="Se muestra en directorios de streaming (ej: Regional, Noticias, Pop)" Foreground="#555" FontSize="9"/>
                                 </StackPanel>
 
                                 <!-- Test Connection Section -->
