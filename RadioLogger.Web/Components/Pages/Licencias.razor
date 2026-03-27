@@ -248,6 +248,51 @@
     .lic-section-title { color: var(--text3); font-size: 11px; font-weight: 700; letter-spacing: 2px; margin: 20px 0 10px; }
     .lic-loading, .lic-empty { color: var(--text3); text-align: center; padding: 40px; font-size: 13px; }
 
+    /* Modal */
+    .modal-bg {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .edit-modal {
+        background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+        width: 90vw; max-width: 450px; overflow: hidden;
+    }
+    .edit-hdr {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 14px 20px; border-bottom: 1px solid var(--border);
+        font-size: 12px; font-weight: 700; color: var(--text); letter-spacing: 1.5px;
+    }
+    .modal-x {
+        background: none; border: none; color: var(--text3); font-size: 20px; cursor: pointer;
+    }
+    .modal-x:hover { color: var(--red); }
+    .edit-body { padding: 20px; }
+    .edit-field { margin-bottom: 14px; }
+    .edit-field label { display: block; color: var(--text3); font-size: 10px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 5px; }
+    .edit-field input, .edit-field select {
+        width: 100%; padding: 8px 12px; border-radius: 4px;
+        background: var(--bg); color: var(--text); border: 1px solid var(--border);
+        font-size: 12px; font-family: var(--mono); box-sizing: border-box;
+    }
+    .edit-field input:focus, .edit-field select:focus { border-color: var(--green); outline: none; }
+    .edit-field.sm { display: inline-block; width: calc(50% - 6px); }
+    .edit-field.sm:first-child { margin-right: 12px; }
+    .edit-grid { display: flex; gap: 12px; }
+    .edit-grid .edit-field { flex: 1; }
+    .edit-footer {
+        display: flex; justify-content: flex-end; gap: 10px;
+        padding: 14px 20px; border-top: 1px solid var(--border);
+    }
+    .btn-a {
+        padding: 8px 20px; border-radius: 4px; border: 1px solid var(--border);
+        font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--mono); letter-spacing: 0.5px;
+    }
+    .btn-a.ok { background: var(--green); color: var(--bg); border-color: var(--green); }
+    .btn-a.ok:hover { opacity: 0.8; }
+    .btn-a.warn { background: var(--bg3); color: var(--text3); }
+    .btn-a.warn:hover { background: var(--bg); }
+    .req { color: var(--red); font-weight: 700; }
+
     .edit-status { font-size: 11px; margin-top: 10px; padding: 8px; border-radius: 4px; }
     .status-ok { color: var(--green); background: rgba(16,217,138,0.1); }
     .status-err { color: var(--red); background: rgba(255,71,87,0.1); }

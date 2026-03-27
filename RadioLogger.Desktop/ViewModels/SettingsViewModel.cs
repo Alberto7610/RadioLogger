@@ -109,6 +109,16 @@ namespace RadioLogger.ViewModels
         [ObservableProperty] private string _passwordStatus = "";
         [ObservableProperty] private string _passwordStatusColor = "#666";
 
+        // === LICENSE ===
+        [ObservableProperty] private string _licenseStatusText = "";
+        [ObservableProperty] private string _licenseStatusColor = "#666";
+        [ObservableProperty] private string _licenseKey = "—";
+        [ObservableProperty] private string _licenseType = "—";
+        [ObservableProperty] private string _licenseExpiry = "—";
+        [ObservableProperty] private string _offlineCode = "";
+        [ObservableProperty] private string _offlineCodeStatus = "";
+        [ObservableProperty] private string _offlineCodeStatusColor = "#666";
+
         // === LOG VIEWER ===
         public ObservableCollection<string> LogDates { get; } = new();
         public ObservableCollection<string> LogStations { get; } = new();
@@ -128,6 +138,57 @@ namespace RadioLogger.ViewModels
         partial void OnSelectedLogStationChanged(string value) => ApplyLogFilter();
         partial void OnSelectedLogLevelChanged(string value) => ApplyLogFilter();
         partial void OnLogSearchTextChanged(string value) => ApplyLogFilter();
+
+        [RelayCommand]
+        public void ApplyOfflineCode()
+        {
+            if (string.IsNullOrWhiteSpace(OfflineCode))
+            {
+                OfflineCodeStatus = "Introduce un código";
+                OfflineCodeStatusColor = "#FF4444";
+                return;
+            }
+
+            var licService = new LicenseService(_configManager);
+            var hwId = MachineInfoCollector.GetHardwareIdStatic();
+            var (success, message) = licService.ApplyOfflineCode(OfflineCode, hwId);
+
+            OfflineCodeStatus = message;
+            OfflineCodeStatusColor = success ? "#00CC66" : "#FF4444";
+
+            if (success)
+            {
+                LoadLicenseInfo();
+                OfflineCode = "";
+            }
+        }
+
+        private void LoadLicenseInfo()
+        {
+            var lic = _configManager.CurrentSettings.License;
+            if (lic != null && lic.IsValid)
+            {
+                var licService = new LicenseService(_configManager);
+                LicenseStatusText = licService.StatusMessage;
+                LicenseStatusColor = licService.CurrentStatus switch
+                {
+                    LicenseStatus.Valid => "#00CC66",
+                    LicenseStatus.GracePeriod => "#FFAA00",
+                    _ => "#FF4444"
+                };
+                LicenseKey = lic.Key;
+                LicenseType = $"{lic.LicenseType} ({lic.MaxSlots} slots)";
+                LicenseExpiry = lic.ExpirationDate.ToLocalTime().ToString("dd/MM/yyyy");
+            }
+            else
+            {
+                LicenseStatusText = "Sin licencia — esperando activación del Dashboard";
+                LicenseStatusColor = "#666";
+                LicenseKey = "—";
+                LicenseType = "—";
+                LicenseExpiry = "—";
+            }
+        }
 
         [RelayCommand]
         public void RefreshLogs()
@@ -445,6 +506,7 @@ namespace RadioLogger.ViewModels
 
             LoadDevices();
             LoadLogDates();
+            LoadLicenseInfo();
         }
 
         private void LoadDevices()

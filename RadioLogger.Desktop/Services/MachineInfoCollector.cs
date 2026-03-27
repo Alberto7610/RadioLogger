@@ -105,6 +105,20 @@ namespace RadioLogger.Services
             catch { }
         }
 
+        public static string GetHardwareIdStatic()
+        {
+            try
+            {
+                using var searcher = new System.Management.ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
+                foreach (var item in searcher.Get())
+                {
+                    return item["SerialNumber"]?.ToString() ?? "UNKNOWN";
+                }
+            }
+            catch { }
+            return "DEV_" + Environment.MachineName;
+        }
+
         private static string GetLocalIp()
         {
             try
