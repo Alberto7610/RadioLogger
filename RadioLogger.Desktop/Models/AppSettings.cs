@@ -52,5 +52,8 @@ namespace RadioLogger.Models
 
         // Security: SHA256 hash of settings password (default: hash of "admin")
         public string SettingsPasswordHash { get; set; } = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+
+        // License (stored locally for offline validation)
+        public RadioLogger.Shared.Models.LocalLicense? License { get; set; }
     }
 }

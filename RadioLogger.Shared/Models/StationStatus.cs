@@ -88,11 +88,30 @@ namespace RadioLogger.Shared.Models
     public class License
     {
         public int Id { get; set; }
-        public string Key { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;         // RL-2026-XXXX-XXXX
+        public string LicenseType { get; set; } = "DEMO";       // DEMO, ESTACION, PLAZA
         public string ClientName { get; set; } = string.Empty;
-        public int MaxSlots { get; set; } = 1;
+        public string MachineId { get; set; } = string.Empty;   // Vinculada a un equipo
+        public string HardwareId { get; set; } = string.Empty;  // Vinculada a hardware
+        public int MaxSlots { get; set; } = 4;                  // Máx estaciones permitidas
+        public DateTime StartDate { get; set; } = DateTime.UtcNow;
         public DateTime ExpirationDate { get; set; }
         public bool IsActive { get; set; } = true;
+        public DateTime? LastCheckIn { get; set; }               // Último check del WPF
+        public string? Notes { get; set; }
+    }
+
+    /// <summary>
+    /// License data stored locally in WPF for offline validation.
+    /// </summary>
+    public class LocalLicense
+    {
+        public string Key { get; set; } = string.Empty;
+        public string LicenseType { get; set; } = string.Empty;
+        public int MaxSlots { get; set; } = 0;
+        public DateTime ExpirationDate { get; set; }
+        public DateTime LastServerCheck { get; set; }            // Última vez que el servidor confirmó la licencia
+        public bool IsValid { get; set; }
     }
 
     /// <summary>

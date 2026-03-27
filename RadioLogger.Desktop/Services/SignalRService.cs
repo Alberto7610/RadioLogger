@@ -18,6 +18,7 @@ namespace RadioLogger.Services
 
         public event Action<string, bool>? ConnectionStatusChanged;
         public event Action<RadioLogger.Shared.Models.StationCommand>? CommandReceived;
+        public event Action<RadioLogger.Shared.Models.LocalLicense>? LicenseReceived;
 
         public bool IsConnected => _connection?.State == HubConnectionState.Connected;
 
@@ -72,6 +73,13 @@ namespace RadioLogger.Services
                 var response = ReadLocalLogFile(request);
                 if (_connection != null)
                     await _connection.InvokeAsync("SendLogFileResponse", response);
+            });
+
+            // Dashboard envía licencia activada/renovada
+            _connection.On<RadioLogger.Shared.Models.LocalLicense>("ReceiveLicense", (license) =>
+            {
+                _log.Information("Licencia recibida del Dashboard: {Type} ({Key})", license.LicenseType, license.Key);
+                LicenseReceived?.Invoke(license);
             });
 
             _connection.Reconnecting += (error) =>

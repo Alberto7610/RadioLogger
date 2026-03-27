@@ -1,0 +1,409 @@
+@page "/licencias"
+@using RadioLogger.Shared.Models
+@using RadioLogger.Web.Services
+@inject LicenseManager LicenseMgr
+@inject MonitoringService Monitoring
+
+<div class="lic-page">
+    <div class="lic-header">
+        <h2>GESTIÓN DE LICENCIAS</h2>
+        <button class="btn-create" @onclick="ShowCreateModal">+ NUEVA LICENCIA</button>
+    </div>
+
+    @if (_licenses == null)
+    {
+        <div class="lic-loading">Cargando licencias...</div>
+    }
+    else if (_licenses.Count == 0)
+    {
+        <div class="lic-empty">No hay licencias registradas. Los equipos aparecerán aquí al conectarse.</div>
+    }
+    else
+    {
+        @foreach (var lic in _licenses)
+        {
+            var daysLeft = (lic.ExpirationDate - DateTime.UtcNow).TotalDays;
+            var statusClass = !lic.IsActive ? "lic-revoked" : daysLeft <= 0 ? "lic-expired" : daysLeft <= 15 ? "lic-warning" : "lic-active";
+            var activeStations = LicenseMgr.GetActiveStationCount(lic.MachineId);
+
+            <div class="lic-card @statusClass">
+                <div class="lic-card-top">
+                    <div class="lic-machine">@lic.MachineId</div>
+                    <div class="lic-type-badge @lic.LicenseType.ToLower()">@lic.LicenseType</div>
+                </div>
+
+                <div class="lic-details">
+                    <div class="lic-row">
+                        <span class="lic-lbl">Clave</span>
+                        <span class="lic-val mono">@lic.Key</span>
+                    </div>
+                    <div class="lic-row">
+                        <span class="lic-lbl">Cliente</span>
+                        <span class="lic-val">@(string.IsNullOrEmpty(lic.ClientName) ? "—" : lic.ClientName)</span>
+                    </div>
+                    <div class="lic-row">
+                        <span class="lic-lbl">Slots</span>
+                        <span class="lic-val">@activeStations / @lic.MaxSlots en uso</span>
+                    </div>
+                    <div class="lic-row">
+                        <span class="lic-lbl">Inicio</span>
+                        <span class="lic-val">@lic.StartDate.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                    </div>
+                    <div class="lic-row">
+                        <span class="lic-lbl">Vence</span>
+                        <span class="lic-val @(daysLeft <= 15 && daysLeft > 0 ? "val-amber" : daysLeft <= 0 ? "val-red" : "")">
+                            @lic.ExpirationDate.ToLocalTime().ToString("dd/MM/yyyy")
+                            @if (daysLeft > 0)
+                            {
+                                <span> (@((int)daysLeft)d)</span>
+                            }
+                            else if (lic.IsActive)
+                            {
+                                <span> (EXPIRADA)</span>
+                            }
+                        </span>
+                    </div>
+                    <div class="lic-row">
+                        <span class="lic-lbl">Estado</span>
+                        <span class="lic-val">
+                            @if (!lic.IsActive) { <span class="val-red">REVOCADA</span> }
+                            else if (daysLeft <= 0) { <span class="val-red">EXPIRADA</span> }
+                            else if (daysLeft <= 15) { <span class="val-amber">EXPIRA PRONTO</span> }
+                            else { <span class="val-green">ACTIVA</span> }
+                        </span>
+                    </div>
+                    @if (lic.LastCheckIn.HasValue)
+                    {
+                        <div class="lic-row">
+                            <span class="lic-lbl">Último check-in</span>
+                            <span class="lic-val">@lic.LastCheckIn.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(lic.HardwareId) && lic.HardwareId != "UNKNOWN")
+                    {
+                        <div class="lic-row">
+                            <span class="lic-lbl">HW ID</span>
+                            <span class="lic-val mono" style="font-size:10px;">@lic.HardwareId</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="lic-actions">
+                    @if (lic.IsActive)
+                    {
+                        <button class="btn-lic btn-renew" @onclick="() => ShowRenewModal(lic)">RENOVAR</button>
+                        <button class="btn-lic btn-convert" @onclick="() => ShowConvertModal(lic)">CONVERTIR</button>
+                        <button class="btn-lic btn-code" @onclick="() => ShowOfflineCode(lic)" title="Generar código temporal offline">CÓDIGO</button>
+                        <button class="btn-lic btn-revoke" @onclick="() => RevokeLicense(lic.Id)">REVOCAR</button>
+                    }
+                    else
+                    {
+                        <button class="btn-lic btn-renew" @onclick="() => ShowRenewModal(lic)">REACTIVAR</button>
+                    }
+                </div>
+
+                @if (_offlineCodeLicenseId == lic.Id && !string.IsNullOrEmpty(_offlineCode))
+                {
+                    <div class="lic-code-display">
+                        <span class="lic-lbl">Código temporal:</span>
+                        <span class="lic-code">@_offlineCode</span>
+                        <span class="lic-code-hint">Válido este mes. Introducir en WPF → Configuración → Extender Licencia</span>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    @* Equipos sin licencia *@
+    @if (_unlinkedMachines.Count > 0)
+    {
+        <div class="lic-section-title">EQUIPOS SIN LICENCIA</div>
+        @foreach (var machine in _unlinkedMachines)
+        {
+            <div class="lic-card lic-pending">
+                <div class="lic-card-top">
+                    <div class="lic-machine">@machine</div>
+                    <div class="lic-type-badge pending">PENDIENTE</div>
+                </div>
+                <div class="lic-actions">
+                    <button class="btn-lic btn-create-sm" @onclick="() => ShowCreateModalForMachine(machine)">ASIGNAR LICENCIA</button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@* ─── MODAL CREAR/RENOVAR/CONVERTIR ─── *@
+@if (_showModal)
+{
+    <div class="modal-bg" @onclick="() => _showModal = false">
+        <div class="edit-modal" @onclick:stopPropagation="true" style="max-width:450px;">
+            <div class="edit-hdr">
+                <span>@_modalTitle</span>
+                <button class="modal-x" @onclick="() => _showModal = false">&times;</button>
+            </div>
+            <div class="edit-body">
+                @if (_modalMode == "create")
+                {
+                    <div class="edit-field">
+                        <label>Equipo (MachineId) <span class="req">*</span></label>
+                        <input type="text" @bind="_formMachineId" />
+                    </div>
+                }
+                <div class="edit-field">
+                    <label>Cliente</label>
+                    <input type="text" @bind="_formClientName" placeholder="Nombre del cliente" />
+                </div>
+                <div class="edit-field">
+                    <label>Tipo de Licencia <span class="req">*</span></label>
+                    <select @bind="_formType">
+                        <option value="DEMO">DEMO (3 meses gratis)</option>
+                        <option value="ESTACION">ESTACION (1 slot, anual)</option>
+                        <option value="PLAZA">PLAZA (hasta 4 slots, anual)</option>
+                    </select>
+                </div>
+                <div class="edit-grid">
+                    <div class="edit-field sm">
+                        <label>Slots máx</label>
+                        <input type="number" @bind="_formSlots" min="1" max="8" />
+                    </div>
+                    <div class="edit-field sm">
+                        <label>Duración (días)</label>
+                        <input type="number" @bind="_formDays" min="1" max="3650" />
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_formStatus))
+                {
+                    <div class="edit-status @(_formStatusOk ? "status-ok" : "status-err")">@_formStatus</div>
+                }
+            </div>
+            <div class="edit-footer">
+                <button class="btn-a warn" @onclick="() => _showModal = false">CANCELAR</button>
+                <button class="btn-a ok" @onclick="SubmitModal">@_modalAction</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .lic-page { padding: 0 20px; overflow-y: auto; height: 100%; }
+    .lic-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .lic-header h2 { color: var(--green); font-size: 16px; margin: 0; letter-spacing: 2px; }
+    .btn-create {
+        background: var(--green); color: var(--bg); border: none; padding: 8px 16px;
+        border-radius: 4px; font-weight: 700; font-size: 11px; cursor: pointer; font-family: var(--mono);
+    }
+    .btn-create:hover { opacity: 0.8; }
+
+    .lic-card {
+        background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+        padding: 16px; margin-bottom: 12px; border-left: 4px solid var(--border);
+    }
+    .lic-card.lic-active { border-left-color: var(--green); }
+    .lic-card.lic-warning { border-left-color: var(--amber); }
+    .lic-card.lic-expired { border-left-color: var(--red); }
+    .lic-card.lic-revoked { border-left-color: var(--text3); opacity: 0.6; }
+    .lic-card.lic-pending { border-left-color: var(--blue); border-style: dashed; }
+
+    .lic-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .lic-machine { font-size: 15px; font-weight: 700; color: var(--text); }
+    .lic-type-badge {
+        font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 4px; letter-spacing: 1px;
+    }
+    .lic-type-badge.demo { background: rgba(77,158,255,0.15); color: var(--blue); }
+    .lic-type-badge.estacion { background: rgba(16,217,138,0.15); color: var(--green); }
+    .lic-type-badge.plaza { background: rgba(255,179,71,0.15); color: var(--amber); }
+    .lic-type-badge.pending { background: rgba(255,71,87,0.15); color: var(--red); }
+
+    .lic-details { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin-bottom: 12px; }
+    .lic-row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; }
+    .lic-lbl { color: var(--text3); }
+    .lic-val { color: var(--text); }
+    .lic-val.mono { font-family: var(--mono); font-size: 10px; }
+
+    .lic-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-lic {
+        font-size: 10px; font-weight: 700; padding: 5px 12px; border-radius: 4px;
+        border: 1px solid var(--border); cursor: pointer; font-family: var(--mono); letter-spacing: 0.5px;
+    }
+    .btn-renew { background: rgba(16,217,138,0.1); color: var(--green); border-color: var(--green); }
+    .btn-renew:hover { background: rgba(16,217,138,0.25); }
+    .btn-convert { background: rgba(77,158,255,0.1); color: var(--blue); border-color: var(--blue); }
+    .btn-convert:hover { background: rgba(77,158,255,0.25); }
+    .btn-code { background: rgba(255,179,71,0.1); color: var(--amber); border-color: var(--amber); }
+    .btn-code:hover { background: rgba(255,179,71,0.25); }
+    .btn-revoke { background: rgba(255,71,87,0.1); color: var(--red); border-color: var(--red); }
+    .btn-revoke:hover { background: rgba(255,71,87,0.25); }
+    .btn-create-sm { background: rgba(77,158,255,0.1); color: var(--blue); border: 1px solid var(--blue); }
+    .btn-create-sm:hover { background: rgba(77,158,255,0.25); }
+
+    .lic-code-display {
+        margin-top: 10px; padding: 10px; background: var(--bg); border-radius: 4px;
+        border: 1px dashed var(--amber); display: flex; flex-direction: column; gap: 4px;
+    }
+    .lic-code { font-size: 22px; font-weight: 900; color: var(--amber); letter-spacing: 4px; font-family: var(--mono); }
+    .lic-code-hint { font-size: 9px; color: var(--text3); }
+
+    .lic-section-title { color: var(--text3); font-size: 11px; font-weight: 700; letter-spacing: 2px; margin: 20px 0 10px; }
+    .lic-loading, .lic-empty { color: var(--text3); text-align: center; padding: 40px; font-size: 13px; }
+
+    .edit-status { font-size: 11px; margin-top: 10px; padding: 8px; border-radius: 4px; }
+    .status-ok { color: var(--green); background: rgba(16,217,138,0.1); }
+    .status-err { color: var(--red); background: rgba(255,71,87,0.1); }
+</style>
+
+@code {
+    private List<License>? _licenses;
+    private List<string> _unlinkedMachines = new();
+
+    // Modal state
+    private bool _showModal;
+    private string _modalTitle = "";
+    private string _modalAction = "";
+    private string _modalMode = ""; // create, renew, convert
+    private int? _editLicenseId;
+
+    // Form fields
+    private string _formMachineId = "";
+    private string _formClientName = "";
+    private string _formType = "DEMO";
+    private int _formSlots = 4;
+    private int _formDays = 90;
+    private string _formStatus = "";
+    private bool _formStatusOk;
+
+    // Offline code
+    private int? _offlineCodeLicenseId;
+    private string _offlineCode = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _licenses = await LicenseMgr.GetAllAsync();
+
+        // Encontrar equipos conectados sin licencia
+        var licensedMachines = _licenses.Where(l => l.IsActive).Select(l => l.MachineId).ToHashSet();
+        var connectedMachines = Monitoring.GetActiveStations().Select(s => s.MachineId).Distinct();
+        _unlinkedMachines = connectedMachines.Where(m => !licensedMachines.Contains(m)).ToList();
+    }
+
+    private void ShowCreateModal()
+    {
+        _modalMode = "create";
+        _modalTitle = "CREAR LICENCIA";
+        _modalAction = "CREAR";
+        _formMachineId = "";
+        _formClientName = "";
+        _formType = "DEMO";
+        _formSlots = 4;
+        _formDays = 90;
+        _formStatus = "";
+        _showModal = true;
+    }
+
+    private void ShowCreateModalForMachine(string machineId)
+    {
+        ShowCreateModal();
+        _formMachineId = machineId;
+
+        // Intentar obtener HardwareId
+        var info = Monitoring.GetMachineInfo(machineId);
+        if (info != null)
+            _formClientName = machineId;
+    }
+
+    private void ShowRenewModal(License lic)
+    {
+        _modalMode = "renew";
+        _modalTitle = $"RENOVAR — {lic.MachineId}";
+        _modalAction = "RENOVAR";
+        _editLicenseId = lic.Id;
+        _formDays = lic.LicenseType == "DEMO" ? 90 : 365;
+        _formStatus = "";
+        _showModal = true;
+    }
+
+    private void ShowConvertModal(License lic)
+    {
+        _modalMode = "convert";
+        _modalTitle = $"CONVERTIR — {lic.MachineId}";
+        _modalAction = "CONVERTIR";
+        _editLicenseId = lic.Id;
+        _formType = "PLAZA";
+        _formSlots = 4;
+        _formDays = 365;
+        _formStatus = "";
+        _showModal = true;
+    }
+
+    private async Task SubmitModal()
+    {
+        try
+        {
+            switch (_modalMode)
+            {
+                case "create":
+                    if (string.IsNullOrWhiteSpace(_formMachineId))
+                    {
+                        _formStatus = "MachineId es requerido";
+                        _formStatusOk = false;
+                        return;
+                    }
+                    var hwId = Monitoring.GetActiveStations().FirstOrDefault(s => s.MachineId == _formMachineId)?.HardwareId ?? "";
+                    // Defaults por tipo
+                    if (_formType == "DEMO") { _formDays = 90; _formSlots = 4; }
+                    else if (_formType == "ESTACION") { _formSlots = 1; }
+
+                    await LicenseMgr.CreateAsync(_formType, _formMachineId, hwId, _formClientName, _formSlots, _formDays);
+                    _formStatus = "Licencia creada y enviada al equipo";
+                    _formStatusOk = true;
+                    break;
+
+                case "renew":
+                    if (_editLicenseId == null) return;
+                    await LicenseMgr.RenewAsync(_editLicenseId.Value, _formDays);
+                    _formStatus = $"Renovada por {_formDays} días";
+                    _formStatusOk = true;
+                    break;
+
+                case "convert":
+                    if (_editLicenseId == null) return;
+                    await LicenseMgr.ConvertAsync(_editLicenseId.Value, _formType, _formSlots, _formDays);
+                    _formStatus = $"Convertida a {_formType}";
+                    _formStatusOk = true;
+                    break;
+            }
+
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _formStatus = $"Error: {ex.Message}";
+            _formStatusOk = false;
+        }
+    }
+
+    private async Task RevokeLicense(int id)
+    {
+        await LicenseMgr.RevokeAsync(id);
+        await LoadData();
+    }
+
+    private void ShowOfflineCode(License lic)
+    {
+        if (_offlineCodeLicenseId == lic.Id)
+        {
+            _offlineCodeLicenseId = null;
+            _offlineCode = "";
+            return;
+        }
+
+        _offlineCodeLicenseId = lic.Id;
+        _offlineCode = LicenseManager.GenerateOfflineCode(lic.HardwareId);
+    }
+}

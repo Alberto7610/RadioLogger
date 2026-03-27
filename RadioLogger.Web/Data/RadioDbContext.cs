@@ -25,6 +25,10 @@ namespace RadioLogger.Web.Data
 
             modelBuilder.Entity<License>().HasKey(e => e.Id);
             modelBuilder.Entity<License>().HasIndex(e => e.Key).IsUnique();
+            modelBuilder.Entity<License>().Property(e => e.LicenseType).HasMaxLength(20);
+            modelBuilder.Entity<License>().Property(e => e.MachineId).HasMaxLength(100);
+            modelBuilder.Entity<License>().Property(e => e.HardwareId).HasMaxLength(200);
+            modelBuilder.Entity<License>().HasIndex(e => e.MachineId);
 
             modelBuilder.Entity<LogEntry>().HasKey(e => e.Id);
             modelBuilder.Entity<LogEntry>().Property(e => e.MachineId).HasMaxLength(100).IsRequired();

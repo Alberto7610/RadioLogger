@@ -19,6 +19,7 @@ namespace RadioLogger.ViewModels
         private readonly HeartbeatService _heartbeatService = null!;
         private readonly SignalRService _signalRService = null!;
         private readonly MachineInfoCollector _machineInfo = null!;
+        private readonly LicenseService _licenseService = null!;
         private readonly System.Timers.Timer _uiTimer = null!;
         private System.Timers.Timer? _internetCheckTimer;
         private int _frames = 0;
@@ -47,6 +48,12 @@ namespace RadioLogger.ViewModels
         [ObservableProperty]
         private string _internetStatusText = "INTERNET OK";
 
+        [ObservableProperty]
+        private string _licenseStatusText = "";
+
+        [ObservableProperty]
+        private string _licenseStatusColor = "#666";
+
         public string DashboardUrl => _configManager.CurrentSettings.SignalRHubUrl.Replace("/radiohub", "");
 
         public ObservableCollection<DeviceViewModel> InputDevices { get; } = new ObservableCollection<DeviceViewModel>();
@@ -65,8 +72,11 @@ namespace RadioLogger.ViewModels
             _log.Information("Aplicación iniciada. PC: {MachineName}", Environment.MachineName);
 
             _audioEngine = new AudioEngine(_configManager);
+            _licenseService = new LicenseService(_configManager);
+            UpdateLicenseUI();
+
             _machineInfo = new MachineInfoCollector(_configManager.CurrentSettings);
-            _ = _machineInfo.FetchPublicIpAsync(); // Fetch IP pública en background
+            _ = _machineInfo.FetchPublicIpAsync();
 
             _heartbeatService = new HeartbeatService(_configManager);
             _heartbeatService.Start();
@@ -89,6 +99,7 @@ namespace RadioLogger.ViewModels
             };
 
             _signalRService.CommandReceived += OnRemoteCommand;
+            _signalRService.LicenseReceived += OnLicenseReceived;
 
             _ = _signalRService.StartAsync(); // Fire and forget connection task
             CheckInternetReal(); // Chequeo inicial
@@ -359,6 +370,27 @@ namespace RadioLogger.ViewModels
         [RelayCommand]
         public void ToggleDevice(DeviceViewModel device)
         {
+            // Verificar licencia antes de iniciar grabación
+            if (!device.IsSelected || !device.IsRecording)
+            {
+                if (!_licenseService.CanRecord())
+                {
+                    StatusMessage = _licenseService.StatusMessage;
+                    _log.Warning("Intento de grabar bloqueado: {Reason}", _licenseService.StatusMessage);
+                    device.IsSelected = false;
+                    return;
+                }
+
+                int activeCount = InputDevices.Count(d => d.IsRecording);
+                if (!_licenseService.CanAddStation(activeCount))
+                {
+                    StatusMessage = $"Límite de estaciones alcanzado ({_licenseService.CurrentLicense?.MaxSlots} máx)";
+                    _log.Warning("Límite de slots: {Active}/{Max}", activeCount, _licenseService.CurrentLicense?.MaxSlots);
+                    device.IsSelected = false;
+                    return;
+                }
+            }
+
             device.UpdateState();
 
             if (device.IsSelected)
@@ -497,6 +529,26 @@ namespace RadioLogger.ViewModels
 
             RestorePreviousState(autoRecord, autoStream);
         }
+
+        private void OnLicenseReceived(RadioLogger.Shared.Models.LocalLicense license)
+        {
+            _licenseService.ActivateFromServer(license);
+            App.Current?.Dispatcher.BeginInvoke(() => UpdateLicenseUI());
+        }
+
+        private void UpdateLicenseUI()
+        {
+            LicenseStatusText = _licenseService.StatusMessage;
+            LicenseStatusColor = _licenseService.CurrentStatus switch
+            {
+                LicenseStatus.Valid => "#00CC66",
+                LicenseStatus.GracePeriod => "#FFAA00",
+                LicenseStatus.Expired => "#CC0000",
+                _ => "#666"
+            };
+        }
+
+        public LicenseService LicenseInfo => _licenseService;
 
         public void Cleanup()
         {

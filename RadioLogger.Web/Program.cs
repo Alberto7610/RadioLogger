@@ -38,6 +38,7 @@ builder.Services.AddDbContext<RadioDbContext>(options =>
 // Add monitoring state service
 builder.Services.AddSingleton<RadioLogger.Web.Services.TelegramService>();
 builder.Services.AddSingleton<RadioLogger.Web.Services.MonitoringService>();
+builder.Services.AddSingleton<RadioLogger.Web.Services.LicenseManager>();
 builder.Services.AddHostedService<RadioLogger.Web.Services.WatchdogService>();
 
 // Add SignalR support

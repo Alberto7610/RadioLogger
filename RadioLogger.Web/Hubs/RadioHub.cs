@@ -9,11 +9,13 @@ namespace RadioLogger.Web.Hubs
     public class RadioHub : Hub
     {
         private readonly MonitoringService _monitoringService;
+        private readonly LicenseManager _licenseManager;
         private static readonly ConcurrentDictionary<string, string> _connectionMap = new();
 
-        public RadioHub(MonitoringService monitoringService)
+        public RadioHub(MonitoringService monitoringService, LicenseManager licenseManager)
         {
             _monitoringService = monitoringService;
+            _licenseManager = licenseManager;
         }
 
         /// <summary>
@@ -45,6 +47,9 @@ namespace RadioLogger.Web.Hubs
             _connectionMap[Context.ConnectionId] = batch.MachineId;
             await _monitoringService.UpdateBatch(batch);
             await Clients.All.SendAsync("ReceiveBatchUpdate", batch);
+
+            // License check-in (fire and forget, no bloquear el batch)
+            _ = _licenseManager.CheckInAsync(batch.MachineId);
         }
 
         /// <summary>
