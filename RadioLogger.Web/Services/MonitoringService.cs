@@ -159,9 +159,16 @@ namespace RadioLogger.Web.Services
                 }
                 else
                 {
-                    // Update last seen
                     station.LastSeen = DateTime.UtcNow;
                     station.IsOnline = true;
+
+                    // Actualizar HardwareId si viene y estaba vacío
+                    if (!string.IsNullOrEmpty(update.HardwareId) && update.HardwareId != "UNKNOWN"
+                        && (string.IsNullOrEmpty(station.HardwareId) || station.HardwareId == "UNKNOWN"))
+                    {
+                        station.HardwareId = update.HardwareId;
+                    }
+
                     await db.SaveChangesAsync();
                 }
             }
