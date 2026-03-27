@@ -57,9 +57,13 @@
                     <span class="modal-lbl">Streaming</span>
                     <span class="modal-val @(s.IsStreaming ? "val-green" : "val-red")">@(s.IsStreaming ? "ACTIVO" : "INACTIVO")</span>
                 </div>
+                @{
+                    var diskMx = Monitoring.GetMachineMetrics(s.MachineId);
+                    double dskPct = diskMx != null && diskMx.DiskTotalGb > 0 ? ((diskMx.DiskTotalGb - diskMx.DiskFreeGb) / diskMx.DiskTotalGb * 100) : 0;
+                }
                 <div class="modal-status-item">
-                    <span class="modal-lbl">Ultimo reporte</span>
-                    <span class="modal-val">@s.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+                    <span class="modal-lbl">Disco</span>
+                    <span class="modal-val @(dskPct > 90 ? "val-red" : dskPct > 70 ? "val-amber" : "")">@(diskMx != null ? $"{diskMx.DiskFreeGb:F0} GB libres ({100-dskPct:F0}%)" : "—")</span>
                 </div>
             </div>
 
