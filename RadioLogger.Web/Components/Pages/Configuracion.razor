@@ -117,16 +117,16 @@
                 <div class="edit-section">IDENTIDAD DE LA ESTACIÓN</div>
                 <div class="edit-grid">
                     <div class="edit-field">
+                        <label>Nombre en Dashboard <span class="req">*</span></label>
+                        <input type="text" @bind="_editStation.StationName" maxlength="100" />
+                    </div>
+                    <div class="edit-field">
                         <label>Siglas</label>
                         <input type="text" @bind="_editStation.Siglas" placeholder="XECO-AM" maxlength="20" />
                     </div>
                     <div class="edit-field">
                         <label>Nombre Comercial</label>
                         <input type="text" @bind="_editStation.NombreComercial" placeholder="La Voz de México" maxlength="100" />
-                    </div>
-                    <div class="edit-field">
-                        <label>Nombre en Dashboard</label>
-                        <input type="text" @bind="_editStation.StationName" maxlength="100" />
                     </div>
                     <div class="edit-field sm">
                         <label>Frecuencia</label>
@@ -179,6 +179,8 @@
                         <textarea @bind="_editStation.Notas" placeholder="Observaciones..." rows="2" maxlength="500"></textarea>
                     </div>
                 </div>
+
+                <div class="edit-hint">Solo los campos con <span class="req">*</span> son requeridos. El resto es información complementaria.</div>
 
                 <!-- Info de sistema (solo lectura) -->
                 <div class="edit-section">SISTEMA</div>
