@@ -26,7 +26,8 @@ namespace RadioLogger.Services
 
         public void Emit(LogEvent logEvent)
         {
-            if (_signalR == null || !_signalR.IsConnected) return;
+            var signalR = _signalR; // Referencia local para evitar race condition
+            if (signalR == null || !signalR.IsConnected) return;
             if (logEvent.Level < LogEventLevel.Information) return;
 
             var entry = new LogEntry
@@ -45,8 +46,7 @@ namespace RadioLogger.Services
                 Entries = [entry]
             };
 
-            // Fire and forget — no bloquear el hilo de logging
-            _ = _signalR.SendLogEntriesAsync(batch);
+            _ = signalR.SendLogEntriesAsync(batch);
         }
 
         private static string LevelToTag(LogEventLevel level) => level switch

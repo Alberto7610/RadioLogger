@@ -23,7 +23,8 @@ namespace RadioLogger.Web.Hubs
         /// </summary>
         public static string? GetConnectionId(string machineId)
         {
-            return _connectionMap.FirstOrDefault(x => x.Value == machineId).Key;
+            var pair = _connectionMap.FirstOrDefault(x => x.Value == machineId);
+            return pair.Key; // KeyValuePair<string,string> default has null Key — safe for string?
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)

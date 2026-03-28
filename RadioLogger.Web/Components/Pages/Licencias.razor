@@ -368,6 +368,9 @@
         _modalTitle = $"RENOVAR — {lic.MachineId}";
         _modalAction = "RENOVAR";
         _editLicenseId = lic.Id;
+        _formClientName = lic.ClientName;
+        _formType = lic.LicenseType;
+        _formSlots = lic.MaxSlots;
         _formDays = lic.LicenseType == "DEMO" ? 90 : 365;
         _formStatus = "";
         _showModal = true;

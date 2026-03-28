@@ -321,24 +321,27 @@
         var entry = new LogEntry { Message = line };
         try
         {
+            if (line.Length < 25) return entry;
+
             // Timestamp: first 23 chars
-            if (line.Length > 24 && DateTime.TryParse(line[..23], out var ts))
+            if (DateTime.TryParse(line[..23], out var ts))
                 entry.Timestamp = ts;
 
             // Level: first [...] after timestamp
             int lvlStart = line.IndexOf('[', 24);
             int lvlEnd = lvlStart >= 0 ? line.IndexOf(']', lvlStart) : -1;
-            if (lvlStart >= 0 && lvlEnd > lvlStart)
-                entry.Level = line[(lvlStart + 1)..lvlEnd];
+            if (lvlStart < 0 || lvlEnd <= lvlStart) return entry;
+            entry.Level = line[(lvlStart + 1)..lvlEnd];
 
             // Source: second [...]
             int srcStart = line.IndexOf('[', lvlEnd + 1);
-            int srcEnd = srcStart >= 0 ? line.IndexOf(']', srcStart) : -1;
-            if (srcStart >= 0 && srcEnd > srcStart)
-            {
-                entry.Source = line[(srcStart + 1)..srcEnd];
+            if (srcStart < 0) return entry;
+            int srcEnd = line.IndexOf(']', srcStart);
+            if (srcEnd <= srcStart) return entry;
+
+            entry.Source = line[(srcStart + 1)..srcEnd];
+            if (srcEnd + 2 < line.Length)
                 entry.Message = line[(srcEnd + 2)..].TrimStart();
-            }
         }
         catch { }
         return entry;

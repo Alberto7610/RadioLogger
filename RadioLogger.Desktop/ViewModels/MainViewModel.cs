@@ -357,7 +357,7 @@ namespace RadioLogger.ViewModels
             dialog.Owner = System.Windows.Application.Current.MainWindow;
             if (dialog.ShowDialog() != true || !dialog.IsAuthenticated) return;
 
-            var vm = new SettingsViewModel(_configManager, _audioEngine);
+            var vm = new SettingsViewModel(_configManager, _audioEngine, _licenseService);
             var win = new RadioLogger.Views.SettingsWindow { DataContext = vm };
             if (win.ShowDialog() == true)
             {
@@ -370,8 +370,8 @@ namespace RadioLogger.ViewModels
         [RelayCommand]
         public void ToggleDevice(DeviceViewModel device)
         {
-            // Verificar licencia antes de iniciar grabación
-            if (!device.IsSelected || !device.IsRecording)
+            // Verificar licencia solo al INICIAR grabación (no al detener)
+            if (device.IsSelected && !device.IsRecording)
             {
                 if (!_licenseService.CanRecord())
                 {

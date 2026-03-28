@@ -15,6 +15,7 @@ namespace RadioLogger.ViewModels
     {
         private readonly ConfigManager _configManager;
         private readonly AudioEngine _audioEngine;
+        private readonly LicenseService _licenseService;
 
         [ObservableProperty]
         private string _stationName = string.Empty;
@@ -149,7 +150,7 @@ namespace RadioLogger.ViewModels
                 return;
             }
 
-            var licService = new LicenseService(_configManager);
+            var licService = _licenseService;
             var hwId = MachineInfoCollector.GetHardwareIdStatic();
             var (success, message) = licService.ApplyOfflineCode(OfflineCode, hwId);
 
@@ -168,7 +169,7 @@ namespace RadioLogger.ViewModels
             var lic = _configManager.CurrentSettings.License;
             if (lic != null && lic.IsValid)
             {
-                var licService = new LicenseService(_configManager);
+                var licService = _licenseService;
                 LicenseStatusText = licService.StatusMessage;
                 LicenseStatusColor = licService.CurrentStatus switch
                 {
@@ -480,10 +481,11 @@ namespace RadioLogger.ViewModels
             }
         }
 
-        public SettingsViewModel(ConfigManager configManager, AudioEngine audioEngine)
+        public SettingsViewModel(ConfigManager configManager, AudioEngine audioEngine, LicenseService? licenseService = null)
         {
             _configManager = configManager;
             _audioEngine = audioEngine;
+            _licenseService = licenseService ?? new LicenseService(configManager);
 
             // Load current values
             StationName = _configManager.CurrentSettings.StationName;

@@ -102,7 +102,10 @@ namespace RadioLogger.Services
                 _diskFreeGb = drive.AvailableFreeSpace / 1024.0 / 1024.0 / 1024.0;
                 _diskTotalGb = drive.TotalSize / 1024.0 / 1024.0 / 1024.0;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _log.Warning(ex, "Error leyendo espacio en disco para {Path}", _settings.RecordingBasePath);
+            }
         }
 
         public static string GetHardwareIdStatic()

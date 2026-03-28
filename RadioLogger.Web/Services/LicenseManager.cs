@@ -128,6 +128,7 @@ namespace RadioLogger.Web.Services
 
             license.LicenseType = newType;
             license.MaxSlots = maxSlots;
+            license.StartDate = DateTime.UtcNow;
             license.ExpirationDate = DateTime.UtcNow.AddDays(durationDays);
             license.IsActive = true;
             await db.SaveChangesAsync();
