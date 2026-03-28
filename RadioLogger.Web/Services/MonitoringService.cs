@@ -398,6 +398,30 @@ namespace RadioLogger.Web.Services
             }
         }
 
+        /// <summary>
+        /// Activate or deactivate a station.
+        /// </summary>
+        public async Task SetStationActive(int stationId, bool active)
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
+                var station = await db.RegisteredStations.FindAsync(stationId);
+                if (station != null)
+                {
+                    station.Activa = active;
+                    await db.SaveChangesAsync();
+                    await RefreshCache();
+                    OnUpdated?.Invoke();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MONITORING] Error SetStationActive: {ex.Message}");
+            }
+        }
+
         // ─── MACHINE INFO & METRICS ────────────────────────────
 
         public void StoreMachineInfo(MachineInfo info)

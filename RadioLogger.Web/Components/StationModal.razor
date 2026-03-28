@@ -173,6 +173,13 @@
                 {
                     <div class="modal-cmd-status">@CommandStatus</div>
                 }
+
+                <!-- Desactivar estación -->
+                <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
+                    <button class="modal-btn btn-deact" @onclick="DeactivateStation" disabled="@IsSending">
+                        DESACTIVAR ESTACIÓN
+                    </button>
+                </div>
             }
             else
             {
@@ -385,6 +392,19 @@
     private Task StopRecording() => SendCommand("STOP_RECORDING");
     private Task StartStreaming() => SendCommand("START_STREAMING");
     private Task StopStreaming() => SendCommand("STOP_STREAMING");
+
+    private async Task DeactivateStation()
+    {
+        if (Station == null) return;
+        var registered = Monitoring.GetRegisteredStations()
+            .FirstOrDefault(r => r.MachineId == Station.MachineId && r.HardwareName == Station.HardwareName);
+        if (registered != null)
+        {
+            await Monitoring.SetStationActive(registered.Id, false);
+            CommandStatus = "Estación desactivada";
+            StateHasChanged();
+        }
+    }
 
     private async Task ToggleStreamPlay()
     {

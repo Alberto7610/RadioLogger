@@ -16,6 +16,7 @@
             var alertCount = Monitoring.GetActiveIncidentsCount() + disconnectedCount;
             var recordingCount = allStations.Count(s => s.IsRecording && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15);
             var streamingCount = allStations.Count(s => s.IsStreaming && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15);
+            var deactivatedCount = Monitoring.GetRegisteredStations().Count(r => !r.Activa);
         }
         <div class="stat sg">
             <div class="stat-lbl">Online</div>
@@ -71,35 +72,87 @@
             <div class="panel-hdr">
                 <div class="panel-title">ESTACIONES REGISTRADAS</div>
                 <div class="tabs">
-                    <div class="tab @(CurrentFilter == "ALL" ? "active" : "")" @onclick='() => SetFilter("ALL")'>TODAS</div>
-                    <div class="tab @(CurrentFilter == "AUDIO" ? "active" : "")" @onclick='() => SetFilter("AUDIO")'>CON AUDIO</div>
-                    <div class="tab @(CurrentFilter == "ERROR" ? "active" : "")" @onclick='() => SetFilter("ERROR")'>ERRORES</div>
+                    <div class="tab @(CurrentFilter == "ALL" ? "active" : "")" @onclick='() => SetFilter("ALL")'>
+                        TODAS <span class="tab-count">@allStations.Count</span>
+                    </div>
+                    <div class="tab @(CurrentFilter == "ONLINE" ? "active" : "")" @onclick='() => SetFilter("ONLINE")'>
+                        EN LÍNEA <span class="tab-count">@onlineCount</span>
+                    </div>
+                    <div class="tab @(CurrentFilter == "DISCONNECTED" ? "active" : "")" @onclick='() => SetFilter("DISCONNECTED")'>
+                        DESCONECTADAS <span class="tab-count">@disconnectedCount</span>
+                    </div>
+                    <div class="tab @(CurrentFilter == "ERROR" ? "active" : "")" @onclick='() => SetFilter("ERROR")'>
+                        ERRORES <span class="tab-count">@silenceCount</span>
+                    </div>
+                    @if (deactivatedCount > 0)
+                    {
+                        <div class="tab @(CurrentFilter == "DEACTIVATED" ? "active" : "")" @onclick='() => SetFilter("DEACTIVATED")'>
+                            DESACTIVADAS <span class="tab-count">@deactivatedCount</span>
+                        </div>
+                    }
                 </div>
                 <input type="text" class="search" placeholder="BUSCAR ESTACIÓN..." @bind="SearchTerm" @bind:event="oninput">
             </div>
 
             <div class="st-scroll">
-                @foreach (var group in GetFilteredStations().GroupBy(s => s.MachineId))
+                @if (CurrentFilter == "DEACTIVATED")
                 {
-                    <div class="grp">
-                        <div class="grp-hdr">
-                            <span class="grp-tog">▼</span>
-                            <span class="grp-name">EQUIPO: @group.Key</span>
-                            <span class="grp-cnt">@group.Count()</span>
-                            @{
-                                var okCount = group.Count(s => !s.IsSilence && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15);
-                            }
-                            <span class="grp-on">● @okCount OK</span>
+                    @foreach (var group in GetDeactivatedStations().GroupBy(s => s.MachineId))
+                    {
+                        <div class="grp grp-deactivated">
+                            <div class="grp-hdr">
+                                <span class="grp-tog">▼</span>
+                                <span class="grp-name">EQUIPO: @group.Key</span>
+                                <span class="grp-cnt">@group.Count()</span>
+                                <span class="grp-deact">DESACTIVADAS</span>
+                            </div>
+                            <div class="st-grid">
+                                @foreach (var station in group)
+                                {
+                                    <div class="deactivated-card">
+                                        <div class="deact-name">@(!string.IsNullOrEmpty(station.Siglas) ? station.Siglas : station.StationName)</div>
+                                        <div class="deact-hw">@station.HardwareName</div>
+                                        <div class="deact-info">
+                                            @if (!string.IsNullOrEmpty(station.Frecuencia))
+                                            {
+                                                <span>@station.Frecuencia @station.Banda</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(station.Plaza))
+                                            {
+                                                <span> — @station.Plaza</span>
+                                            }
+                                        </div>
+                                        <button class="deact-btn" @onclick="() => ReactivateStation(station)">REACTIVAR</button>
+                                    </div>
+                                }
+                            </div>
                         </div>
-                        <div class="st-grid">
-                            @foreach (var station in group)
-                            {
-                                <div @onclick="() => OpenModal(station)" style="cursor:pointer">
-                                    <StationCard @key="@($"{station.MachineId}:{station.StationName}")" Update="station" />
-                                </div>
-                            }
+                    }
+                }
+                else
+                {
+                    @foreach (var group in GetFilteredStations().GroupBy(s => s.MachineId))
+                    {
+                        <div class="grp">
+                            <div class="grp-hdr">
+                                <span class="grp-tog">▼</span>
+                                <span class="grp-name">EQUIPO: @group.Key</span>
+                                <span class="grp-cnt">@group.Count()</span>
+                                @{
+                                    var okCount = group.Count(s => !s.IsSilence && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15);
+                                }
+                                <span class="grp-on">● @okCount OK</span>
+                            </div>
+                            <div class="st-grid">
+                                @foreach (var station in group)
+                                {
+                                    <div @onclick="() => OpenModal(station)" style="cursor:pointer">
+                                        <StationCard @key="@($"{station.MachineId}:{station.StationName}")" Update="station" />
+                                    </div>
+                                }
+                            </div>
                         </div>
-                    </div>
+                    }
                 }
             </div>
         </div>
@@ -133,16 +186,35 @@
 
         if (!string.IsNullOrWhiteSpace(SearchTerm))
         {
-            stations = stations.Where(s => s.StationName.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) 
+            stations = stations.Where(s => s.StationName.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)
                                        || s.MachineId.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
         return CurrentFilter switch
         {
-            "AUDIO" => stations.Where(s => !s.IsSilence && (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15),
+            "ONLINE" => stations.Where(s => (DateTime.UtcNow - s.Timestamp).TotalSeconds < 15),
+            "DISCONNECTED" => stations.Where(s => (DateTime.UtcNow - s.Timestamp).TotalSeconds >= 15),
             "ERROR" => stations.Where(s => s.IsSilence || (DateTime.UtcNow - s.Timestamp).TotalSeconds >= 15),
             _ => stations
         };
+    }
+
+    private IEnumerable<RegisteredStation> GetDeactivatedStations()
+    {
+        var stations = Monitoring.GetRegisteredStations().Where(r => !r.Activa);
+
+        if (!string.IsNullOrWhiteSpace(SearchTerm))
+        {
+            stations = stations.Where(s => s.StationName.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)
+                                       || s.MachineId.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return stations;
+    }
+
+    private async Task ReactivateStation(RegisteredStation station)
+    {
+        await Monitoring.SetStationActive(station.Id, true);
     }
 
     private void OpenModal(StationStatusUpdate station)
