@@ -166,6 +166,33 @@ namespace RadioLogger.Shared.Models
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 
+    // ─── USERS & AUDIT ──────────────────────────────
+
+    public class AppUser
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string PasswordHash { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Role { get; set; } = "Operador";          // Administrador, Supervisor, Operador
+        public bool IsActive { get; set; } = true;
+        public string? TelegramChatId { get; set; }              // Para recuperación de contraseña
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? LastLogin { get; set; }
+    }
+
+    public class AuditEntry
+    {
+        public long Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;       // LOGIN, LOGOUT, COMMAND, LICENSE_CREATE, etc.
+        public string? Detail { get; set; }
+        public string? IpAddress { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    }
+
+    // ─── LOGS ──────────────────────────────────────
+
     /// <summary>
     /// Log entry sent from WPF to Dashboard for centralized viewing.
     /// </summary>

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using RadioLogger.Web.Components;
 using RadioLogger.Web.Data;
@@ -40,6 +41,13 @@ builder.Services.AddSingleton<RadioLogger.Web.Services.TelegramService>();
 builder.Services.AddSingleton<RadioLogger.Web.Services.MonitoringService>();
 builder.Services.AddSingleton<RadioLogger.Web.Services.LicenseManager>();
 builder.Services.AddHostedService<RadioLogger.Web.Services.WatchdogService>();
+
+// Auth
+builder.Services.AddSingleton<RadioLogger.Web.Services.AuthService>();
+builder.Services.AddScoped<RadioLogger.Web.Services.CustomAuthStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<RadioLogger.Web.Services.CustomAuthStateProvider>());
+builder.Services.AddAuthorizationCore();
+builder.Services.AddCascadingAuthenticationState();
 
 // Add SignalR support
 builder.Services.AddSignalR(options => {

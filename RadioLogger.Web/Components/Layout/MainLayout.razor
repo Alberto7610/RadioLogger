@@ -1,6 +1,9 @@
 @inherits LayoutComponentBase
 @using RadioLogger.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
 @inject MonitoringService Monitoring
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
 @implements IDisposable
 
 <div class="sidebar">
@@ -37,22 +40,36 @@
         </NavLink>
 
         <div class="nav-sec">Administración</div>
-        <NavLink class="nav-item" href="licencias">
-            <span class="nav-ico">🔑</span>
-            <span>Licencias</span>
-        </NavLink>
+        @if (_userRole == "Administrador" || _userRole == "Supervisor")
+        {
+            <NavLink class="nav-item" href="licencias">
+                <span class="nav-ico">🔑</span>
+                <span>Licencias</span>
+            </NavLink>
+        }
         <NavLink class="nav-item" href="configuracion">
             <span class="nav-ico">⚙️</span>
             <span>Configuración</span>
         </NavLink>
+        @if (_userRole == "Administrador")
+        {
+            <NavLink class="nav-item" href="usuarios">
+                <span class="nav-ico">👤</span>
+                <span>Usuarios</span>
+            </NavLink>
+            <NavLink class="nav-item" href="auditoria">
+                <span class="nav-ico">📜</span>
+                <span>Auditoría</span>
+            </NavLink>
+        }
     </div>
 
     <div class="sidebar-footer">
-        <div class="user-card">
-            <div class="avatar">AD</div>
+        <div class="user-card" @onclick="DoLogout" style="cursor:pointer" title="Cerrar sesión">
+            <div class="avatar">@_userInitials</div>
             <div class="user-info">
-                <div class="u-name">Administrador</div>
-                <div class="u-role">SISTEMA ONLINE</div>
+                <div class="u-name">@_userDisplay</div>
+                <div class="u-role">@_userRole.ToUpper()</div>
             </div>
             <div class="u-dot"></div>
         </div>
@@ -92,15 +109,55 @@
 
 @code {
     private System.Threading.Timer? _timer;
+    private string _userDisplay = "";
+    private string _userRole = "";
+    private string _userInitials = "";
+    private bool _authChecked;
 
-    protected override void OnInitialized()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Sincronizar con el inicio del próximo segundo para evitar desfase
-        var msToNextSecond = 1000 - DateTime.Now.Millisecond;
-        _timer = new System.Threading.Timer(_ =>
+        if (firstRender)
         {
-            InvokeAsync(StateHasChanged);
-        }, null, msToNextSecond, 1000);
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity == null || !user.Identity.IsAuthenticated)
+            {
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            _userDisplay = user.FindFirst("DisplayName")?.Value ?? user.Identity.Name ?? "";
+            _userRole = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Operador";
+            _userInitials = string.Join("", _userDisplay.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => w[0])).ToUpper();
+            if (_userInitials.Length == 0) _userInitials = "U";
+            _authChecked = true;
+
+            var msToNextSecond = 1000 - DateTime.Now.Millisecond;
+            _timer = new System.Threading.Timer(_ =>
+            {
+                InvokeAsync(StateHasChanged);
+            }, null, msToNextSecond, 1000);
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task DoLogout()
+    {
+        var customAuth = (CustomAuthStateProvider)AuthStateProvider;
+        var username = _userDisplay;
+        await customAuth.LogoutAsync();
+
+        var auth = Nav.ToAbsoluteUri("/").Host; // just to get scope
+        // Log audit
+        try
+        {
+            var authService = ((IServiceProvider)Nav).GetService<AuthService>();
+        }
+        catch { }
+
+        Nav.NavigateTo("/login", true);
     }
 
     public void Dispose()

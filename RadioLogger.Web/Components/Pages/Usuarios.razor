@@ -1,0 +1,292 @@
+@page "/usuarios"
+@using RadioLogger.Shared.Models
+@using RadioLogger.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthService Auth
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="lic-page">
+    <div class="lic-header">
+        <h2>GESTIÓN DE USUARIOS</h2>
+        <button class="btn-create" @onclick="ShowCreateModal">+ NUEVO USUARIO</button>
+    </div>
+
+    @if (_users == null)
+    {
+        <div class="lic-loading">Cargando...</div>
+    }
+    else
+    {
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th>USUARIO</th>
+                    <th>NOMBRE</th>
+                    <th>ROL</th>
+                    <th>TELEGRAM</th>
+                    <th>ÚLTIMO LOGIN</th>
+                    <th>ESTADO</th>
+                    <th>ACCIONES</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in _users)
+                {
+                    <tr class="@(!user.IsActive ? "row-inactive" : "")">
+                        <td class="mono">@user.Username</td>
+                        <td>@user.DisplayName</td>
+                        <td>
+                            <span class="role-badge @user.Role.ToLower()">@user.Role</span>
+                        </td>
+                        <td class="mono">@(string.IsNullOrEmpty(user.TelegramChatId) ? "—" : "Configurado")</td>
+                        <td>@(user.LastLogin?.ToLocalTime().ToString("dd/MM/yy HH:mm") ?? "Nunca")</td>
+                        <td>
+                            <span class="@(user.IsActive ? "val-green" : "val-red")">@(user.IsActive ? "Activo" : "Inactivo")</span>
+                        </td>
+                        <td>
+                            <button class="btn-lic btn-convert" @onclick="() => ShowEditModal(user)">EDITAR</button>
+                            <button class="btn-lic btn-code" @onclick="() => ShowChangePassword(user)">CLAVE</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@* Modal crear/editar *@
+@if (_showModal)
+{
+    <div class="modal-bg" @onclick="() => _showModal = false">
+        <div class="edit-modal" @onclick:stopPropagation="true" style="max-width:420px;">
+            <div class="edit-hdr">
+                <span>@_modalTitle</span>
+                <button class="modal-x" @onclick="() => _showModal = false">&times;</button>
+            </div>
+            <div class="edit-body">
+                @if (_modalMode == "create")
+                {
+                    <div class="edit-field">
+                        <label>Usuario <span class="req">*</span></label>
+                        <input type="text" @bind="_formUsername" placeholder="nombre.usuario" />
+                    </div>
+                    <div class="edit-field">
+                        <label>Contraseña <span class="req">*</span></label>
+                        <input type="password" @bind="_formPassword" placeholder="Mínimo 6 caracteres" />
+                    </div>
+                }
+                <div class="edit-field">
+                    <label>Nombre para mostrar</label>
+                    <input type="text" @bind="_formDisplayName" placeholder="Juan Pérez" />
+                </div>
+                <div class="edit-field">
+                    <label>Rol <span class="req">*</span></label>
+                    <select @bind="_formRole">
+                        <option value="Administrador">Administrador — Todo</option>
+                        <option value="Supervisor">Supervisor — Ver + Comandos remotos</option>
+                        <option value="Operador">Operador — Solo ver reportes</option>
+                    </select>
+                </div>
+                <div class="edit-field">
+                    <label>Telegram Chat ID (para recuperación)</label>
+                    <input type="text" @bind="_formTelegram" placeholder="123456789" />
+                </div>
+                @if (_modalMode == "edit")
+                {
+                    <div class="edit-field">
+                        <label>Estado</label>
+                        <select @bind="_formActive">
+                            <option value="true">Activo</option>
+                            <option value="false">Inactivo</option>
+                        </select>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_formStatus))
+                {
+                    <div class="edit-status @(_formOk ? "status-ok" : "status-err")">@_formStatus</div>
+                }
+            </div>
+            <div class="edit-footer">
+                <button class="btn-a warn" @onclick="() => _showModal = false">CANCELAR</button>
+                <button class="btn-a ok" @onclick="SubmitModal">@(_modalMode == "create" ? "CREAR" : "GUARDAR")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* Modal cambiar contraseña *@
+@if (_showPwdModal)
+{
+    <div class="modal-bg" @onclick="() => _showPwdModal = false">
+        <div class="edit-modal" @onclick:stopPropagation="true" style="max-width:380px;">
+            <div class="edit-hdr">
+                <span>CAMBIAR CLAVE — @_pwdUsername</span>
+                <button class="modal-x" @onclick="() => _showPwdModal = false">&times;</button>
+            </div>
+            <div class="edit-body">
+                <div class="edit-field">
+                    <label>Nueva contraseña <span class="req">*</span></label>
+                    <input type="password" @bind="_newPwd" placeholder="Mínimo 6 caracteres" />
+                </div>
+                @if (!string.IsNullOrEmpty(_pwdStatus))
+                {
+                    <div class="edit-status @(_pwdOk ? "status-ok" : "status-err")">@_pwdStatus</div>
+                }
+            </div>
+            <div class="edit-footer">
+                <button class="btn-a warn" @onclick="() => _showPwdModal = false">CANCELAR</button>
+                <button class="btn-a ok" @onclick="DoChangePassword">CAMBIAR</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .user-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .user-table th {
+        text-align: left; padding: 10px 12px; color: var(--text3);
+        font-size: 10px; font-weight: 700; letter-spacing: 1px;
+        border-bottom: 1px solid var(--border);
+    }
+    .user-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .user-table tr:hover { background: var(--bg2); }
+    .user-table .row-inactive td { opacity: 0.4; }
+    .user-table .mono { font-family: var(--mono); font-size: 11px; }
+    .role-badge {
+        font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 3px; letter-spacing: 0.5px;
+    }
+    .role-badge.administrador { color: var(--red); background: rgba(255,71,87,0.15); }
+    .role-badge.supervisor { color: var(--amber); background: rgba(255,179,71,0.15); }
+    .role-badge.operador { color: var(--blue); background: rgba(77,158,255,0.15); }
+
+    /* Reuse modal styles from Licencias */
+    .modal-bg { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1000; }
+    .edit-modal { background:var(--bg2); border:1px solid var(--border); border-radius:8px; width:90vw; overflow:hidden; }
+    .edit-hdr { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--border); font-size:12px; font-weight:700; color:var(--text); letter-spacing:1.5px; }
+    .modal-x { background:none; border:none; color:var(--text3); font-size:20px; cursor:pointer; }
+    .modal-x:hover { color:var(--red); }
+    .edit-body { padding:20px; }
+    .edit-field { margin-bottom:14px; }
+    .edit-field label { display:block; color:var(--text3); font-size:10px; font-weight:700; letter-spacing:0.5px; margin-bottom:5px; }
+    .edit-field input, .edit-field select { width:100%; padding:8px 12px; border-radius:4px; background:var(--bg); color:var(--text); border:1px solid var(--border); font-size:12px; font-family:var(--mono); box-sizing:border-box; }
+    .edit-field input:focus, .edit-field select:focus { border-color:var(--green); outline:none; }
+    .edit-footer { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; border-top:1px solid var(--border); }
+    .btn-a { padding:8px 20px; border-radius:4px; border:1px solid var(--border); font-size:11px; font-weight:700; cursor:pointer; font-family:var(--mono); }
+    .btn-a.ok { background:var(--green); color:var(--bg); border-color:var(--green); }
+    .btn-a.ok:hover { opacity:0.8; }
+    .btn-a.warn { background:var(--bg3); color:var(--text3); }
+    .edit-status { font-size:11px; margin-top:10px; padding:8px; border-radius:4px; }
+    .status-ok { color:var(--green); background:rgba(16,217,138,0.1); }
+    .status-err { color:var(--red); background:rgba(255,71,87,0.1); }
+    .req { color:var(--red); }
+</style>
+
+@code {
+    private List<AppUser>? _users;
+    private string _currentUsername = "";
+
+    // Modal state
+    private bool _showModal;
+    private string _modalTitle = "";
+    private string _modalMode = "";
+    private int? _editUserId;
+
+    private string _formUsername = "";
+    private string _formPassword = "";
+    private string _formDisplayName = "";
+    private string _formRole = "Operador";
+    private string _formTelegram = "";
+    private string _formActive = "true";
+    private string _formStatus = "";
+    private bool _formOk;
+
+    // Password modal
+    private bool _showPwdModal;
+    private int _pwdUserId;
+    private string _pwdUsername = "";
+    private string _newPwd = "";
+    private string _pwdStatus = "";
+    private bool _pwdOk;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _currentUsername = authState.User.Identity?.Name ?? "";
+        _users = await Auth.GetAllUsersAsync();
+    }
+
+    private void ShowCreateModal()
+    {
+        _modalMode = "create";
+        _modalTitle = "NUEVO USUARIO";
+        _formUsername = ""; _formPassword = ""; _formDisplayName = "";
+        _formRole = "Operador"; _formTelegram = ""; _formStatus = "";
+        _showModal = true;
+    }
+
+    private void ShowEditModal(AppUser user)
+    {
+        _modalMode = "edit";
+        _modalTitle = $"EDITAR — {user.Username}";
+        _editUserId = user.Id;
+        _formDisplayName = user.DisplayName;
+        _formRole = user.Role;
+        _formTelegram = user.TelegramChatId ?? "";
+        _formActive = user.IsActive.ToString().ToLower();
+        _formStatus = "";
+        _showModal = true;
+    }
+
+    private void ShowChangePassword(AppUser user)
+    {
+        _pwdUserId = user.Id;
+        _pwdUsername = user.Username;
+        _newPwd = ""; _pwdStatus = "";
+        _showPwdModal = true;
+    }
+
+    private async Task SubmitModal()
+    {
+        if (_modalMode == "create")
+        {
+            if (string.IsNullOrWhiteSpace(_formUsername) || string.IsNullOrWhiteSpace(_formPassword))
+            {
+                _formStatus = "Usuario y contraseña son requeridos";
+                _formOk = false;
+                return;
+            }
+            var (ok, msg) = await Auth.CreateUserAsync(_formUsername.Trim(), _formPassword,
+                _formDisplayName, _formRole, string.IsNullOrWhiteSpace(_formTelegram) ? null : _formTelegram.Trim());
+            _formStatus = msg; _formOk = ok;
+
+            if (ok)
+            {
+                await Auth.LogActionAsync(_currentUsername, "USER_CREATE", $"Creó usuario: {_formUsername}");
+                _users = await Auth.GetAllUsersAsync();
+            }
+        }
+        else
+        {
+            if (_editUserId == null) return;
+            var (ok, msg) = await Auth.UpdateUserAsync(_editUserId.Value, _formDisplayName, _formRole,
+                _formActive == "true", string.IsNullOrWhiteSpace(_formTelegram) ? null : _formTelegram.Trim());
+            _formStatus = msg; _formOk = ok;
+
+            if (ok)
+            {
+                await Auth.LogActionAsync(_currentUsername, "USER_UPDATE", $"Editó usuario ID: {_editUserId}");
+                _users = await Auth.GetAllUsersAsync();
+            }
+        }
+    }
+
+    private async Task DoChangePassword()
+    {
+        var (ok, msg) = await Auth.ChangePasswordAsync(_pwdUserId, _newPwd);
+        _pwdStatus = msg; _pwdOk = ok;
+
+        if (ok)
+            await Auth.LogActionAsync(_currentUsername, "PASSWORD_CHANGE", $"Cambió contraseña de: {_pwdUsername}");
+    }
+}

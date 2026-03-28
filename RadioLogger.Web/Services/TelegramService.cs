@@ -43,5 +43,27 @@ namespace RadioLogger.Web.Services
                 Console.WriteLine($"[TELEGRAM EXCEPTION] {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Enviar mensaje directo a un chatId específico (para recuperación de contraseña).
+        /// </summary>
+        public async Task SendDirectAsync(string chatId, string message)
+        {
+            var token = Environment.GetEnvironmentVariable("TELEGRAM_TOKEN") ?? _config["Telegram:Token"];
+            if (string.IsNullOrWhiteSpace(token) || string.IsNullOrEmpty(chatId)) return;
+
+            try
+            {
+                string url = $"https://api.telegram.org/bot{token}/sendMessage";
+                var payload = new { chat_id = chatId, text = message, parse_mode = "HTML" };
+                var json = JsonSerializer.Serialize(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                await _httpClient.PostAsync(url, content);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TELEGRAM DIRECT] Error: {ex.Message}");
+            }
+        }
     }
 }

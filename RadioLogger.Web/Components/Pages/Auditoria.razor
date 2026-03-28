@@ -1,0 +1,92 @@
+@page "/auditoria"
+@using RadioLogger.Shared.Models
+@using RadioLogger.Web.Services
+@inject AuthService Auth
+
+<div class="lic-page">
+    <div class="lic-header">
+        <h2>AUDITORÍA DEL SISTEMA</h2>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <select @bind="_filterUser" @bind:after="LoadAudit" style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 10px;border-radius:4px;font-family:var(--mono);font-size:11px;">
+                <option value="">Todos los usuarios</option>
+                @foreach (var u in _usernames)
+                {
+                    <option value="@u">@u</option>
+                }
+            </select>
+            <button class="btn-create" @onclick="LoadAudit">ACTUALIZAR</button>
+        </div>
+    </div>
+
+    @if (_entries == null)
+    {
+        <div class="lic-loading">Cargando...</div>
+    }
+    else
+    {
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th>FECHA</th>
+                    <th>USUARIO</th>
+                    <th>ACCIÓN</th>
+                    <th>DETALLE</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in _entries)
+                {
+                    <tr>
+                        <td style="white-space:nowrap;">@entry.Timestamp.ToLocalTime().ToString("dd/MM/yy HH:mm:ss")</td>
+                        <td class="mono">@entry.Username</td>
+                        <td><span class="audit-action @GetActionClass(entry.Action)">@entry.Action</span></td>
+                        <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;">@entry.Detail</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<style>
+    .audit-action {
+        font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 3px; letter-spacing: 0.5px;
+    }
+    .audit-action.act-login { color: var(--green); background: rgba(16,217,138,0.15); }
+    .audit-action.act-fail { color: var(--red); background: rgba(255,71,87,0.15); }
+    .audit-action.act-change { color: var(--amber); background: rgba(255,179,71,0.15); }
+    .audit-action.act-default { color: var(--blue); background: rgba(77,158,255,0.15); }
+
+    /* Reuse table styles */
+    .user-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .user-table th { text-align:left; padding:10px 12px; color:var(--text3); font-size:10px; font-weight:700; letter-spacing:1px; border-bottom:1px solid var(--border); }
+    .user-table td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text); }
+    .user-table tr:hover { background:var(--bg2); }
+    .user-table .mono { font-family:var(--mono); font-size:11px; }
+</style>
+
+@code {
+    private List<AuditEntry>? _entries;
+    private List<string> _usernames = new();
+    private string _filterUser = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var users = await Auth.GetAllUsersAsync();
+        _usernames = users.Select(u => u.Username).ToList();
+        await LoadAudit();
+    }
+
+    private async Task LoadAudit()
+    {
+        _entries = await Auth.GetAuditLogAsync(200, string.IsNullOrEmpty(_filterUser) ? null : _filterUser);
+    }
+
+    private static string GetActionClass(string action) => action switch
+    {
+        "LOGIN" => "act-login",
+        "LOGIN_FAILED" or "PASSWORD_RESET" => "act-fail",
+        var a when a.Contains("CREATE") || a.Contains("UPDATE") || a.Contains("CHANGE") => "act-change",
+        _ => "act-default"
+    };
+}
