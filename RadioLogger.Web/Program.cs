@@ -102,6 +102,14 @@ catch (Exception ex)
     monitor.IsDatabaseHealthy = false;
 }
 
+// Migrar hashes legacy SHA256 a BCrypt
+try
+{
+    var authService = app.Services.GetRequiredService<RadioLogger.Web.Services.AuthService>();
+    authService.MigrateLegacyHashesAsync().GetAwaiter().GetResult();
+}
+catch { }
+
 app.MapGet("/heartbeat", () => Results.Ok(new { status = "Healthy", time = DateTime.UtcNow }));
 
 app.MapRazorComponents<App>()

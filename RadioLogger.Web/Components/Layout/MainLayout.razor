@@ -4,6 +4,7 @@
 @inject MonitoringService Monitoring
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
+@inject AuthService AuthSvc
 @implements IDisposable
 
 <div class="sidebar">
@@ -145,18 +146,10 @@
 
     private async Task DoLogout()
     {
-        var customAuth = (CustomAuthStateProvider)AuthStateProvider;
         var username = _userDisplay;
+        await AuthSvc.LogActionAsync(username, "LOGOUT", "Cierre de sesión");
+        var customAuth = (CustomAuthStateProvider)AuthStateProvider;
         await customAuth.LogoutAsync();
-
-        var auth = Nav.ToAbsoluteUri("/").Host; // just to get scope
-        // Log audit
-        try
-        {
-            var authService = ((IServiceProvider)Nav).GetService<AuthService>();
-        }
-        catch { }
-
         Nav.NavigateTo("/login", true);
     }
 

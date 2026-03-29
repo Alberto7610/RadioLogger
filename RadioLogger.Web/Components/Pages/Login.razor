@@ -158,7 +158,7 @@
         _error = "";
         StateHasChanged();
 
-        var user = await Auth.ValidateLoginAsync(_username.Trim(), _password);
+        var (user, error) = await Auth.ValidateLoginAsync(_username.Trim(), _password);
         if (user != null)
         {
             await AuthState.LoginAsync(user.Username, user.Role, user.DisplayName);
@@ -167,8 +167,8 @@
         }
         else
         {
-            _error = "Usuario o contraseña incorrectos";
-            await Auth.LogActionAsync(_username, "LOGIN_FAILED", "Intento fallido");
+            _error = error ?? "Error de autenticación";
+            await Auth.LogActionAsync(_username, "LOGIN_FAILED", error);
         }
 
         _isLoading = false;

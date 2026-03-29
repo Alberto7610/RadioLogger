@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @inject AuthService Auth
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
 
 <div class="lic-page">
     <div class="lic-header">
@@ -209,11 +210,23 @@
     private string _pwdStatus = "";
     private bool _pwdOk;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        _currentUsername = authState.User.Identity?.Name ?? "";
-        _users = await Auth.GetAllUsersAsync();
+        if (firstRender)
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var role = authState.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
+            if (role != "Administrador")
+            {
+                Nav.NavigateTo("/", true);
+                return;
+            }
+
+            _currentUsername = authState.User.Identity?.Name ?? "";
+            _users = await Auth.GetAllUsersAsync();
+            StateHasChanged();
+        }
     }
 
     private void ShowCreateModal()
@@ -283,7 +296,7 @@
 
     private async Task DoChangePassword()
     {
-        var (ok, msg) = await Auth.ChangePasswordAsync(_pwdUserId, _newPwd);
+        var (ok, msg) = await Auth.AdminResetPasswordAsync(_pwdUserId, _newPwd);
         _pwdStatus = msg; _pwdOk = ok;
 
         if (ok)

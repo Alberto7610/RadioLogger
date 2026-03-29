@@ -1,7 +1,10 @@
 @page "/auditoria"
 @using RadioLogger.Shared.Models
 @using RadioLogger.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
 @inject AuthService Auth
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
 
 <div class="lic-page">
     <div class="lic-header">
@@ -70,11 +73,19 @@
     private List<string> _usernames = new();
     private string _filterUser = "";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var users = await Auth.GetAllUsersAsync();
-        _usernames = users.Select(u => u.Username).ToList();
-        await LoadAudit();
+        if (firstRender)
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var role = authState.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            if (role != "Administrador") { Nav.NavigateTo("/", true); return; }
+
+            var users = await Auth.GetAllUsersAsync();
+            _usernames = users.Select(u => u.Username).ToList();
+            await LoadAudit();
+            StateHasChanged();
+        }
     }
 
     private async Task LoadAudit()
