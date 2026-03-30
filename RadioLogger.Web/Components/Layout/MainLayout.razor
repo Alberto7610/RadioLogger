@@ -119,28 +119,38 @@
     {
         if (firstRender)
         {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-
-            if (user.Identity == null || !user.Identity.IsAuthenticated)
+            try
             {
-                Nav.NavigateTo("/login", true);
-                return;
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var user = authState.User;
+
+                if (user.Identity == null || !user.Identity.IsAuthenticated)
+                {
+                    Nav.NavigateTo("/login", true);
+                    return;
+                }
+
+                _userDisplay = user.FindFirst("DisplayName")?.Value ?? user.Identity.Name ?? "";
+                _userRole = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Operador";
+                var initials = _userDisplay.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(w => w.Length > 0).Take(2).Select(w => w[0]);
+                _userInitials = string.Join("", initials).ToUpperInvariant();
+                if (_userInitials.Length == 0) _userInitials = "U";
+                _authChecked = true;
+
+                var msToNextSecond = 1000 - DateTime.Now.Millisecond;
+                _timer = new System.Threading.Timer(_ =>
+                {
+                    InvokeAsync(StateHasChanged);
+                }, null, msToNextSecond, 1000);
+
+                StateHasChanged();
             }
-
-            _userDisplay = user.FindFirst("DisplayName")?.Value ?? user.Identity.Name ?? "";
-            _userRole = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Operador";
-            _userInitials = string.Join("", _userDisplay.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => w[0])).ToUpper();
-            if (_userInitials.Length == 0) _userInitials = "U";
-            _authChecked = true;
-
-            var msToNextSecond = 1000 - DateTime.Now.Millisecond;
-            _timer = new System.Threading.Timer(_ =>
+            catch
             {
-                InvokeAsync(StateHasChanged);
-            }, null, msToNextSecond, 1000);
-
-            StateHasChanged();
+                // ProtectedSessionStorage no disponible aún — redirigir a login
+                Nav.NavigateTo("/login", true);
+            }
         }
     }
 
