@@ -7,6 +7,12 @@
 @inject AuthService AuthSvc
 @implements IDisposable
 
+@if (!_authChecked)
+{
+    <div style="width:100vw;height:100vh;background:#060810;"></div>
+    return;
+}
+
 <div class="sidebar">
     <div class="logo">
         <div class="logo-bars">
