@@ -9,7 +9,9 @@
 
 @if (!_authChecked)
 {
-    <div style="width:100vw;height:100vh;background:#060810;"></div>
+    <div style="width:100vw;height:100vh;background:#060810;display:flex;align-items:center;justify-content:center;">
+        <div style="color:#45536a;font-family:'JetBrains Mono',monospace;font-size:12px;">Cargando...</div>
+    </div>
     return;
 }
 
@@ -26,7 +28,7 @@
 
     <div class="nav-scroll">
         <div class="nav-sec">Principal</div>
-        <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+        <NavLink class="nav-item" href="dashboard" Match="NavLinkMatch.All">
             <span class="nav-ico">📊</span>
             <span>Dashboard</span>
             <span class="nav-badge nb-blu">LIVE</span>
@@ -132,7 +134,7 @@
 
                 if (user.Identity == null || !user.Identity.IsAuthenticated)
                 {
-                    Nav.NavigateTo("/login", true);
+                    Nav.NavigateTo("/", true);
                     return;
                 }
 
@@ -155,7 +157,7 @@
             catch
             {
                 // ProtectedSessionStorage no disponible aún — redirigir a login
-                Nav.NavigateTo("/login", true);
+                Nav.NavigateTo("/", true);
             }
         }
     }
@@ -166,7 +168,7 @@
         await AuthSvc.LogActionAsync(username, "LOGOUT", "Cierre de sesión");
         var customAuth = (CustomAuthStateProvider)AuthStateProvider;
         await customAuth.LogoutAsync();
-        Nav.NavigateTo("/login", true);
+        Nav.NavigateTo("/", true);
     }
 
     public void Dispose()

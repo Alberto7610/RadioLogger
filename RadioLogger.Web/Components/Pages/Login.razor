@@ -1,3 +1,4 @@
+@page "/"
 @page "/login"
 @using RadioLogger.Web.Services
 @inject AuthService Auth
@@ -132,6 +133,22 @@
     private string _error = "";
     private bool _isLoading;
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var authState = await AuthState.GetAuthenticationStateAsync();
+                if (authState.User.Identity?.IsAuthenticated == true)
+                {
+                    Nav.NavigateTo("/dashboard", true);
+                }
+            }
+            catch { }
+        }
+    }
+
     // Recovery
     private bool _showRecovery;
     private bool _codeSent;
@@ -163,7 +180,7 @@
         {
             await AuthState.LoginAsync(user.Username, user.Role, user.DisplayName);
             await Auth.LogActionAsync(user.Username, "LOGIN", "Inicio de sesión exitoso");
-            Nav.NavigateTo("/", true);
+            Nav.NavigateTo("/dashboard", true);
         }
         else
         {
