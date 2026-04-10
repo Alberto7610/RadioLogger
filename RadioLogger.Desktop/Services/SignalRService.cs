@@ -27,6 +27,13 @@ namespace RadioLogger.Services
             _settings = settings;
         }
 
+        public async Task RestartAsync()
+        {
+            _log.Information("SignalR reiniciando con nueva URL: {Url}", _settings.SignalRHubUrl);
+            await StopAsync();
+            await StartAsync();
+        }
+
         public async Task StartAsync()
         {
             if (!_settings.IsSignalREnabled || string.IsNullOrWhiteSpace(_settings.SignalRHubUrl))

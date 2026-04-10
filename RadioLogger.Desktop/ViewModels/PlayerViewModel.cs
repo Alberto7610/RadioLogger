@@ -105,6 +105,12 @@ namespace RadioLogger.ViewModels
         private bool _isPlaying;
 
         [ObservableProperty]
+        private bool _isContinuousPlayback;
+
+        [ObservableProperty]
+        private bool _isLoopEnabled;
+
+        [ObservableProperty]
         private double _playbackLevelL;
 
         [ObservableProperty]
@@ -138,6 +144,12 @@ namespace RadioLogger.ViewModels
 
         private string _basePath;
         private DateTime _fileStartTime;
+
+        // Pre-loaded next stream for gapless continuous playback
+        private int _nextStream;
+        private string? _nextFilePath;
+        private WaveformData? _nextWaveformData;
+        private DateTime _nextFileStartTime;
 
         public PlayerViewModel(string basePath)
         {
@@ -205,7 +217,7 @@ namespace RadioLogger.ViewModels
             var state = Bass.ChannelIsActive(_stream);
             if (state == PlaybackState.Stopped)
             {
-                App.Current.Dispatcher.Invoke(() => Stop());
+                App.Current.Dispatcher.BeginInvoke(() => OnPlaybackEnded());
                 return;
             }
 
@@ -223,6 +235,16 @@ namespace RadioLogger.ViewModels
                 RealTimeDisplay = realTime.ToString("HH:mm:ss");
             }
 
+            // Pre-load next file when near the end (last 3 seconds) for gapless transition
+            if (IsContinuousPlayback && _nextStream == 0 && !IsConcatenatedMode)
+            {
+                double remaining = TotalDuration - CurrentPosition;
+                if (remaining > 0 && remaining < 3.0)
+                {
+                    PreloadNextFile();
+                }
+            }
+
             int level = Bass.ChannelGetLevel(_stream);
             if (level != -1)
             {
@@ -230,10 +252,149 @@ namespace RadioLogger.ViewModels
                 PlaybackLevelR = ((level >> 16) / 32768.0) * 100;
             }
 
-            App.Current.Dispatcher.Invoke(() => {
+            App.Current.Dispatcher.BeginInvoke(() => {
                 WaveformData.Add(PlaybackLevelL / 2);
                 if (WaveformData.Count > 100) WaveformData.RemoveAt(0);
             });
+        }
+
+        private void OnPlaybackEnded()
+        {
+            if (IsLoopEnabled && _stream != 0)
+            {
+                // Loop: restart same file
+                Bass.ChannelSetPosition(_stream, 0);
+                Bass.ChannelPlay(_stream);
+                CurrentPosition = 0;
+                return;
+            }
+
+            if (IsContinuousPlayback && !IsConcatenatedMode)
+            {
+                // Continuous: switch to next file
+                if (AdvanceToNextFile())
+                    return;
+            }
+
+            // Normal stop
+            Stop();
+        }
+
+        private bool AdvanceToNextFile()
+        {
+            var nextRec = GetNextRecording();
+            if (nextRec == null) return false;
+
+            // Use pre-loaded stream if available
+            if (_nextStream != 0 && _nextFilePath == nextRec.FullPath)
+            {
+                // Swap streams instantly
+                if (_stream != 0) Bass.StreamFree(_stream);
+                _stream = _nextStream;
+                _nextStream = 0;
+                _fileStartTime = _nextFileStartTime;
+
+                CurrentTitle = Path.GetFileName(nextRec.FullPath);
+                var len = Bass.ChannelGetLength(_stream);
+                TotalDuration = Bass.ChannelBytes2Seconds(_stream, len);
+                TimeDisplay = $"00:00:00 / {FormatTime(TotalDuration)}";
+                CurrentPosition = 0;
+
+                Bass.ChannelSetAttribute(_stream, ChannelAttribute.Volume, OutputVolume / 100.0);
+                Bass.ChannelPlay(_stream);
+
+                // Use pre-loaded waveform
+                if (_nextWaveformData != null)
+                {
+                    _waveformRawData = _nextWaveformData;
+                    _nextWaveformData = null;
+                    WaveformBitmap = WaveformRenderer.RenderRegion(_waveformRawData, 0, 1, 800, 200);
+                }
+                else
+                {
+                    _ = GenerateWaveformAsync(nextRec.FullPath);
+                }
+
+                // Update selection in list (without triggering OnSelectedRecordingChanged reload)
+                _suppressRecordingChange = true;
+                SelectedRecording = nextRec;
+                _suppressRecordingChange = false;
+
+                _nextFilePath = null;
+                return true;
+            }
+
+            // No pre-loaded stream — load normally (small gap)
+            CleanupPreload();
+            _playbackTimer.Stop();
+            _suppressRecordingChange = true;
+            SelectedRecording = nextRec;
+            _suppressRecordingChange = false;
+            LoadFile(nextRec.FullPath);
+            PlayPause();
+            return true;
+        }
+
+        private RecordingFile? GetNextRecording()
+        {
+            if (SelectedRecording == null || RecordingsList.Count == 0) return null;
+            int idx = RecordingsList.IndexOf(SelectedRecording);
+            if (idx < 0 || idx >= RecordingsList.Count - 1) return null;
+            return RecordingsList[idx + 1];
+        }
+
+        private void PreloadNextFile()
+        {
+            var nextRec = GetNextRecording();
+            if (nextRec == null) return;
+            if (_nextFilePath == nextRec.FullPath) return; // already preloading
+
+            _nextFilePath = nextRec.FullPath;
+
+            // Create stream on background thread (Bass.CreateStream is thread-safe for decode)
+            var path = nextRec.FullPath;
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    int stream = Bass.CreateStream(path, 0, 0, BassFlags.Default);
+                    if (stream == 0) return;
+
+                    // Parse start time
+                    DateTime startTime = default;
+                    try
+                    {
+                        var nameOnly = Path.GetFileNameWithoutExtension(path);
+                        var parts = nameOnly.Split('-');
+                        if (parts.Length >= 3)
+                        {
+                            string timeStr = $"{parts[1]}-{parts[2]}";
+                            DateTime.TryParseExact(timeStr, "ddMMyy-HHmmss", null, DateTimeStyles.None, out startTime);
+                        }
+                    }
+                    catch { }
+
+                    // Pre-generate waveform
+                    var wfData = await WaveformRenderer.ExtractDataAsync(path);
+
+                    // Store for instant swap
+                    _nextStream = stream;
+                    _nextFileStartTime = startTime;
+                    _nextWaveformData = wfData;
+                }
+                catch { }
+            });
+        }
+
+        private void CleanupPreload()
+        {
+            if (_nextStream != 0)
+            {
+                Bass.StreamFree(_nextStream);
+                _nextStream = 0;
+            }
+            _nextFilePath = null;
+            _nextWaveformData = null;
         }
 
         private string FormatTime(double seconds)
@@ -308,7 +469,7 @@ namespace RadioLogger.ViewModels
             {
                 _waveformRawData = await RadioLogger.Services.WaveformRenderer.ExtractDataAsync(path);
 
-                App.Current.Dispatcher.Invoke(() =>
+                App.Current.Dispatcher.BeginInvoke(() =>
                 {
                     WaveformBitmap = RadioLogger.Services.WaveformRenderer.RenderRegion(_waveformRawData, 0, 1, 800, 200);
                 });
@@ -320,29 +481,51 @@ namespace RadioLogger.ViewModels
             }
         }
 
+        // Debounce token for waveform rendering during rapid zoom/resize
+        private System.Threading.CancellationTokenSource? _renderCts;
+
         /// <summary>
         /// Renders waveform for a specific zoom region. Called from code-behind on zoom change.
+        /// Runs the heavy SkiaSharp work on a background thread to avoid blocking the UI.
         /// </summary>
-        public void RenderWaveformRegion(double startRatio, double endRatio, int width, int height)
+        public async void RenderWaveformRegion(double startRatio, double endRatio, int width, int height)
         {
             if (_waveformRawData == null) return;
-            var bmp = RadioLogger.Services.WaveformRenderer.RenderRegion(_waveformRawData, startRatio, endRatio, width, height);
-            if (bmp != null)
+
+            // Cancel any pending render
+            _renderCts?.Cancel();
+            _renderCts = new System.Threading.CancellationTokenSource();
+            var token = _renderCts.Token;
+
+            var data = _waveformRawData;
+            try
             {
-                WaveformBitmap = bmp;
+                var bmp = await System.Threading.Tasks.Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    return RadioLogger.Services.WaveformRenderer.RenderRegion(data, startRatio, endRatio, width, height);
+                }, token);
+
+                if (!token.IsCancellationRequested && bmp != null)
+                    WaveformBitmap = bmp;
             }
+            catch (OperationCanceledException) { }
         }
+
+        private bool _suppressRecordingChange;
 
         partial void OnSelectedRecordingChanged(RecordingFile value)
         {
+            if (_suppressRecordingChange) return;
             if (value != null)
             {
+                CleanupPreload();
                 Stop();
                 LoadFile(value.FullPath);
             }
         }
 
-        partial void OnIsSortAscendingChanged(bool value) => LoadRecordings();
+        partial void OnIsSortAscendingChanged(bool value) => _ = LoadRecordingsAsync();
 
         [RelayCommand]
         public void Stop()
@@ -441,58 +624,67 @@ namespace RadioLogger.ViewModels
                 AvailableDates.Add(d.display);
 
             if (AvailableDates.Any()) SelectedDate = AvailableDates.First();
-            else LoadRecordings();
+            else _ = LoadRecordingsAsync();
         }
 
-        partial void OnSelectedDateChanged(string value) => LoadRecordings();
+        partial void OnSelectedDateChanged(string value) => _ = LoadRecordingsAsync();
 
-        private void LoadRecordings()
+        private async System.Threading.Tasks.Task LoadRecordingsAsync()
         {
             RecordingsList.Clear();
             if (string.IsNullOrEmpty(SelectedStation) || string.IsNullOrEmpty(SelectedDate)) return;
 
             string stationPath = Path.Combine(_basePath, "RadioLogger", SelectedStation);
-            if (!Directory.Exists(stationPath)) return;
+            string selectedDate = SelectedDate;
+            bool sortAsc = IsSortAscending;
 
-            var esMx = new CultureInfo("es-MX");
-            var allFiles = new List<FileInfo>();
-
-            try
+            // Run all disk I/O on background thread
+            var recordings = await System.Threading.Tasks.Task.Run(() =>
             {
-                // 1. Files in date subfolder
-                string dateSubFolder = Path.Combine(stationPath, SelectedDate);
-                if (Directory.Exists(dateSubFolder))
+                if (!Directory.Exists(stationPath)) return Array.Empty<RecordingFile>();
+
+                var esMx = new CultureInfo("es-MX");
+                var allFiles = new List<FileInfo>();
+
+                try
                 {
-                    allFiles.AddRange(new DirectoryInfo(dateSubFolder).GetFiles("*.mp3"));
-                }
+                    string dateSubFolder = Path.Combine(stationPath, selectedDate);
+                    if (Directory.Exists(dateSubFolder))
+                        allFiles.AddRange(new DirectoryInfo(dateSubFolder).GetFiles("*.mp3"));
 
-                // 2. Legacy loose files matching this date
-                if (DateTime.TryParseExact(SelectedDate, "dd-MMMM-yyyy", esMx, DateTimeStyles.None, out var dt))
+                    if (DateTime.TryParseExact(selectedDate, "dd-MMMM-yyyy", esMx, DateTimeStyles.None, out var dt))
+                    {
+                        string dateStr = dt.ToString("ddMMyy");
+                        var loose = new DirectoryInfo(stationPath).GetFiles("*.mp3")
+                            .Where(f => f.Name.Contains($"-{dateStr}-"));
+                        allFiles.AddRange(loose);
+                    }
+                }
+                catch { }
+
+                var sorted = sortAsc
+                    ? allFiles.OrderBy(f => f.Name)
+                    : allFiles.OrderByDescending(f => f.Name);
+
+                int bitrate = 128;
+                return sorted.Select(f =>
                 {
-                    string dateStr = dt.ToString("ddMMyy");
-                    var loose = new DirectoryInfo(stationPath).GetFiles("*.mp3")
-                        .Where(f => f.Name.Contains($"-{dateStr}-"));
-                    allFiles.AddRange(loose);
-                }
-            }
-            catch { }
+                    double estimatedSeconds = (f.Length * 8.0) / (bitrate * 1000.0);
+                    return new RecordingFile(f, TimeSpan.FromSeconds(estimatedSeconds));
+                }).ToArray();
+            });
 
-            var sorted = IsSortAscending
-                ? allFiles.OrderBy(f => f.Name)
-                : allFiles.OrderByDescending(f => f.Name);
-
-            int bitrate = 128; // Default kbps for duration estimation
-            foreach (var f in sorted)
-            {
-                double estimatedSeconds = (f.Length * 8.0) / (bitrate * 1000.0);
-                RecordingsList.Add(new RecordingFile(f, TimeSpan.FromSeconds(estimatedSeconds)));
-            }
+            // Batch-add to UI on dispatcher
+            foreach (var rec in recordings)
+                RecordingsList.Add(rec);
         }
 
         [RelayCommand]
         public void ToggleSortOrder() => IsSortAscending = !IsSortAscending;
 
         [RelayCommand] public void ToggleMute() => IsMuted = !IsMuted;
+        [RelayCommand] public void ToggleContinuousPlayback() { IsContinuousPlayback = !IsContinuousPlayback; if (!IsContinuousPlayback) CleanupPreload(); }
+        [RelayCommand] public void ToggleLoop() { IsLoopEnabled = !IsLoopEnabled; }
 
         /// <summary>
         /// Refresca la lista de archivos manteniendo la fecha seleccionada.
@@ -577,7 +769,7 @@ namespace RadioLogger.ViewModels
                 if (wfData != null)
                 {
                     _waveformRawData = wfData;
-                    App.Current.Dispatcher.Invoke(() =>
+                    App.Current.Dispatcher.BeginInvoke(() =>
                     {
                         WaveformBitmap = Services.WaveformRenderer.RenderRegion(wfData, 0, 1, 800, 200);
                     });
@@ -767,6 +959,7 @@ namespace RadioLogger.ViewModels
         public void Dispose()
         {
             Stop();
+            CleanupPreload();
             CleanupConcatenation();
             if (_stream != 0) Bass.StreamFree(_stream);
             _playbackTimer.Dispose();

@@ -209,6 +209,7 @@ namespace RadioLogger.Services
 
         /// <summary>
         /// Renders a region of the waveform using SkiaSharp with automatic LOD selection.
+        /// The SkiaSharp rendering runs off-thread; only the final WriteableBitmap copy touches the Dispatcher.
         /// </summary>
         public static WriteableBitmap? RenderRegion(WaveformData data, double startRatio, double endRatio, int width, int height)
         {
@@ -228,51 +229,64 @@ namespace RadioLogger.Services
 
             bool isRawLevel = level.SamplesPerPoint == 1;
 
-            using var surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
-            var canvas = surface.Canvas;
-            canvas.Clear(SKColors.Transparent);
-
-            float midY = height / 2f;
-
-            // Center line
-            using var centerPaint = new SKPaint
+            // Render to raw pixel buffer (no Dispatcher needed)
+            byte[] pixelBuffer;
+            using (var surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul)))
             {
-                Color = new SKColor(0x22, 0x22, 0x22),
-                StrokeWidth = 1,
-                IsAntialias = false
-            };
-            canvas.DrawLine(0, midY, width, midY, centerPaint);
+                var canvas = surface.Canvas;
+                canvas.Clear(SKColors.Transparent);
 
-            if (isRawLevel && dataRange <= width * 4)
+                float midY = height / 2f;
+
+                using var centerPaint = new SKPaint
+                {
+                    Color = new SKColor(0x22, 0x22, 0x22),
+                    StrokeWidth = 1,
+                    IsAntialias = false
+                };
+                canvas.DrawLine(0, midY, width, midY, centerPaint);
+
+                if (isRawLevel && dataRange <= width * 4)
+                    DrawRawWaveform(canvas, level, startIdx, endIdx, width, height, midY);
+                else
+                    DrawEnvelopeWaveform(canvas, level, startIdx, endIdx, dataRange, width, height, midY);
+
+                canvas.Flush();
+
+                // Copy pixels to managed array so we can release the surface
+                using var image = surface.Snapshot();
+                using var pixelData = image.PeekPixels();
+                int stride = width * 4;
+                int totalBytes = stride * height;
+                pixelBuffer = new byte[totalBytes];
+                System.Runtime.InteropServices.Marshal.Copy(pixelData.GetPixels(), pixelBuffer, 0, totalBytes);
+            }
+
+            // Only the WriteableBitmap creation needs the UI thread
+            WriteableBitmap? bmp = null;
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null) return null;
+
+            if (dispatcher.CheckAccess())
             {
-                // RAW SAMPLE MODE: draw the actual waveform as a connected line
-                DrawRawWaveform(canvas, level, startIdx, endIdx, width, height, midY);
+                bmp = CreateBitmapFromBuffer(pixelBuffer, width, height);
             }
             else
             {
-                // OVERVIEW MODE: draw peak + RMS envelopes
-                DrawEnvelopeWaveform(canvas, level, startIdx, endIdx, dataRange, width, height, midY);
+                dispatcher.Invoke(() => bmp = CreateBitmapFromBuffer(pixelBuffer, width, height));
             }
 
-            // Convert SKSurface → WriteableBitmap
-            using var image = surface.Snapshot();
-            using var pixelData = image.PeekPixels();
+            return bmp;
+        }
 
-            WriteableBitmap? bmp = null;
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
-                bmp = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
-                bmp.Lock();
-                var srcPtr = pixelData.GetPixels();
-                int stride = width * 4;
-                unsafe
-                {
-                    Buffer.MemoryCopy(srcPtr.ToPointer(), bmp.BackBuffer.ToPointer(), stride * height, stride * height);
-                }
-                bmp.AddDirtyRect(new Int32Rect(0, 0, width, height));
-                bmp.Unlock();
-            });
-
+        private static WriteableBitmap CreateBitmapFromBuffer(byte[] pixelBuffer, int width, int height)
+        {
+            var bmp = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
+            bmp.Lock();
+            int stride = width * 4;
+            System.Runtime.InteropServices.Marshal.Copy(pixelBuffer, 0, bmp.BackBuffer, pixelBuffer.Length);
+            bmp.AddDirtyRect(new Int32Rect(0, 0, width, height));
+            bmp.Unlock();
             return bmp;
         }
 

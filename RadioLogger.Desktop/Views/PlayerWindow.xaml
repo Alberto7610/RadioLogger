@@ -615,6 +615,65 @@
                                     </ControlTemplate>
                                 </Button.Template>
                             </Button>
+
+                            <!-- Separator -->
+                            <Rectangle Width="1" Height="24" Fill="#2A2A2A" Margin="14,0"/>
+
+                            <!-- Continuous Playback (playlist/next) -->
+                            <Button Command="{Binding ToggleContinuousPlaybackCommand}" Width="36" Height="36" Cursor="Hand" ToolTip="Reproducción continua">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="18" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="1">
+                                            <!-- Next-track / playlist icon: two triangles + bar -->
+                                            <Path x:Name="icon" Data="M3,4 L11,10 L3,16 Z M11,4 L19,10 L11,16 Z M19,4 V16"
+                                                  Stroke="#666" StrokeThickness="1.3" Fill="Transparent"
+                                                  Stretch="Uniform" Width="16" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsContinuousPlayback}" Value="True">
+                                                <Setter TargetName="icon" Property="Stroke" Value="#00EEBB"/>
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#00AABB"/>
+                                                <Setter TargetName="bd" Property="Background" Value="#0D1A18"/>
+                                                <Setter TargetName="bd" Property="Effect">
+                                                    <Setter.Value><DropShadowEffect Color="#00AABB" BlurRadius="8" ShadowDepth="0" Opacity="0.4"/></Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#00AABB"/>
+                                                <Setter TargetName="icon" Property="Stroke" Value="#00CCEE"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- Loop (repeat current) -->
+                            <Button Command="{Binding ToggleLoopCommand}" Width="36" Height="36" Cursor="Hand" Margin="4,0,0,0" ToolTip="Repetir archivo actual">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="18" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="1">
+                                            <!-- Loop/repeat icon -->
+                                            <Path x:Name="icon" Data="M6,4 H18 A4,4 0 0,1 22,8 V10 M22,6 L26,10 L18,10 M22,20 H10 A4,4 0 0,1 6,16 V14 M6,18 L2,14 L10,14"
+                                                  Stroke="#666" StrokeThickness="1.3" Fill="Transparent"
+                                                  Stretch="Uniform" Width="16" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsLoopEnabled}" Value="True">
+                                                <Setter TargetName="icon" Property="Stroke" Value="#FFAA33"/>
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#FFAA33"/>
+                                                <Setter TargetName="bd" Property="Background" Value="#1A150D"/>
+                                                <Setter TargetName="bd" Property="Effect">
+                                                    <Setter.Value><DropShadowEffect Color="#FFAA33" BlurRadius="8" ShadowDepth="0" Opacity="0.4"/></Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#FFAA33"/>
+                                                <Setter TargetName="icon" Property="Stroke" Value="#FFCC55"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
                         </StackPanel>
 
                         <!-- Volume control (compact) -->

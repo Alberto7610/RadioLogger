@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Windows;
 using System.Windows.Forms; // For FolderBrowserDialog
 
 namespace RadioLogger.ViewModels
@@ -126,19 +128,66 @@ namespace RadioLogger.ViewModels
         public ObservableCollection<string> FilteredLogLines { get; } = new();
 
         [ObservableProperty] private string? _selectedLogDate;
+        [ObservableProperty] private string? _selectedLogDateEnd;
         [ObservableProperty] private string _selectedLogStation = "Todas";
         [ObservableProperty] private string _selectedLogLevel = "Todos";
         [ObservableProperty] private string _logSearchText = "";
         [ObservableProperty] private string _logDateDisplay = "";
         [ObservableProperty] private string _logLineCount = "";
+        [ObservableProperty] private string _logTimeFrom = "";
+        [ObservableProperty] private string _logTimeTo = "";
 
         private List<string> _allLogLines = new();
         private string _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        private System.Timers.Timer? _logRefreshTimer;
+        private long _lastLogFileSize;
 
-        partial void OnSelectedLogDateChanged(string? value) => LoadLogFile();
+        partial void OnSelectedLogDateChanged(string? value) => LoadLogFiles();
+        partial void OnSelectedLogDateEndChanged(string? value) => LoadLogFiles();
+
+        public void StartLogAutoRefresh()
+        {
+            _logRefreshTimer?.Stop();
+            _logRefreshTimer = new System.Timers.Timer(3000); // cada 3 segundos
+            _logRefreshTimer.Elapsed += (s, e) => AutoRefreshLogs();
+            _logRefreshTimer.Start();
+        }
+
+        public void StopLogAutoRefresh()
+        {
+            _logRefreshTimer?.Stop();
+            _logRefreshTimer?.Dispose();
+            _logRefreshTimer = null;
+        }
+
+        private void AutoRefreshLogs()
+        {
+            if (string.IsNullOrEmpty(SelectedLogDate)) return;
+
+            // Solo refrescar si estamos viendo el log de hoy
+            var todayFile = "radiologger-" + DateTime.Now.ToString("yyyy-MM-dd") + ".log";
+            var endFile = SelectedLogDateEnd ?? SelectedLogDate;
+            if (SelectedLogDate != todayFile && endFile != todayFile) return;
+
+            var filePath = Path.Combine(_logDirectory, todayFile);
+            if (!File.Exists(filePath)) return;
+
+            try
+            {
+                var fi = new FileInfo(filePath);
+                if (fi.Length == _lastLogFileSize) return; // sin cambios
+                _lastLogFileSize = fi.Length;
+            }
+            catch { return; }
+
+            // Recargar en UI thread
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => LoadLogFiles());
+        }
         partial void OnSelectedLogStationChanged(string value) => ApplyLogFilter();
         partial void OnSelectedLogLevelChanged(string value) => ApplyLogFilter();
         partial void OnLogSearchTextChanged(string value) => ApplyLogFilter();
+        partial void OnLogTimeFromChanged(string value) => ApplyLogFilter();
+        partial void OnLogTimeToChanged(string value) => ApplyLogFilter();
 
         [RelayCommand]
         public void ApplyOfflineCode()
@@ -195,11 +244,20 @@ namespace RadioLogger.ViewModels
         public void RefreshLogs()
         {
             var currentDate = SelectedLogDate;
+            var currentDateEnd = SelectedLogDateEnd;
             LoadLogDates();
+
+            // Restaurar selección sin depender del evento Changed
             if (currentDate != null && LogDates.Contains(currentDate))
-                SelectedLogDate = currentDate;
-            else
-                LoadLogFile();
+                _selectedLogDate = currentDate;
+            if (currentDateEnd != null && LogDates.Contains(currentDateEnd))
+                _selectedLogDateEnd = currentDateEnd;
+
+            OnPropertyChanged(nameof(SelectedLogDate));
+            OnPropertyChanged(nameof(SelectedLogDateEnd));
+
+            // Forzar recarga siempre
+            LoadLogFiles();
         }
 
         private void LoadLogDates()
@@ -220,7 +278,7 @@ namespace RadioLogger.ViewModels
                 SelectedLogDate = LogDates.First();
         }
 
-        private void LoadLogFile()
+        private void LoadLogFiles()
         {
             _allLogLines.Clear();
             FilteredLogLines.Clear();
@@ -234,38 +292,63 @@ namespace RadioLogger.ViewModels
                 return;
             }
 
-            // Extraer fecha legible del nombre: radiologger-2026-03-25.log → 25/03/2026
-            var dateStr = SelectedLogDate
-                .Replace("radiologger-", "")
-                .Replace(".log", "");
-            if (DateTime.TryParse(dateStr, out var dt))
-                LogDateDisplay = dt.ToString("dd/MM/yyyy — dddd", new System.Globalization.CultureInfo("es-MX"));
-            else
-                LogDateDisplay = dateStr;
+            // Determinar rango de archivos a cargar
+            var startFile = SelectedLogDate;
+            var endFile = SelectedLogDateEnd ?? SelectedLogDate;
 
-            var filePath = Path.Combine(_logDirectory, SelectedLogDate);
-            if (!File.Exists(filePath)) return;
+            // Asegurar orden correcto
+            if (string.Compare(startFile, endFile, StringComparison.Ordinal) > 0)
+                (startFile, endFile) = (endFile, startFile);
 
-            var stationSet = new HashSet<string>();
+            // Mostrar rango en display
+            var startDateStr = startFile.Replace("radiologger-", "").Replace(".log", "");
+            var endDateStr = endFile.Replace("radiologger-", "").Replace(".log", "");
+            var culture = new System.Globalization.CultureInfo("es-MX");
 
-            try
+            if (startFile == endFile)
             {
-                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                using var reader = new StreamReader(fs);
-                string? line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-                    _allLogLines.Add(line);
-
-                    // Extraer nombre de estación del SourceContext: [...] [AudioChannel] ...
-                    // o del contenido: ... (Station1) ...
-                    var sourceContext = ExtractBracketValue(line, 2);
-                    if (!string.IsNullOrEmpty(sourceContext))
-                        stationSet.Add(sourceContext);
-                }
+                if (DateTime.TryParse(startDateStr, out var dt))
+                    LogDateDisplay = dt.ToString("dd/MM/yyyy — dddd", culture);
+                else
+                    LogDateDisplay = startDateStr;
             }
-            catch { }
+            else
+            {
+                var d1 = DateTime.TryParse(startDateStr, out var dt1) ? dt1.ToString("dd/MM/yyyy", culture) : startDateStr;
+                var d2 = DateTime.TryParse(endDateStr, out var dt2) ? dt2.ToString("dd/MM/yyyy", culture) : endDateStr;
+                LogDateDisplay = d1 + " → " + d2;
+            }
+
+            // Cargar todos los archivos en el rango
+            var stationSet = new HashSet<string>();
+            var filesToLoad = LogDates
+                .Where(f => string.Compare(f, startFile, StringComparison.Ordinal) >= 0 &&
+                            string.Compare(f, endFile, StringComparison.Ordinal) <= 0)
+                .OrderBy(f => f)
+                .ToList();
+
+            foreach (var fileName in filesToLoad)
+            {
+                var filePath = Path.Combine(_logDirectory, fileName);
+                if (!File.Exists(filePath)) continue;
+
+                try
+                {
+                    using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    using var reader = new StreamReader(fs);
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        _allLogLines.Add(line);
+
+                        var sourceContext = ExtractBracketValue(line, 2);
+                        if (!string.IsNullOrEmpty(sourceContext))
+                            stationSet.Add(sourceContext);
+                    }
+                }
+                catch { }
+            }
 
             foreach (var s in stationSet.OrderBy(s => s))
                 LogStations.Add(s);
@@ -306,6 +389,12 @@ namespace RadioLogger.ViewModels
             var levelFilter = SelectedLogLevel;
             var stationFilter = SelectedLogStation;
             var searchFilter = LogSearchText?.Trim() ?? "";
+            var timeFrom = LogTimeFrom?.Trim() ?? "";
+            var timeTo = LogTimeTo?.Trim() ?? "";
+
+            // Parsear filtros de hora (formato HH:mm o HH:mm:ss)
+            TimeSpan? tsFrom = TimeSpan.TryParse(timeFrom, out var tf) ? tf : null;
+            TimeSpan? tsTo = TimeSpan.TryParse(timeTo, out var tt) ? tt : null;
 
             foreach (var rawLine in _allLogLines)
             {
@@ -321,6 +410,20 @@ namespace RadioLogger.ViewModels
                         continue;
                 }
 
+                // Filter by time range (extraer HH:mm:ss del log)
+                if (tsFrom.HasValue || tsTo.HasValue)
+                {
+                    if (rawLine.Length > 24 && rawLine[10] == ' ' && rawLine[13] == ':')
+                    {
+                        var timeStr = rawLine.Substring(11, 8); // "HH:mm:ss"
+                        if (TimeSpan.TryParse(timeStr, out var lineTime))
+                        {
+                            if (tsFrom.HasValue && lineTime < tsFrom.Value) continue;
+                            if (tsTo.HasValue && lineTime > tsTo.Value) continue;
+                        }
+                    }
+                }
+
                 // Filter by search text
                 if (!string.IsNullOrEmpty(searchFilter) &&
                     !rawLine.Contains(searchFilter, StringComparison.OrdinalIgnoreCase))
@@ -334,7 +437,65 @@ namespace RadioLogger.ViewModels
                 FilteredLogLines.Add(displayLine);
             }
 
-            LogLineCount = $"{FilteredLogLines.Count} / {_allLogLines.Count} entradas";
+            LogLineCount = $"{FilteredLogLines.Count:N0} / {_allLogLines.Count:N0} entradas";
+        }
+
+        [RelayCommand]
+        public void CopySelectedLogs(System.Collections.IList? selectedItems)
+        {
+            if (selectedItems == null || selectedItems.Count == 0) return;
+
+            var sb = new StringBuilder();
+            foreach (string line in selectedItems)
+                sb.AppendLine(line);
+
+            for (int i = 0; i < 5; i++)
+            {
+                try
+                {
+                    System.Windows.Clipboard.SetText(sb.ToString());
+                    return;
+                }
+                catch (System.Runtime.InteropServices.COMException)
+                {
+                    System.Threading.Thread.Sleep(50);
+                }
+            }
+        }
+
+        [RelayCommand]
+        public void ExportLogs()
+        {
+            if (FilteredLogLines.Count == 0) return;
+
+            var dialog = new SaveFileDialog
+            {
+                Filter = "Archivo de texto (*.txt)|*.txt|CSV (*.csv)|*.csv|Todos (*.*)|*.*",
+                FileName = "radiologger-export-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"),
+                DefaultExt = ".txt"
+            };
+
+            if (dialog.ShowDialog() != DialogResult.OK) return;
+
+            try
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("// RadioLogger Export — " + LogDateDisplay + " — " + LogLineCount);
+                sb.AppendLine("// Filtros: Nivel=" + SelectedLogLevel + ", Fuente=" + SelectedLogStation +
+                    (string.IsNullOrEmpty(LogSearchText) ? "" : ", Buscar=" + LogSearchText) +
+                    (string.IsNullOrEmpty(LogTimeFrom) ? "" : ", Desde=" + LogTimeFrom) +
+                    (string.IsNullOrEmpty(LogTimeTo) ? "" : ", Hasta=" + LogTimeTo));
+                sb.AppendLine();
+
+                foreach (var line in FilteredLogLines)
+                    sb.AppendLine(line);
+
+                File.WriteAllText(dialog.FileName, sb.ToString(), Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Error al exportar: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         [RelayCommand]
@@ -509,6 +670,7 @@ namespace RadioLogger.ViewModels
             LoadDevices();
             LoadLogDates();
             LoadLicenseInfo();
+            StartLogAutoRefresh();
         }
 
         private void LoadDevices()

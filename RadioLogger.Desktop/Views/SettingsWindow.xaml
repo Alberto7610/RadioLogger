@@ -783,9 +783,11 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <!-- Fila 1: Fecha + Estación + Nivel + Refresh -->
+                            <!-- Fila 1: Fechas + Nivel + Refresh -->
                             <Grid Grid.Row="0" Margin="0,0,0,8">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -796,16 +798,20 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <TextBlock Grid.Column="0" Text="FECHA:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Grid.Column="0" Text="DESDE:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <ComboBox Grid.Column="1" ItemsSource="{Binding LogDates}" SelectedItem="{Binding SelectedLogDate}"
-                                          Width="200" Height="26" FontSize="11" Margin="0,0,15,0"/>
+                                          Width="185" Height="26" FontSize="11" Margin="0,0,10,0"/>
 
-                                <TextBlock Grid.Column="2" Text="FUENTE:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <ComboBox Grid.Column="3" ItemsSource="{Binding LogStations}" SelectedItem="{Binding SelectedLogStation}"
-                                          Width="150" Height="26" FontSize="11" Margin="0,0,15,0"/>
+                                <TextBlock Grid.Column="2" Text="HASTA:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox Grid.Column="3" ItemsSource="{Binding LogDates}" SelectedItem="{Binding SelectedLogDateEnd}"
+                                          Width="185" Height="26" FontSize="11" Margin="0,0,15,0"/>
 
-                                <TextBlock Grid.Column="4" Text="NIVEL:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <ComboBox Grid.Column="5" SelectedItem="{Binding SelectedLogLevel}" Width="85" Height="26" FontSize="11">
+                                <TextBlock Grid.Column="4" Text="FUENTE:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox Grid.Column="5" ItemsSource="{Binding LogStations}" SelectedItem="{Binding SelectedLogStation}"
+                                          Width="140" Height="26" FontSize="11" Margin="0,0,15,0"/>
+
+                                <TextBlock Grid.Column="6" Text="NIVEL:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox Grid.Column="7" SelectedItem="{Binding SelectedLogLevel}" Width="80" Height="26" FontSize="11">
                                     <ComboBoxItem Content="Todos" IsSelected="True"/>
                                     <ComboBoxItem Content="INF"/>
                                     <ComboBoxItem Content="WRN"/>
@@ -814,8 +820,8 @@
                                     <ComboBoxItem Content="DBG"/>
                                 </ComboBox>
 
-                                <!-- Refresh Button alineado a la derecha -->
-                                <Button Grid.Column="7" Command="{Binding RefreshLogsCommand}" Cursor="Hand" Width="26" Height="26" ToolTip="Actualizar logs">
+                                <!-- Refresh Button -->
+                                <Button Grid.Column="9" Command="{Binding RefreshLogsCommand}" Cursor="Hand" Width="26" Height="26" ToolTip="Actualizar logs">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="bd" Background="#333" CornerRadius="3" BorderBrush="#555" BorderThickness="1">
@@ -831,24 +837,71 @@
                                 </Button>
                             </Grid>
 
-                            <!-- Fila 2: Búsqueda + Info -->
+                            <!-- Fila 2: Hora + Búsqueda + Copiar/Exportar + Info -->
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="250"/>
+                                    <ColumnDefinition Width="65"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="65"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="200"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <TextBlock Grid.Column="0" Text="BUSCAR:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <TextBox Grid.Column="1" Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBlock Grid.Column="0" Text="HORA:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBox Grid.Column="1" Text="{Binding LogTimeFrom, UpdateSourceTrigger=PropertyChanged}"
+                                         Height="26" Background="#111" Foreground="White" BorderBrush="#444"
+                                         VerticalContentAlignment="Center" Padding="4,0" FontSize="11" ToolTip="Hora inicio (ej: 08:00)"/>
+                                <TextBlock Grid.Column="2" Text="—" Foreground="#555" FontSize="11" VerticalAlignment="Center" Margin="4,0"/>
+                                <TextBox Grid.Column="3" Text="{Binding LogTimeTo, UpdateSourceTrigger=PropertyChanged}"
+                                         Height="26" Background="#111" Foreground="White" BorderBrush="#444"
+                                         VerticalContentAlignment="Center" Padding="4,0" FontSize="11" ToolTip="Hora fin (ej: 18:00)" Margin="0,0,15,0"/>
+
+                                <TextBlock Grid.Column="4" Text="BUSCAR:" Foreground="#888" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBox Grid.Column="5" Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}"
                                          Height="26" Background="#111" Foreground="White" BorderBrush="#444"
                                          VerticalContentAlignment="Center" Padding="8,0" FontSize="11"/>
 
-                                <TextBlock Grid.Column="2" Text="{Binding LogDateDisplay}" Foreground="#00AABB" FontSize="10" FontWeight="SemiBold"
+                                <TextBlock Grid.Column="6" Text="{Binding LogDateDisplay}" Foreground="#00AABB" FontSize="10" FontWeight="SemiBold"
                                            VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
-                                <TextBlock Grid.Column="3" Text="{Binding LogLineCount}" Foreground="#555" FontSize="10" VerticalAlignment="Center"/>
+                                <!-- Copiar selección -->
+                                <Button Grid.Column="7" Click="CopyLogs_Click" Cursor="Hand" Width="26" Height="26" ToolTip="Copiar selección" Margin="0,0,4,0">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="#333" CornerRadius="3" BorderBrush="#555" BorderThickness="1">
+                                                <TextBlock Text="📋" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#00AABB"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+
+                                <!-- Exportar -->
+                                <Button Grid.Column="8" Command="{Binding ExportLogsCommand}" Cursor="Hand" Width="26" Height="26" ToolTip="Exportar logs filtrados" Margin="0,0,8,0">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="#333" CornerRadius="3" BorderBrush="#555" BorderThickness="1">
+                                                <TextBlock Text="💾" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#00AABB"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+
+                                <TextBlock Grid.Column="9" Text="{Binding LogLineCount}" Foreground="#555" FontSize="10" VerticalAlignment="Center"/>
                             </Grid>
                         </Grid>
                     </Border>
@@ -857,6 +910,7 @@
                     <Border Grid.Row="1" Background="#080808" CornerRadius="4" BorderBrush="#222" BorderThickness="1" Padding="0">
                         <ListBox x:Name="LogListBox" ItemsSource="{Binding FilteredLogLines}" Background="Transparent" BorderThickness="0"
                                  FontFamily="Cascadia Code, Consolas, Courier New" FontSize="11.5"
+                                 SelectionMode="Extended"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                  ScrollViewer.CanContentScroll="True"
                                  VirtualizingPanel.IsVirtualizing="True"
@@ -876,6 +930,9 @@
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter Property="Background" Value="#101510"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#1a3a5c"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>

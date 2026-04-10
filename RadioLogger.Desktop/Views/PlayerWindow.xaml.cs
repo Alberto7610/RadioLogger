@@ -74,6 +74,18 @@ namespace RadioLogger.Views
                 if (DataContext is PlayerViewModel vm2 && !vm2.IsGeneratingVisualization)
                     Dispatcher.BeginInvoke(() => { RedrawWaveform(); UpdatePlayheadPosition(); });
             }
+            else if (e.PropertyName == nameof(PlayerViewModel.SelectedRecording))
+            {
+                // Sync ListBox selection when ViewModel changes it (continuous playback)
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (DataContext is PlayerViewModel vm4 && vm4.SelectedRecording != null)
+                    {
+                        RecordingsListBox.SelectedItem = vm4.SelectedRecording;
+                        RecordingsListBox.ScrollIntoView(vm4.SelectedRecording);
+                    }
+                });
+            }
         }
 
         // ─── ZOOM ────────────────────────────────────────────────

@@ -357,6 +357,9 @@ namespace RadioLogger.ViewModels
             dialog.Owner = System.Windows.Application.Current.MainWindow;
             if (dialog.ShowDialog() != true || !dialog.IsAuthenticated) return;
 
+            var oldSignalRUrl = _configManager.CurrentSettings.SignalRHubUrl;
+            var oldSignalREnabled = _configManager.CurrentSettings.IsSignalREnabled;
+
             var vm = new SettingsViewModel(_configManager, _audioEngine, _licenseService);
             var win = new RadioLogger.Views.SettingsWindow { DataContext = vm };
             if (win.ShowDialog() == true)
@@ -364,6 +367,15 @@ namespace RadioLogger.ViewModels
                 StationName = _configManager.CurrentSettings.StationName;
                 _audioEngine.UpdateAllSettings(_configManager.CurrentSettings);
                 LoadDevices();
+
+                // Reconectar SignalR si cambió la URL o el estado
+                if (oldSignalRUrl != _configManager.CurrentSettings.SignalRHubUrl ||
+                    oldSignalREnabled != _configManager.CurrentSettings.IsSignalREnabled)
+                {
+                    _log.Information("Configuración SignalR cambió, reconectando...");
+                    SignalRStatus = "Monitoreo: Reconectando...";
+                    _ = _signalRService.RestartAsync();
+                }
             }
         }
 

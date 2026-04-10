@@ -4,7 +4,6 @@ using RadioLogger.Models;
 using Serilog;
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Timers;
 
 namespace RadioLogger.Services
@@ -22,8 +21,6 @@ namespace RadioLogger.Services
 
         private bool _isClosing = false;
         private int _encoderHandle;
-        private EncodeProcedure _encodeProcedure;
-        private FileStream? _currentFileStream;
         private object _fileLock = new object();
 
         // Delegates
@@ -75,7 +72,6 @@ namespace RadioLogger.Services
 
             _recordProcedure = new RecordProcedure(RecordingCallback);
             _gainDsp = new DSPProcedure(GainCallback);
-            _encodeProcedure = new EncodeProcedure(EncoderCallback);
 
             _levelTimer = new System.Timers.Timer(50);
             _levelTimer.Elapsed += UpdateLevels;
@@ -86,28 +82,6 @@ namespace RadioLogger.Services
             _reconnectTimer = new System.Timers.Timer(10000); // 10s retry
             _reconnectTimer.AutoReset = false;
             _reconnectTimer.Elapsed += OnReconnectTimerElapsed;
-        }
-
-        private void EncoderCallback(int handle, int channel, IntPtr buffer, int length, IntPtr user)
-        {
-            if (_isClosing) return;
-
-            lock (_fileLock)
-            {
-                if (_currentFileStream != null && length > 0)
-                {
-                    try
-                    {
-                        byte[] data = new byte[length];
-                        Marshal.Copy(buffer, data, 0, length);
-                        _currentFileStream.Write(data, 0, length);
-                    }
-                    catch (Exception ex)
-                    {
-                        _log.Error(ex, "Error escribiendo datos al archivo MP3");
-                    }
-                }
-            }
         }
 
         public void SetGain(float gain)
@@ -177,7 +151,7 @@ namespace RadioLogger.Services
 
             if (RecordToFile)
             {
-                StartEncoder();
+                StartEncoderToFile();
                 _fileRotatorTimer.Start();
             }
 
@@ -189,65 +163,110 @@ namespace RadioLogger.Services
             _log.Information("Grabación iniciada ({Station}) en dispositivo {Device}", StationName, DeviceInfo.Name);
         }
 
-        private void StartEncoder()
-        {
-            string lamePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
-            string command = $"\"{lamePath}\" -b {_settings.Mp3Bitrate} - -";
-
-            OpenNewFile();
-
-            _encoderHandle = BassEnc.EncodeStart(_handle, command, EncodeFlags.AutoFree, _encodeProcedure, IntPtr.Zero);
-        }
-
-        private void OpenNewFile()
+        /// <summary>
+        /// Starts the in-process MP3 encoder writing directly to a new file.
+        /// Uses bassenc_mp3.dll (libmp3lame in-process) — no external lame.exe process.
+        /// Falls back to external lame.exe if the native DLL is not available.
+        /// </summary>
+        private void StartEncoderToFile()
         {
             lock (_fileLock)
             {
-                _currentFileDate = DateTime.Now;
+                string? filePath = BuildNewFilePath();
+                if (filePath == null) return;
 
-                // Sanitize station name: remove invalid chars, path traversal, and clamp length
-                string safeStationName = string.Join("_", StationName.Split(Path.GetInvalidFileNameChars()));
-                safeStationName = safeStationName.Replace("..", "").Replace("/", "").Replace("\\", "");
-                safeStationName = Path.GetFileName(safeStationName); // strip any remaining path components
-                if (string.IsNullOrWhiteSpace(safeStationName)) safeStationName = "Unknown";
-                if (safeStationName.Length > 100) safeStationName = safeStationName[..100];
+                _currentFilePath = filePath;
+                string options = $"-b {_settings.Mp3Bitrate}";
 
-                // Structure: Root \ RadioLogger \ StationName \ dd-MMMM-yyyy
-                string dateFolder = _currentFileDate.ToString("dd-MMMM-yyyy", new System.Globalization.CultureInfo("es-MX"));
-                string folderPath = Path.Combine(_settings.RecordingBasePath, "RadioLogger", safeStationName, dateFolder);
-
-                // Verify the resolved path is within the expected base directory
-                string fullPath = Path.GetFullPath(folderPath);
-                string baseFull = Path.GetFullPath(Path.Combine(_settings.RecordingBasePath, "RadioLogger"));
-                if (!fullPath.StartsWith(baseFull, StringComparison.OrdinalIgnoreCase))
+                // Try native in-process encoder first (BassEnc_Mp3.Start with fileName overload)
+                try
                 {
-                    _log.Warning("SEGURIDAD: Ruta sospechosa bloqueada: {Path}", fullPath);
+                    _encoderHandle = BassEnc_Mp3.Start(_handle, options, EncodeFlags.Default, filePath);
+                }
+                catch (DllNotFoundException)
+                {
+                    _encoderHandle = 0;
+                }
+
+                if (_encoderHandle != 0)
+                {
+                    _log.Information("Nuevo archivo: {FileName} ({Station}) [encoder nativo]",
+                        Path.GetFileName(filePath), StationName);
                     return;
                 }
 
-                Directory.CreateDirectory(folderPath);
-
-                // Filename format: STATION-ddMMyy-HHmmss.mp3
-                string fileName = $"{safeStationName}-{_currentFileDate:ddMMyy-HHmmss}.mp3";
-                _currentFilePath = Path.Combine(folderPath, fileName);
-
-                _currentFileStream = new FileStream(_currentFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
-                _log.Information("Nuevo archivo: {FileName} ({Station})", fileName, safeStationName);
+                // Fallback: external lame.exe
+                _log.Warning("BassEnc_Mp3 no disponible ({Error}), usando lame.exe como fallback", Bass.LastError);
+                StartLameFallback();
             }
+        }
+
+        /// <summary>
+        /// Fallback to external lame.exe if bassenc_mp3.dll is not available.
+        /// </summary>
+        private void StartLameFallback()
+        {
+            string lamePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
+            if (!File.Exists(lamePath))
+            {
+                _log.Error("No se encontró lame.exe en {Path} — no se puede grabar", lamePath);
+                return;
+            }
+
+            string command = $"\"{lamePath}\" -b {_settings.Mp3Bitrate} - \"{_currentFilePath}\"";
+            _encoderHandle = BassEnc.EncodeStart(_handle, command, EncodeFlags.Default, null, IntPtr.Zero);
+
+            if (_encoderHandle == 0)
+                _log.Error("Encoder lame.exe fallback también falló: {Error}", Bass.LastError);
+            else
+                _log.Information("Nuevo archivo: {FileName} ({Station}) [lame.exe fallback]",
+                    Path.GetFileName(_currentFilePath), StationName);
+        }
+
+        private string? BuildNewFilePath()
+        {
+            _currentFileDate = DateTime.Now;
+
+            // Sanitize station name
+            string safeStationName = string.Join("_", StationName.Split(Path.GetInvalidFileNameChars()));
+            safeStationName = safeStationName.Replace("..", "").Replace("/", "").Replace("\\", "");
+            safeStationName = Path.GetFileName(safeStationName);
+            if (string.IsNullOrWhiteSpace(safeStationName)) safeStationName = "Unknown";
+            if (safeStationName.Length > 100) safeStationName = safeStationName[..100];
+
+            // Structure: Root \ RadioLogger \ StationName \ dd-MMMM-yyyy
+            string dateFolder = _currentFileDate.ToString("dd-MMMM-yyyy", new System.Globalization.CultureInfo("es-MX"));
+            string folderPath = Path.Combine(_settings.RecordingBasePath, "RadioLogger", safeStationName, dateFolder);
+
+            // Security: verify path is within expected base directory
+            string fullPath = Path.GetFullPath(folderPath);
+            string baseFull = Path.GetFullPath(Path.Combine(_settings.RecordingBasePath, "RadioLogger"));
+            if (!fullPath.StartsWith(baseFull, StringComparison.OrdinalIgnoreCase))
+            {
+                _log.Warning("SEGURIDAD: Ruta sospechosa bloqueada: {Path}", fullPath);
+                return null;
+            }
+
+            Directory.CreateDirectory(folderPath);
+
+            // Filename format: STATION-ddMMyy-HHmmss.mp3
+            string fileName = $"{safeStationName}-{_currentFileDate:ddMMyy-HHmmss}.mp3";
+            return Path.Combine(folderPath, fileName);
         }
 
         private void RotateFile()
         {
             lock (_fileLock)
             {
-                if (_currentFileStream != null)
+                // 1. Stop current encoder
+                if (_encoderHandle != 0)
                 {
-                    _currentFileStream.Flush();
-                    _currentFileStream.Close();
-                    _currentFileStream.Dispose();
-                    _currentFileStream = null;
+                    BassEnc.EncodeStop(_encoderHandle);
+                    _encoderHandle = 0;
                 }
-                OpenNewFile();
+
+                // 2. Start new encoder to new file
+                StartEncoderToFile();
             }
         }
 
@@ -333,6 +352,18 @@ namespace RadioLogger.Services
 
         private void CheckFileRotation(object? sender, ElapsedEventArgs e)
         {
+            // Health check: verify encoder is still active
+            if (RecordToFile && _encoderHandle != 0)
+            {
+                var state = BassEnc.EncodeIsActive(_encoderHandle);
+                if (state != PlaybackState.Playing)
+                {
+                    _log.Warning("Encoder inactivo ({State}) — reiniciando ({Station})", state, StationName);
+                    RotateFile();
+                    return;
+                }
+            }
+
             int intervalMinutes = Math.Max(1, _settings.SegmentDurationMinutes);
             DateTime now = DateTime.Now;
             bool shouldRotate = false;
@@ -398,21 +429,6 @@ namespace RadioLogger.Services
                 {
                     BassEnc.EncodeStop(_encoderHandle);
                     _encoderHandle = 0;
-                }
-
-                if (_currentFileStream != null)
-                {
-                    try
-                    {
-                        _currentFileStream.Flush();
-                        _currentFileStream.Close();
-                        _currentFileStream.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        _log.Error(ex, "Error cerrando archivo de grabación");
-                    }
-                    finally { _currentFileStream = null; }
                 }
             }
 

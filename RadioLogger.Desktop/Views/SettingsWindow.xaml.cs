@@ -8,7 +8,7 @@ namespace RadioLogger.Views
         public SettingsWindow()
         {
             InitializeComponent();
-            
+
             // Allow dragging the window by clicking on non-interactive areas
             this.MouseLeftButtonDown += (s, e) =>
             {
@@ -19,6 +19,12 @@ namespace RadioLogger.Views
                     && e.OriginalSource is not System.Windows.Controls.ComboBox
                     && e.OriginalSource is not System.Windows.Controls.Slider)
                     this.DragMove();
+            };
+
+            Closed += (s, e) =>
+            {
+                if (DataContext is RadioLogger.ViewModels.SettingsViewModel vm)
+                    vm.StopLogAutoRefresh();
             };
         }
 
@@ -51,6 +57,12 @@ namespace RadioLogger.Views
         {
             if (DataContext is RadioLogger.ViewModels.SettingsViewModel vm)
                 vm.AutoLoginPassword = AutoLoginPasswordBox.Password;
+        }
+
+        private void CopyLogs_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is RadioLogger.ViewModels.SettingsViewModel vm)
+                vm.CopySelectedLogsCommand.Execute(LogListBox.SelectedItems);
         }
 
         private bool _isPasswordVisible;
