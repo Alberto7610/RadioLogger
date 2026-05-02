@@ -174,9 +174,10 @@ namespace RadioLogger.Shared.Models
         public string Username { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;        // Obligatorio — para recuperación de contraseña
         public string Role { get; set; } = "Operador";          // Administrador, Supervisor, Operador
         public bool IsActive { get; set; } = true;
-        public string? TelegramChatId { get; set; }              // Para recuperación de contraseña
+        public string? TelegramChatId { get; set; }              // Opcional — método alterno de recuperación
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastLogin { get; set; }
     }
@@ -243,12 +244,36 @@ namespace RadioLogger.Shared.Models
         public int Id { get; set; }
         public string StationName { get; set; } = string.Empty;
         public string MachineId { get; set; } = string.Empty;
-        
+
         public string EventType { get; set; } = "SILENCE"; // SILENCE, DISCONNECT
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
-        
+
         public double? DurationSeconds { get; set; }
         public bool IsResolved { get; set; }
+    }
+
+    /// <summary>
+    /// API Key for authenticating SignalR WPF clients.
+    /// Created via pairing code flow.
+    /// </summary>
+    public class ApiKey
+    {
+        public int Id { get; set; }
+        public string Key { get; set; } = string.Empty;
+        public string MachineId { get; set; } = string.Empty;
+        public string MachineName { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsActive { get; set; } = true;
+    }
+
+    /// <summary>
+    /// Result of a pairing operation sent from Hub to WPF.
+    /// </summary>
+    public class PairingResult
+    {
+        public bool Success { get; set; }
+        public string? ApiKey { get; set; }
+        public string? Error { get; set; }
     }
 }

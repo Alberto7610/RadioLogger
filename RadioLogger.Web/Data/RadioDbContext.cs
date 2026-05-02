@@ -15,6 +15,7 @@ namespace RadioLogger.Web.Data
         public DbSet<LogEntry> LogEntries => Set<LogEntry>();
         public DbSet<AppUser> Users => Set<AppUser>();
         public DbSet<AuditEntry> AuditLog => Set<AuditEntry>();
+        public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -35,7 +36,9 @@ namespace RadioLogger.Web.Data
             modelBuilder.Entity<AppUser>().ToTable("AppUsers");
             modelBuilder.Entity<AppUser>().HasKey(e => e.Id);
             modelBuilder.Entity<AppUser>().HasIndex(e => e.Username).IsUnique();
+            modelBuilder.Entity<AppUser>().HasIndex(e => e.Email);
             modelBuilder.Entity<AppUser>().Property(e => e.Username).HasMaxLength(100).IsRequired();
+            modelBuilder.Entity<AppUser>().Property(e => e.Email).HasMaxLength(255).IsRequired();
             modelBuilder.Entity<AppUser>().Property(e => e.Role).HasMaxLength(20).IsRequired();
 
             modelBuilder.Entity<AuditEntry>().ToTable("AuditEntries");
@@ -49,6 +52,13 @@ namespace RadioLogger.Web.Data
             modelBuilder.Entity<LogEntry>().Property(e => e.Level).HasMaxLength(10).IsRequired();
             modelBuilder.Entity<LogEntry>().Property(e => e.Source).HasMaxLength(200);
             modelBuilder.Entity<LogEntry>().HasIndex(e => new { e.MachineId, e.Timestamp });
+
+            modelBuilder.Entity<ApiKey>().HasKey(e => e.Id);
+            modelBuilder.Entity<ApiKey>().HasIndex(e => e.Key).IsUnique();
+            modelBuilder.Entity<ApiKey>().Property(e => e.Key).HasMaxLength(64).IsRequired();
+            modelBuilder.Entity<ApiKey>().Property(e => e.MachineId).HasMaxLength(100);
+            modelBuilder.Entity<ApiKey>().Property(e => e.MachineName).HasMaxLength(200);
+            modelBuilder.Entity<ApiKey>().HasIndex(e => e.MachineId);
         }
     }
 }

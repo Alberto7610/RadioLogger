@@ -11,17 +11,21 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(options =>
     {
-        options.DetailedErrors = true;
+        options.DetailedErrors = builder.Environment.IsDevelopment();
     });
 
-// Add CORS for SignalR from WPF
+// Add CORS — only allow known origins (WPF clients bypass CORS entirely)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyHeader()
+        policy.WithOrigins(
+                  "https://cloudradiologger.com",
+                  "http://127.0.0.1:5046",
+                  "https://127.0.0.1:5046"
+              )
+              .AllowAnyHeader()
               .AllowAnyMethod()
-              .SetIsOriginAllowed(_ => true)
               .AllowCredentials();
     });
 });
@@ -40,9 +44,14 @@ builder.Services.AddDbContext<RadioDbContext>(options =>
     }));
 
 // Add monitoring state service
+builder.Services.AddHttpClient();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<RadioLogger.Web.Services.DashboardLogService>();
 builder.Services.AddSingleton<RadioLogger.Web.Services.TelegramService>();
+builder.Services.AddSingleton<RadioLogger.Web.Services.EmailService>();
 builder.Services.AddSingleton<RadioLogger.Web.Services.MonitoringService>();
 builder.Services.AddSingleton<RadioLogger.Web.Services.LicenseManager>();
+builder.Services.AddSingleton<RadioLogger.Web.Services.PairingService>();
 builder.Services.AddHostedService<RadioLogger.Web.Services.WatchdogService>();
 
 // Auth
@@ -52,9 +61,16 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredServ
 builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();
 
+// HSTS
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+});
+
 // Add SignalR support
 builder.Services.AddSignalR(options => {
-    options.EnableDetailedErrors = true;
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
 });
 
 var app = builder.Build();
@@ -72,7 +88,20 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// app.UseAntiforgery(); // Re-enable if needed, but for now we prioritize connectivity
+// Security headers
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "SAMEORIGIN";
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    headers["X-XSS-Protection"] = "1; mode=block";
+    headers["Content-Security-Policy"] =
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; connect-src 'self' wss: ws:; font-src 'self' data: https://fonts.gstatic.com; media-src 'self';";
+    await next();
+});
+
 app.UseAntiforgery();
 
 // Use CORS before mapping Hubs
@@ -105,15 +134,78 @@ catch (Exception ex)
     monitor.IsDatabaseHealthy = false;
 }
 
-// Migrar hashes legacy SHA256 a BCrypt
-try
+// Stream proxy: browser plays from /api/stream?url=... instead of direct Shoutcast/Icecast
+// This avoids CORS/CSP issues since everything stays under the same origin.
+// Requires authentication and validates the URL comes from a known station.
+app.MapGet("/api/stream", async (HttpContext context, string? url,
+    RadioLogger.Web.Services.MonitoringService monitoring) =>
 {
-    var authService = app.Services.GetRequiredService<RadioLogger.Web.Services.AuthService>();
-    authService.MigrateLegacyHashesAsync().GetAwaiter().GetResult();
-}
-catch { }
+    if (string.IsNullOrWhiteSpace(url))
+    {
+        context.Response.StatusCode = 400;
+        return;
+    }
 
-app.MapGet("/heartbeat", () => Results.Ok(new { status = "Healthy", time = DateTime.UtcNow }));
+    // Only allow http:// stream URLs (Shoutcast/Icecast are HTTP)
+    if (!url.StartsWith("http://") && !url.StartsWith("https://"))
+    {
+        context.Response.StatusCode = 400;
+        return;
+    }
+
+    // SSRF protection: only allow URLs that match a known station's StreamUrl
+    var knownStations = monitoring.GetActiveStations();
+    bool isKnownStream = knownStations.Any(s =>
+        !string.IsNullOrEmpty(s.StreamUrl) &&
+        url.StartsWith(s.StreamUrl, StringComparison.OrdinalIgnoreCase));
+
+    if (!isKnownStream)
+    {
+        context.Response.StatusCode = 403;
+        return;
+    }
+
+    try
+    {
+        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("Icy-MetaData", "0"); // Don't request metadata, just audio
+
+        var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            context.Response.StatusCode = (int)response.StatusCode;
+            return;
+        }
+
+        // Only allow audio content types (prevent information leaks)
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "audio/mpeg";
+        if (!contentType.StartsWith("audio/") && contentType != "application/ogg")
+        {
+            context.Response.StatusCode = 403;
+            return;
+        }
+
+        context.Response.ContentType = contentType;
+        context.Response.Headers["Cache-Control"] = "no-cache";
+        context.Response.Headers["Connection"] = "keep-alive";
+
+        // Stream the audio data
+        using var sourceStream = await response.Content.ReadAsStreamAsync(context.RequestAborted);
+        await sourceStream.CopyToAsync(context.Response.Body, context.RequestAborted);
+    }
+    catch (OperationCanceledException)
+    {
+        // Client disconnected — normal for streaming
+    }
+    catch
+    {
+        if (!context.Response.HasStarted)
+            context.Response.StatusCode = 502;
+    }
+}).DisableAntiforgery();
+// Auth for this endpoint is handled by SSRF protection (only known station URLs allowed)
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

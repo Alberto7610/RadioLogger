@@ -1,24 +1,23 @@
-using System;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace RadioLogger.Web.Services
 {
     public class TelegramService
     {
-        private readonly HttpClient _httpClient = new HttpClient();
+        private readonly IHttpClientFactory _httpFactory;
         private readonly IConfiguration _config;
+        private readonly DashboardLogService _log;
 
-        public TelegramService(IConfiguration config)
+        public TelegramService(IHttpClientFactory httpFactory, IConfiguration config, DashboardLogService log)
         {
+            _httpFactory = httpFactory;
             _config = config;
+            _log = log;
         }
 
         public async Task SendAlertAsync(string message)
         {
-            // Prefer environment variable, fallback to config
             var token = Environment.GetEnvironmentVariable("TELEGRAM_TOKEN") ?? _config["Telegram:Token"];
             var chatId = Environment.GetEnvironmentVariable("TELEGRAM_CHATID") ?? _config["Telegram:ChatId"];
 
@@ -26,27 +25,23 @@ namespace RadioLogger.Web.Services
 
             try
             {
+                var client = _httpFactory.CreateClient();
                 string url = $"https://api.telegram.org/bot{token}/sendMessage";
 
                 var payload = new { chat_id = chatId, text = message, parse_mode = "HTML" };
                 var json = JsonSerializer.Serialize(payload);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync(url, content);
+                var response = await client.PostAsync(url, content);
                 if (!response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine($"[TELEGRAM ERROR] Status: {response.StatusCode}");
-                }
+                    _log.LogWarning("TelegramService", $"SendAlert falló: {response.StatusCode}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[TELEGRAM EXCEPTION] {ex.Message}");
+                _log.LogError("TelegramService", $"Error en SendAlert: {ex.Message}", ex);
             }
         }
 
-        /// <summary>
-        /// Enviar mensaje directo a un chatId específico (para recuperación de contraseña).
-        /// </summary>
         public async Task SendDirectAsync(string chatId, string message)
         {
             var token = Environment.GetEnvironmentVariable("TELEGRAM_TOKEN") ?? _config["Telegram:Token"];
@@ -54,15 +49,16 @@ namespace RadioLogger.Web.Services
 
             try
             {
+                var client = _httpFactory.CreateClient();
                 string url = $"https://api.telegram.org/bot{token}/sendMessage";
                 var payload = new { chat_id = chatId, text = message, parse_mode = "HTML" };
                 var json = JsonSerializer.Serialize(payload);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
-                await _httpClient.PostAsync(url, content);
+                await client.PostAsync(url, content);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[TELEGRAM DIRECT] Error: {ex.Message}");
+                _log.LogError("TelegramService", $"Error en SendDirect a {chatId}: {ex.Message}", ex);
             }
         }
     }

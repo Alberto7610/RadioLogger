@@ -15,11 +15,13 @@ namespace RadioLogger.Web.Services
     public class LicenseManager
     {
         private readonly IServiceProvider _serviceProvider;
+        private readonly DashboardLogService _log;
         private const string OfflineSecret = "RL2026-OFFLINE-KEY"; // Debe coincidir con WPF
 
-        public LicenseManager(IServiceProvider serviceProvider)
+        public LicenseManager(IServiceProvider serviceProvider, DashboardLogService log)
         {
             _serviceProvider = serviceProvider;
+            _log = log;
         }
 
         /// <summary>
@@ -199,7 +201,7 @@ namespace RadioLogger.Web.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[LICENSE] Error sending license to client: {ex.Message}");
+                _log.LogError("LicenseManager", $"Error enviando licencia al cliente: {ex.Message}", ex);
             }
         }
 

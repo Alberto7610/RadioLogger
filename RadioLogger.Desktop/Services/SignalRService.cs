@@ -21,6 +21,7 @@ namespace RadioLogger.Services
         public event Action<RadioLogger.Shared.Models.LocalLicense>? LicenseReceived;
 
         public bool IsConnected => _connection?.State == HubConnectionState.Connected;
+        public bool IsPaired => !string.IsNullOrEmpty(_settings.SignalRApiKey);
 
         public SignalRService(AppSettings settings)
         {
@@ -45,24 +46,30 @@ namespace RadioLogger.Services
             if (_connection != null)
                 await StopAsync();
 
-            // ADVERTENCIA: En DEBUG se acepta cualquier certificado SSL para desarrollo local.
-            // En producción (Release), se validan certificados normalmente.
             var builder = new HubConnectionBuilder()
-                .WithUrl(sanitizedUrl
-#if DEBUG
-                    , options => {
-                        options.HttpMessageHandlerFactory = (handler) =>
-                        {
-                            if (handler is System.Net.Http.HttpClientHandler clientHandler)
-                            {
-                                clientHandler.ServerCertificateCustomValidationCallback =
-                                    System.Net.Http.HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-                            }
-                            return handler;
-                        };
+                .WithUrl(sanitizedUrl, options =>
+                {
+                    // Send API Key as header for authentication
+                    if (!string.IsNullOrEmpty(_settings.SignalRApiKey))
+                    {
+                        options.Headers["X-Api-Key"] = _settings.SignalRApiKey;
                     }
-#endif
-                )
+
+                    options.HttpMessageHandlerFactory = (handler) =>
+                    {
+                        if (handler is System.Net.Http.HttpClientHandler clientHandler)
+                        {
+                            clientHandler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
+                            {
+                                var host = message.RequestUri?.Host;
+                                if (host == "localhost" || host == "127.0.0.1")
+                                    return true; // Desarrollo local: aceptar cualquier certificado
+                                return errors == System.Net.Security.SslPolicyErrors.None; // Producción: validar certificado
+                            };
+                        }
+                        return handler;
+                    };
+                })
                 .WithAutomaticReconnect();
 
             _connection = builder.Build();
@@ -107,7 +114,7 @@ namespace RadioLogger.Services
             {
                 if (_isDisposed) return;
                 _log.Warning("SignalR conexión cerrada: {Error}", error?.Message ?? "sin error");
-                await Task.Delay(new Random().Next(0, 5) * 1000);
+                await Task.Delay(Random.Shared.Next(0, 5) * 1000);
                 if (!_isDisposed)
                     await StartAsync();
             };
@@ -124,7 +131,7 @@ namespace RadioLogger.Services
                     _log.Debug("SignalR intento de conexión #{Attempt} a {Url}", attempts, sanitizedUrl);
                     await _connection.StartAsync();
                     _log.Information("SignalR conectado a {Url}", sanitizedUrl);
-                    ConnectionStatusChanged?.Invoke("Monitoreo Web Conectado", true);
+                    ConnectionStatusChanged?.Invoke(IsPaired ? "Monitoreo Web Conectado" : "Conectado — Sin emparejar", true);
                     connected = true;
                 }
                 catch (Exception ex)
@@ -133,6 +140,37 @@ namespace RadioLogger.Services
                     ConnectionStatusChanged?.Invoke($"Esperando servidor ({attempts})...", false);
                     await Task.Delay(5000);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Exchanges a 6-digit pairing code for a permanent API key.
+        /// </summary>
+        public async Task<PairingResult> PairAsync(string code)
+        {
+            if (_connection == null || _connection.State != HubConnectionState.Connected)
+                return new PairingResult { Success = false, Error = "No conectado al servidor" };
+
+            try
+            {
+                var result = await _connection.InvokeAsync<PairingResult>(
+                    "Pair", code, Environment.MachineName, Environment.MachineName);
+
+                if (result.Success && !string.IsNullOrEmpty(result.ApiKey))
+                {
+                    _settings.SignalRApiKey = result.ApiKey;
+                    _log.Information("Emparejamiento exitoso. API Key recibida.");
+
+                    // Reconnect with the new key
+                    _ = RestartAsync();
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex, "Error durante emparejamiento");
+                return new PairingResult { Success = false, Error = ex.Message };
             }
         }
 

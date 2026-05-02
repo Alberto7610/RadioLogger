@@ -17,6 +17,7 @@ namespace RadioLogger.Web.Services
         private readonly ConcurrentDictionary<string, int> _activeIncidentIds = new();
         private readonly IServiceProvider _serviceProvider;
         private readonly TelegramService _telegram;
+        private readonly DashboardLogService _log;
 
         // Cache para evitar saturar la DB
         private List<RegisteredStation> _registeredCache = new();
@@ -29,10 +30,11 @@ namespace RadioLogger.Web.Services
         public event Action? OnUpdated;
         public bool IsDatabaseHealthy { get; set; } = true;
 
-        public MonitoringService(IServiceProvider serviceProvider, TelegramService telegram)
+        public MonitoringService(IServiceProvider serviceProvider, TelegramService telegram, DashboardLogService log)
         {
             _serviceProvider = serviceProvider;
             _telegram = telegram;
+            _log = log;
             _ = RefreshCache(); // Carga inicial
         }
 
@@ -52,7 +54,7 @@ namespace RadioLogger.Web.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[MONITORING] Error SendCommand: {ex.Message}");
+                _log.LogError("MonitoringService", $"Error SendCommand: {ex.Message}", ex);
             }
         }
 
@@ -69,7 +71,7 @@ namespace RadioLogger.Web.Services
             catch (Exception ex)
             {
                 IsDatabaseHealthy = false;
-                Console.WriteLine($"[MONITORING] Error RefreshCache: {ex.Message}");
+                _log.LogError("MonitoringService", $"Error RefreshCache: {ex.Message}", ex);
             }
         }
 
@@ -174,7 +176,7 @@ namespace RadioLogger.Web.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[MONITORING] Error SyncStationToDb: {ex.Message}");
+                _log.LogError("MonitoringService", $"Error SyncStationToDb: {ex.Message}", ex);
             }
         }
 
@@ -418,7 +420,7 @@ namespace RadioLogger.Web.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[MONITORING] Error SetStationActive: {ex.Message}");
+                _log.LogError("MonitoringService", $"Error SetStationActive: {ex.Message}", ex);
             }
         }
 
@@ -551,17 +553,16 @@ namespace RadioLogger.Web.Services
                 var db = scope.ServiceProvider.GetRequiredService<RadioDbContext>();
 
                 var cutoff = DateTime.UtcNow.AddDays(-15);
-                var old = await db.LogEntries.Where(e => e.Timestamp < cutoff).ToListAsync();
-                if (old.Count > 0)
-                {
-                    db.LogEntries.RemoveRange(old);
-                    await db.SaveChangesAsync();
-                    Console.WriteLine($"[MONITORING] Limpiados {old.Count} log entries > 15 días");
-                }
+                var deleted = await db.LogEntries
+                    .Where(e => e.Timestamp < cutoff)
+                    .ExecuteDeleteAsync();
+
+                if (deleted > 0)
+                    _log.LogInfo("MonitoringService", $"Limpiados {deleted} log entries > 15 días");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[MONITORING] Error cleanup logs: {ex.Message}");
+                _log.LogError("MonitoringService", $"Error cleanup logs: {ex.Message}", ex);
             }
         }
 
@@ -585,7 +586,7 @@ namespace RadioLogger.Web.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[MONITORING] Error RequestLogFile: {ex.Message}");
+                _log.LogError("MonitoringService", $"Error RequestLogFile: {ex.Message}", ex);
             }
         }
     }
