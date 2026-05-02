@@ -16,7 +16,6 @@ namespace RadioLogger.ViewModels
 
         private readonly ConfigManager _configManager = null!;
         private readonly AudioEngine _audioEngine = null!;
-        private readonly HeartbeatService _heartbeatService = null!;
         private readonly SignalRService _signalRService = null!;
         private readonly MachineInfoCollector _machineInfo = null!;
         private readonly LicenseService _licenseService = null!;
@@ -77,9 +76,6 @@ namespace RadioLogger.ViewModels
 
             _machineInfo = new MachineInfoCollector(_configManager.CurrentSettings);
             _ = _machineInfo.FetchPublicIpAsync();
-
-            _heartbeatService = new HeartbeatService(_configManager);
-            _heartbeatService.Start();
 
             _signalRService = new SignalRService(_configManager.CurrentSettings);
             SignalRLogSink.Instance.Activate(_signalRService);
@@ -255,30 +251,14 @@ namespace RadioLogger.ViewModels
                 bool previouslySilence = dev.IsSilenceDetected;
                 dev.RefreshLevels();
 
-                // Detectar cambios de silencio — siempre loguear, opcionalmente enviar Telegram
+                // Detectar cambios de silencio — loguear localmente, alertas Telegram centralizadas en Dashboard Web
                 if (dev.IsSilenceDetected && !previouslySilence)
                 {
                     _log.Warning("SILENCIO detectado en {Station}", dev.StationName);
-
-                    if (_configManager.CurrentSettings.EnableTelegram)
-                    {
-                        _ = TelegramService.SendAlertAsync(
-                            _configManager.CurrentSettings.TelegramToken,
-                            _configManager.CurrentSettings.TelegramChatId,
-                            $"🔴 <b>ALERTA DE SILENCIO</b>\nEstación: <b>{dev.StationName}</b>\nHora: {DateTime.Now:HH:mm:ss}\nEstado: No se detecta audio.");
-                    }
                 }
                 else if (!dev.IsSilenceDetected && previouslySilence)
                 {
                     _log.Information("Audio RESTABLECIDO en {Station} (duración silencio: {Duration})", dev.StationName, dev.SilenceDuration);
-
-                    if (_configManager.CurrentSettings.EnableTelegram)
-                    {
-                        _ = TelegramService.SendAlertAsync(
-                            _configManager.CurrentSettings.TelegramToken,
-                            _configManager.CurrentSettings.TelegramChatId,
-                            $"🟢 <b>AUDIO RESTABLECIDO</b>\nEstación: <b>{dev.StationName}</b>\nHora: {DateTime.Now:HH:mm:ss}\nDuración del silencio: {dev.SilenceDuration}");
-                    }
                 }
             }
         }
@@ -357,10 +337,18 @@ namespace RadioLogger.ViewModels
             dialog.Owner = System.Windows.Application.Current.MainWindow;
             if (dialog.ShowDialog() != true || !dialog.IsAuthenticated) return;
 
+            // Auto-migrate legacy SHA256 hash to BCrypt
+            if (dialog.MigratedHash != null)
+            {
+                _configManager.CurrentSettings.SettingsPasswordHash = dialog.MigratedHash;
+                _configManager.Save();
+                _log.Information("Password de configuración migrado de SHA256 a BCrypt");
+            }
+
             var oldSignalRUrl = _configManager.CurrentSettings.SignalRHubUrl;
             var oldSignalREnabled = _configManager.CurrentSettings.IsSignalREnabled;
 
-            var vm = new SettingsViewModel(_configManager, _audioEngine, _licenseService);
+            var vm = new SettingsViewModel(_configManager, _audioEngine, _licenseService, _signalRService);
             var win = new RadioLogger.Views.SettingsWindow { DataContext = vm };
             if (win.ShowDialog() == true)
             {
@@ -568,8 +556,6 @@ namespace RadioLogger.ViewModels
             _uiTimer?.Dispose();
             _internetCheckTimer?.Stop();
             _internetCheckTimer?.Dispose();
-            _heartbeatService?.Stop();
-            _heartbeatService?.Dispose();
             _signalRService?.Dispose();
         }
 

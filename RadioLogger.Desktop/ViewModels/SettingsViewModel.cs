@@ -37,15 +37,6 @@ namespace RadioLogger.ViewModels
         [ObservableProperty]
         private int _endHour;
 
-        [ObservableProperty]
-        private bool _enableTelegram;
-
-        [ObservableProperty]
-        private string _telegramToken = string.Empty;
-
-        [ObservableProperty]
-        private string _telegramChatId = string.Empty;
-
         // Wrapper for selection in UI
         public class DeviceSelection : ObservableObject
         {
@@ -96,6 +87,14 @@ namespace RadioLogger.ViewModels
         // SignalR
         [ObservableProperty] private bool _isSignalREnabled;
         [ObservableProperty] private string _signalRHubUrl = string.Empty;
+
+        // Pairing
+        [ObservableProperty] private string _pairingCode = "";
+        [ObservableProperty] private string _pairingStatusText = "";
+        [ObservableProperty] private string _pairingStatusColor = "#666";
+        [ObservableProperty] private string _pairingResultText = "";
+        [ObservableProperty] private string _pairingResultColor = "#666";
+        private SignalRService? _signalRService;
 
         [ObservableProperty] private bool _isAutoStartEnabled;
 
@@ -520,15 +519,29 @@ namespace RadioLogger.ViewModels
                 return;
             }
 
-            string currentHash = RadioLogger.Views.PasswordDialog.ComputeHash(CurrentPassword);
-            if (currentHash != _configManager.CurrentSettings.SettingsPasswordHash)
+            // Verify current password (supports both BCrypt and legacy SHA256)
+            var storedHash = _configManager.CurrentSettings.SettingsPasswordHash;
+            bool currentValid;
+            if (storedHash.Length == 64 && !storedHash.StartsWith("$2"))
+            {
+                // Legacy SHA256
+                var sha256Bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(CurrentPassword));
+                currentValid = Convert.ToHexStringLower(sha256Bytes) == storedHash;
+            }
+            else
+            {
+                currentValid = RadioLogger.Views.PasswordDialog.VerifyPassword(CurrentPassword, storedHash);
+            }
+
+            if (!currentValid)
             {
                 PasswordStatus = "Contraseña actual incorrecta";
                 PasswordStatusColor = "#FF4444";
                 return;
             }
 
-            _configManager.CurrentSettings.SettingsPasswordHash = RadioLogger.Views.PasswordDialog.ComputeHash(NewPassword);
+            // Always hash new password with BCrypt
+            _configManager.CurrentSettings.SettingsPasswordHash = RadioLogger.Views.PasswordDialog.HashPassword(NewPassword);
             PasswordStatus = "Contraseña actualizada correctamente";
             PasswordStatusColor = "#00CC66";
             CurrentPassword = "";
@@ -642,11 +655,50 @@ namespace RadioLogger.ViewModels
             }
         }
 
-        public SettingsViewModel(ConfigManager configManager, AudioEngine audioEngine, LicenseService? licenseService = null)
+        [RelayCommand]
+        public async System.Threading.Tasks.Task Pair()
+        {
+            if (string.IsNullOrWhiteSpace(PairingCode) || PairingCode.Length != 6)
+            {
+                PairingResultText = "Ingresa un código de 6 dígitos";
+                PairingResultColor = "#FF4444";
+                return;
+            }
+
+            if (_signalRService == null || !_signalRService.IsConnected)
+            {
+                PairingResultText = "No hay conexión con el servidor. Verifica la URL.";
+                PairingResultColor = "#FF4444";
+                return;
+            }
+
+            PairingResultText = "Validando código...";
+            PairingResultColor = "#AAA";
+
+            var result = await _signalRService.PairAsync(PairingCode);
+
+            if (result.Success)
+            {
+                PairingResultText = "Emparejamiento exitoso";
+                PairingResultColor = "#00CC66";
+                PairingStatusText = "EMPAREJADO";
+                PairingStatusColor = "#00CC66";
+                PairingCode = "";
+                _configManager.Save();
+            }
+            else
+            {
+                PairingResultText = result.Error ?? "Error desconocido";
+                PairingResultColor = "#FF4444";
+            }
+        }
+
+        public SettingsViewModel(ConfigManager configManager, AudioEngine audioEngine, LicenseService? licenseService = null, SignalRService? signalRService = null)
         {
             _configManager = configManager;
             _audioEngine = audioEngine;
             _licenseService = licenseService ?? new LicenseService(configManager);
+            _signalRService = signalRService;
 
             // Load current values
             StationName = _configManager.CurrentSettings.StationName;
@@ -656,13 +708,21 @@ namespace RadioLogger.ViewModels
             StartHour = _configManager.CurrentSettings.StartHour;
             EndHour = _configManager.CurrentSettings.EndHour;
 
-            EnableTelegram = _configManager.CurrentSettings.EnableTelegram;
-            TelegramToken = _configManager.CurrentSettings.TelegramToken;
-            TelegramChatId = _configManager.CurrentSettings.TelegramChatId;
-
             IsSignalREnabled = _configManager.CurrentSettings.IsSignalREnabled;
             SignalRHubUrl = _configManager.CurrentSettings.SignalRHubUrl;
-            IsAutoStartEnabled = _configManager.CurrentSettings.IsAutoStartEnabled;
+            IsAutoStartEnabled = AutoStartService.IsAutoStartEnabled();
+
+            // Pairing status
+            if (!string.IsNullOrEmpty(_configManager.CurrentSettings.SignalRApiKey))
+            {
+                PairingStatusText = "EMPAREJADO";
+                PairingStatusColor = "#00CC66";
+            }
+            else
+            {
+                PairingStatusText = "NO EMPAREJADO — Ingresa un código del Dashboard";
+                PairingStatusColor = "#FFAA00";
+            }
             IsAutoLoginEnabled = AutoStartService.IsAutoLoginEnabled();
             if (!string.IsNullOrEmpty(_configManager.CurrentSettings.AutoLoginUsername))
                 AutoLoginUsername = _configManager.CurrentSettings.AutoLoginUsername;
@@ -749,10 +809,6 @@ namespace RadioLogger.ViewModels
             _configManager.CurrentSettings.SegmentDurationMinutes = SegmentDuration;
             _configManager.CurrentSettings.StartHour = StartHour;
             _configManager.CurrentSettings.EndHour = EndHour;
-
-            _configManager.CurrentSettings.EnableTelegram = EnableTelegram;
-            _configManager.CurrentSettings.TelegramToken = TelegramToken;
-            _configManager.CurrentSettings.TelegramChatId = TelegramChatId;
 
             _configManager.CurrentSettings.IsSignalREnabled = IsSignalREnabled;
             _configManager.CurrentSettings.SignalRHubUrl = SignalRHubUrl;

@@ -14,9 +14,6 @@ namespace RadioLogger.Models
         public int StartHour { get; set; } = 0; // 0 = Medianoche
         public int EndHour { get; set; } = 24; // 24 = Todo el día
         
-        public string HeartbeatUrl { get; set; } = "https://api.tuservidor.com/heartbeat";
-        public int HeartbeatIntervalSeconds { get; set; } = 60;
-        
         // List of Device Names that are ENABLED to appear in the dashboard
         // If empty, show all available inputs.
         public List<string> ActiveInputDevices { get; set; } = new List<string>();
@@ -31,11 +28,7 @@ namespace RadioLogger.Models
         public bool IsSignalREnabled { get; set; } = true;
         public string SignalRHubUrl { get; set; } = "http://127.0.0.1:5046/radiohub";
         public int SignalRUpdateIntervalMs { get; set; } = 200; // 5 FPS for remote meters
-
-        // Telegram Notifications
-        public bool EnableTelegram { get; set; } = false;
-        public string TelegramToken { get; set; } = string.Empty;
-        public string TelegramChatId { get; set; } = string.Empty;
+        public string SignalRApiKey { get; set; } = string.Empty; // Assigned via pairing code
 
         public bool IsAutoStartEnabled { get; set; } = false;
 
@@ -50,7 +43,8 @@ namespace RadioLogger.Models
         public List<string> AutoRecordDevices { get; set; } = new List<string>();
         public List<string> AutoStreamDevices { get; set; } = new List<string>();
 
-        // Security: SHA256 hash of settings password (default: hash of "admin")
+        // Security: BCrypt hash of settings password (default: "admin")
+        // Legacy SHA256 hashes (64 hex chars) are auto-migrated to BCrypt on first login
         public string SettingsPasswordHash { get; set; } = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
 
         // License (stored locally for offline validation)
