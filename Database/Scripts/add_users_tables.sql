@@ -7,6 +7,7 @@ BEGIN
         Username NVARCHAR(100) NOT NULL,
         PasswordHash NVARCHAR(MAX) NOT NULL,
         DisplayName NVARCHAR(MAX) NOT NULL DEFAULT '',
+        Email NVARCHAR(255) NOT NULL,
         [Role] NVARCHAR(20) NOT NULL DEFAULT 'Operador',
         IsActive BIT NOT NULL DEFAULT 1,
         TelegramChatId NVARCHAR(100) NULL,
@@ -14,11 +15,7 @@ BEGIN
         LastLogin DATETIME2 NULL
     );
     CREATE UNIQUE INDEX IX_AppUsers_Username ON AppUsers (Username);
-
-    -- Admin seed: admin / Admin123!
-    -- Hash SHA256 de "Admin123!" = 48e7a03e4ef52df853e4e1e87a58c69d1a41a03dcb18590355e36aef4cc5b91c
-    INSERT INTO AppUsers (Username, PasswordHash, DisplayName, [Role], IsActive)
-    VALUES ('admin', '48e7a03e4ef52df853e4e1e87a58c69d1a41a03dcb18590355e36aef4cc5b91c', 'Administrador', 'Administrador', 1);
+    CREATE INDEX IX_AppUsers_Email ON AppUsers (Email);
 END
 GO
 

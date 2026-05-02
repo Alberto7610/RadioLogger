@@ -1,7 +1,7 @@
 ## Visual Studio & C#
 .vs/
 [Bb]in/
-[Ob]j/
+[Oo]bj/
 *.user
 *.suo
 *.userosscache
@@ -23,6 +23,13 @@ bass_enc.dll
 [Rr]elease/
 x64/
 x86/
+publish/
+BACKUPS/
+
+## Backups
+*.bak
+*.bak[0-9]*
+*.pre_pro.bak
 
 ## Other Tools
 .idea/
