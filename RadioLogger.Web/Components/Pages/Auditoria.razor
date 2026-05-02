@@ -9,15 +9,49 @@
 <div class="lic-page">
     <div class="lic-header">
         <h2>AUDITORÍA DEL SISTEMA</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
-            <select @bind="_filterUser" @bind:after="LoadAudit" style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 10px;border-radius:4px;font-family:var(--mono);font-size:11px;">
-                <option value="">Todos los usuarios</option>
+        <button class="btn-create" @onclick="LoadAudit">↻ ACTUALIZAR</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_filterUser))
+    {
+        <div class="audit-breadcrumb">
+            <span class="bc-label">Mostrando actividad de:</span>
+            <span class="bc-value">@_filterUser</span>
+            <button class="bc-clear" @onclick="ClearUserFilter" title="Limpiar filtro">✕</button>
+        </div>
+    }
+
+    <div class="filter-bar audit-filters">
+        <div class="filter-group">
+            <label>USUARIO</label>
+            <select @bind="_filterUser" @bind:after="LoadAudit">
+                <option value="">Todos</option>
                 @foreach (var u in _usernames)
                 {
                     <option value="@u">@u</option>
                 }
             </select>
-            <button class="btn-create" @onclick="LoadAudit">ACTUALIZAR</button>
+        </div>
+        <div class="filter-group">
+            <label>ACCIÓN</label>
+            <select @bind="_filterAction" @bind:after="LoadAudit">
+                <option value="">Todas</option>
+                @foreach (var a in _actions)
+                {
+                    <option value="@a">@a</option>
+                }
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>DESDE</label>
+            <input type="date" @bind="_dateFrom" @bind:after="LoadAudit" />
+        </div>
+        <div class="filter-group">
+            <label>HASTA</label>
+            <input type="date" @bind="_dateTo" @bind:after="LoadAudit" />
+        </div>
+        <div class="filter-group filter-group-actions">
+            <button class="filter-btn-clear" @onclick="ClearAllFilters" title="Limpiar todos los filtros">LIMPIAR</button>
         </div>
     </div>
 
@@ -25,8 +59,13 @@
     {
         <div class="lic-loading">Cargando...</div>
     }
+    else if (_entries.Count == 0)
+    {
+        <div class="lic-loading">Sin resultados con los filtros actuales.</div>
+    }
     else
     {
+        <div class="audit-meta">@_entries.Count registro(s) — mostrando los más recientes primero</div>
         <table class="user-table">
             <thead>
                 <tr>
@@ -34,6 +73,7 @@
                     <th>USUARIO</th>
                     <th>ACCIÓN</th>
                     <th>DETALLE</th>
+                    <th>IP</th>
                 </tr>
             </thead>
             <tbody>
@@ -44,6 +84,7 @@
                         <td class="mono">@entry.Username</td>
                         <td><span class="audit-action @GetActionClass(entry.Action)">@entry.Action</span></td>
                         <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;">@entry.Detail</td>
+                        <td class="mono" style="white-space:nowrap;">@(string.IsNullOrEmpty(entry.IpAddress) ? "—" : entry.IpAddress)</td>
                     </tr>
                 }
             </tbody>
@@ -52,26 +93,97 @@
 </div>
 
 <style>
-    .audit-action {
-        font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 3px; letter-spacing: 0.5px;
+    /* Page layout (mismo estilo que Usuarios/Licencias) */
+    .lic-page { padding: 20px; overflow-y: auto; height: 100%; }
+    .lic-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .lic-header h2 { color: var(--green); font-size: 16px; margin: 0; letter-spacing: 2px; }
+    .lic-loading { color: var(--text3); padding: 30px; text-align: center; font-size: 12px; }
+
+    .btn-create {
+        background: var(--green); color: var(--bg); border: none; padding: 8px 16px;
+        border-radius: 4px; font-weight: 700; font-size: 11px; cursor: pointer; font-family: var(--mono);
+        letter-spacing: 0.5px;
     }
+    .btn-create:hover { opacity: 0.8; }
+
+    /* Breadcrumb (drill-down desde Usuarios) */
+    .audit-breadcrumb {
+        display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+        padding: 10px 14px; background: rgba(77,158,255,0.08); border: 1px solid rgba(77,158,255,0.25);
+        border-radius: 6px; font-size: 12px;
+    }
+    .bc-label { color: var(--text3); }
+    .bc-value { color: var(--blue); font-weight: 700; font-family: var(--mono); }
+    .bc-clear {
+        margin-left: auto; background: transparent; border: 1px solid var(--border);
+        color: var(--text3); padding: 3px 10px; border-radius: 4px; cursor: pointer;
+        font-size: 11px; font-family: var(--mono);
+    }
+    .bc-clear:hover { color: var(--red); border-color: var(--red); }
+
+    /* Filtros */
+    .filter-bar { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 16px;
+        padding: 12px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; flex-wrap: wrap; }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-group label { color: var(--text3); font-size: 9px; font-weight: 700; letter-spacing: 1px; }
+    .filter-group select, .filter-group input[type="date"] {
+        background: var(--bg); color: var(--text); border: 1px solid var(--border);
+        padding: 6px 10px; border-radius: 4px; font-family: var(--mono); font-size: 11px;
+        min-width: 140px;
+    }
+    .filter-group select:focus, .filter-group input[type="date"]:focus { border-color: var(--green); outline: none; }
+    /* Reemplaza el ícono nativo del calendario por un SVG claro custom */
+    .filter-group input[type="date"]::-webkit-calendar-picker-indicator {
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23dce4f0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='2' ry='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 14px 14px;
+        cursor: pointer;
+        opacity: 0.7;
+        filter: none;
+    }
+    .filter-group input[type="date"]::-webkit-calendar-picker-indicator:hover {
+        opacity: 1;
+    }
+    .filter-group-actions { justify-content: flex-end; }
+    .filter-btn-clear {
+        background: transparent; color: var(--text3); border: 1px solid var(--border);
+        padding: 6px 14px; border-radius: 4px; font-size: 10px; font-weight: 700;
+        font-family: var(--mono); cursor: pointer; letter-spacing: 0.5px;
+    }
+    .filter-btn-clear:hover { color: var(--red); border-color: var(--red); }
+
+    .audit-meta { color: var(--text3); font-size: 11px; margin-bottom: 8px; padding: 0 4px; }
+
+    /* Badges de acción */
+    .audit-action { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.5px; }
     .audit-action.act-login { color: var(--green); background: rgba(16,217,138,0.15); }
     .audit-action.act-fail { color: var(--red); background: rgba(255,71,87,0.15); }
     .audit-action.act-change { color: var(--amber); background: rgba(255,179,71,0.15); }
     .audit-action.act-default { color: var(--blue); background: rgba(77,158,255,0.15); }
+    .audit-action.act-remote { color: #00e5ff; background: rgba(0,229,255,0.12); }
 
-    /* Reuse table styles */
-    .user-table { width:100%; border-collapse:collapse; font-size:12px; }
-    .user-table th { text-align:left; padding:10px 12px; color:var(--text3); font-size:10px; font-weight:700; letter-spacing:1px; border-bottom:1px solid var(--border); }
-    .user-table td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text); }
-    .user-table tr:hover { background:var(--bg2); }
-    .user-table .mono { font-family:var(--mono); font-size:11px; }
+    /* Tabla */
+    .user-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .user-table th { text-align: left; padding: 10px 12px; color: var(--text3);
+        font-size: 10px; font-weight: 700; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+    .user-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .user-table tr:hover { background: var(--bg2); }
+    .user-table .mono { font-family: var(--mono); font-size: 11px; }
 </style>
 
 @code {
+    [SupplyParameterFromQuery(Name = "usuario")]
+    public string? UsuarioParam { get; set; }
+
     private List<AuditEntry>? _entries;
     private List<string> _usernames = new();
+    private List<string> _actions = new();
+
     private string _filterUser = "";
+    private string _filterAction = "";
+    private DateTime? _dateFrom;
+    private DateTime? _dateTo;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -81,8 +193,15 @@
             var role = authState.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             if (role != "Administrador") { Nav.NavigateTo("/", true); return; }
 
+            // Pre-aplicar filtro si vino por query string (drill-down desde Usuarios)
+            if (!string.IsNullOrEmpty(UsuarioParam))
+                _filterUser = UsuarioParam;
+
             var users = await Auth.GetAllUsersAsync();
-            _usernames = users.Select(u => u.Username).ToList();
+            _usernames = users.Select(u => u.Username).OrderBy(u => u).ToList();
+
+            _actions = await Auth.GetDistinctAuditActionsAsync();
+
             await LoadAudit();
             StateHasChanged();
         }
@@ -90,14 +209,41 @@
 
     private async Task LoadAudit()
     {
-        _entries = await Auth.GetAuditLogAsync(200, string.IsNullOrEmpty(_filterUser) ? null : _filterUser);
+        // Convertir fechas a UTC con rango completo del día
+        DateTime? fromUtc = _dateFrom?.Date.ToUniversalTime();
+        DateTime? toUtc = _dateTo?.Date.AddDays(1).AddSeconds(-1).ToUniversalTime();
+
+        _entries = await Auth.GetAuditLogAsync(
+            count: 500,
+            username: string.IsNullOrEmpty(_filterUser) ? null : _filterUser,
+            action: string.IsNullOrEmpty(_filterAction) ? null : _filterAction,
+            fromUtc: fromUtc,
+            toUtc: toUtc);
+    }
+
+    private async Task ClearUserFilter()
+    {
+        _filterUser = "";
+        Nav.NavigateTo("/auditoria", false);
+        await LoadAudit();
+    }
+
+    private async Task ClearAllFilters()
+    {
+        _filterUser = "";
+        _filterAction = "";
+        _dateFrom = null;
+        _dateTo = null;
+        Nav.NavigateTo("/auditoria", false);
+        await LoadAudit();
     }
 
     private static string GetActionClass(string action) => action switch
     {
-        "LOGIN" => "act-login",
+        "LOGIN" or "LOGOUT" => "act-login",
         "LOGIN_FAILED" or "PASSWORD_RESET" => "act-fail",
-        var a when a.Contains("CREATE") || a.Contains("UPDATE") || a.Contains("CHANGE") => "act-change",
+        var a when a.Contains("CREATE") || a.Contains("UPDATE") || a.Contains("CHANGE") || a.Contains("TOGGLE") => "act-change",
+        var a when a.Contains("REMOTE") || a.Contains("STATION") => "act-remote",
         _ => "act-default"
     };
 }

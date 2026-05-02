@@ -1,10 +1,95 @@
 @page "/configuracion"
 @using RadioLogger.Shared.Models
 @using RadioLogger.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
 @inject MonitoringService Monitoring
+@inject PairingService Pairing
+@inject AuthService Auth
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
 <div class="content">
+    @* ─── EMPAREJAMIENTO DE EQUIPOS ─── *@
+    <div class="panel" style="margin-bottom: 20px;">
+        <div class="panel-hdr">
+            <div class="panel-title">EMPAREJAMIENTO DE EQUIPOS</div>
+            <span style="color: var(--text3); font-size: 0.85em;">Autenticación SignalR</span>
+        </div>
+        <div style="padding: 20px;">
+            <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+                @* Generar código *@
+                <div style="flex: 0 0 280px;">
+                    <div style="color: var(--text2); font-size: 0.85em; margin-bottom: 10px;">
+                        Genera un código de 6 dígitos para emparejar un equipo WPF. El código expira en 5 minutos.
+                    </div>
+                    <button class="btn-a ok" style="padding: 10px 20px; font-size: 0.9em;" @onclick="GeneratePairingCode">
+                        GENERAR CÓDIGO
+                    </button>
+
+                    @if (!string.IsNullOrEmpty(_pairingCode))
+                    {
+                        <div class="pair-code-box">
+                            <div style="color: var(--text3); font-size: 0.75em; margin-bottom: 5px;">CÓDIGO DE EMPAREJAMIENTO</div>
+                            <div class="pair-code">@_pairingCode</div>
+                            <div style="color: var(--text3); font-size: 0.75em; margin-top: 5px;">
+                                Expira en @_pairingExpiresIn
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @* Lista de equipos emparejados *@
+                <div style="flex: 1; min-width: 300px;">
+                    <div style="color: var(--cyan); font-size: 0.8em; font-weight: bold; margin-bottom: 8px;">EQUIPOS EMPAREJADOS</div>
+                    @if (!_apiKeys.Any())
+                    {
+                        <div style="color: var(--text3); font-size: 0.85em; padding: 10px 0;">Ningún equipo emparejado aún.</div>
+                    }
+                    else
+                    {
+                        <table class="cfg-tbl" style="font-size: 0.85em;">
+                            <thead>
+                                <tr>
+                                    <th>Equipo</th>
+                                    <th>Nombre</th>
+                                    <th>Fecha</th>
+                                    <th>Estado</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var key in _apiKeys)
+                                {
+                                    <tr>
+                                        <td style="font-weight: bold;">@key.MachineId</td>
+                                        <td class="sub-text">@key.MachineName</td>
+                                        <td class="sub-text">@key.CreatedAt.ToLocalTime().ToString("dd/MM/yy HH:mm")</td>
+                                        <td>
+                                            @if (key.IsActive)
+                                            {
+                                                <span class="badge ok">ACTIVO</span>
+                                            }
+                                            else
+                                            {
+                                                <span style="color: #666; font-size: 0.8em;">REVOCADO</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (key.IsActive)
+                                            {
+                                                <button class="btn-a del" style="font-size: 0.7em;" @onclick="() => RevokeKey(key.Id)">REVOCAR</button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="panel">
         <div class="panel-hdr">
             <div class="panel-title">GESTIÓN DE ESTACIONES</div>
@@ -301,6 +386,10 @@
 
     .cfg-input { background: #111; border: 1px solid #333; color: white; padding: 7px 10px; border-radius: 4px; width: 100%; }
     .cfg-input:focus { border-color: var(--cyan); outline: none; }
+
+    /* Pairing */
+    .pair-code-box { margin-top: 15px; background: #0a1a10; border: 1px solid #00aa44; border-radius: 8px; padding: 15px; text-align: center; }
+    .pair-code { font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 2.5em; font-weight: bold; color: #00ff66; letter-spacing: 8px; text-shadow: 0 0 15px rgba(0,255,100,0.4); }
 </style>
 
 @code {
@@ -313,10 +402,26 @@
     private string _resetNewPassword = "";
     private string _resetStatus = "";
 
-    protected override void OnInitialized()
+    // Pairing
+    private string _pairingCode = "";
+    private string _pairingExpiresIn = "";
+    private List<ApiKey> _apiKeys = new();
+    private System.Threading.Timer? _pairingTimer;
+
+    private string _userName = "";
+
+    protected override async Task OnInitializedAsync()
     {
         _stations = Monitoring.GetRegisteredStations();
         Monitoring.OnUpdated += OnMonitoringUpdated;
+        _apiKeys = await Pairing.GetAllKeysAsync();
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _userName = authState.User.Identity?.Name ?? "";
+        }
+        catch { }
     }
 
     private void OnMonitoringUpdated()
@@ -338,6 +443,11 @@
     {
         await Monitoring.AuthorizeStation(id, auth);
         _stations = Monitoring.GetRegisteredStations();
+
+        var st = _stations.FirstOrDefault(s => s.Id == id);
+        var label = st?.StationName ?? st?.HardwareName ?? "(desconocida)";
+        await Auth.LogActionAsync(_userName, "STATION_AUTH_CHANGE",
+            $"ID={id} \"{label}\" -> {(auth ? "autorizada" : "desautorizada")}");
     }
 
     private void OpenEdit(RegisteredStation station)
@@ -375,6 +485,10 @@
     {
         if (_editStation == null) return;
         await Monitoring.UpdateStationDetails(_editStation);
+
+        await Auth.LogActionAsync(_userName, "STATION_UPDATE",
+            $"ID={_editStation.Id} \"{_editStation.StationName}\" (Machine: {_editStation.MachineId})");
+
         _editStatus = "Guardado";
         _stations = Monitoring.GetRegisteredStations();
         StateHasChanged();
@@ -391,6 +505,9 @@
     {
         await Monitoring.DeleteStation(station.Id);
         _stations = Monitoring.GetRegisteredStations();
+
+        await Auth.LogActionAsync(_userName, "STATION_DELETE",
+            $"ID={station.Id} \"{station.StationName}\" (Machine: {station.MachineId})");
     }
 
     // ─── RESET PASSWORD ───
@@ -407,10 +524,13 @@
     {
         if (_resetTarget == null || string.IsNullOrWhiteSpace(_resetNewPassword)) return;
 
-        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(_resetNewPassword));
-        string hash = Convert.ToHexStringLower(bytes);
+        string hash = BCrypt.Net.BCrypt.HashPassword(_resetNewPassword, workFactor: 12);
 
         await Monitoring.ResetStationPassword(_resetTarget.MachineId, hash);
+
+        await Auth.LogActionAsync(_userName, "STATION_PWD_RESET",
+            $"Machine: {_resetTarget.MachineId}");
+
         _resetStatus = "Comando enviado al equipo.";
         _resetNewPassword = "";
         StateHasChanged();
@@ -423,8 +543,50 @@
         });
     }
 
+    // ─── PAIRING ───
+
+    private async Task GeneratePairingCode()
+    {
+        _pairingCode = Pairing.GeneratePairingCode();
+        _pairingExpiresIn = "5:00";
+
+        await Auth.LogActionAsync(_userName, "PAIRING_CODE_GEN",
+            "Se generó un código de emparejamiento (5 min de validez)");
+
+        // Countdown timer
+        _pairingTimer?.Dispose();
+        var expiresAt = DateTime.UtcNow.AddMinutes(5);
+        _pairingTimer = new System.Threading.Timer(async _ =>
+        {
+            var remaining = expiresAt - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero)
+            {
+                _pairingCode = "";
+                _pairingTimer?.Dispose();
+            }
+            else
+            {
+                _pairingExpiresIn = $"{(int)remaining.TotalMinutes}:{remaining.Seconds:D2}";
+            }
+            await InvokeAsync(StateHasChanged);
+        }, null, 0, 1000);
+    }
+
+    private async Task RevokeKey(int keyId)
+    {
+        var key = _apiKeys.FirstOrDefault(k => k.Id == keyId);
+        var machineId = key?.MachineId ?? "(desconocido)";
+
+        await Pairing.RevokeKeyAsync(keyId);
+        _apiKeys = await Pairing.GetAllKeysAsync();
+
+        await Auth.LogActionAsync(_userName, "API_KEY_REVOKED",
+            $"API Key revocada para Machine: {machineId}");
+    }
+
     public void Dispose()
     {
+        _pairingTimer?.Dispose();
         Monitoring.OnUpdated -= OnMonitoringUpdated;
     }
 }

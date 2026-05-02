@@ -4,13 +4,14 @@
 @inject AuthService Auth
 @inject CustomAuthStateProvider AuthState
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @layout EmptyLayout
 
 <div class="login-page">
     <div class="login-card">
         <div class="login-logo">
             <div class="login-bars"><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="login-title">RADIO<span>LOGGER</span></div>
+            <div class="login-title">CLOUD<span>RADIOLOGGER</span></div>
             <div class="login-sub">ENTERPRISE V2.0</div>
         </div>
 
@@ -19,23 +20,39 @@
             <div class="login-form">
                 <div class="login-field">
                     <label>USUARIO</label>
-                    <input type="text" @bind="_username" @onkeydown="OnKeyDown" autofocus placeholder="admin" />
+                    <input type="text" @bind="_username" @onkeydown="OnKeyDown" placeholder="admin" disabled="@_isLoading" />
                 </div>
                 <div class="login-field">
                     <label>CONTRASEÑA</label>
-                    <input type="password" @bind="_password" @onkeydown="OnKeyDown" placeholder="••••••" />
+                    <input type="password" @bind="_password" @onkeydown="OnKeyDown" placeholder="••••••" disabled="@_isLoading" />
                 </div>
 
                 @if (!string.IsNullOrEmpty(_error))
                 {
-                    <div class="login-error">@_error</div>
+                    <div class="login-error">
+                        @_error
+                        @if (IsLockoutError)
+                        {
+                            <div class="login-error-action" @onclick="() => _showRecovery = true">
+                                → Restablecer contraseña ahora
+                            </div>
+                        }
+                    </div>
                 }
 
                 <button class="login-btn" @onclick="DoLogin" disabled="@_isLoading">
-                    @(_isLoading ? "VERIFICANDO..." : "INICIAR SESIÓN")
+                    @if (_isLoading)
+                    {
+                        <span class="login-spinner"></span>
+                        <span>INICIANDO SESIÓN...</span>
+                    }
+                    else
+                    {
+                        <span>INICIAR SESIÓN</span>
+                    }
                 </button>
 
-                <div class="login-forgot" @onclick="() => _showRecovery = true">¿Olvidaste tu contraseña?</div>
+                <div class="login-forgot" @onclick="() => _showRecovery = true">¿Olvidaste tu contraseña? Restablécela aquí</div>
             </div>
         }
         else
@@ -45,9 +62,65 @@
                 {
                     <div class="login-field">
                         <label>USUARIO</label>
-                        <input type="text" @bind="_recUsername" placeholder="Tu nombre de usuario" />
+                        <input type="text" @bind="_recUsername" placeholder="Tu nombre de usuario" disabled="@_recLoading" />
                     </div>
-                    <button class="login-btn" @onclick="SendRecoveryCode">ENVIAR CÓDIGO POR TELEGRAM</button>
+
+                    <div class="login-field">
+                        <label>MÉTODO DE RECUPERACIÓN</label>
+                        <div class="rec-methods">
+                            <label class="rec-method @(_recMethod == "email" ? "active" : "")">
+                                <input type="radio" name="recmethod" value="email" checked="@(_recMethod == "email")" @onchange='() => _recMethod = "email"' />
+                                <span class="rec-icon">✉</span>
+                                <span class="rec-label">Email</span>
+                            </label>
+                            <label class="rec-method @(_recMethod == "telegram" ? "active" : "")">
+                                <input type="radio" name="recmethod" value="telegram" checked="@(_recMethod == "telegram")" @onchange='() => _recMethod = "telegram"' />
+                                <span class="rec-icon">✈</span>
+                                <span class="rec-label">Telegram</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="login-btn" @onclick="SendRecoveryCode" disabled="@_recLoading">
+                        @if (_recLoading)
+                        {
+                            <span class="login-spinner"></span>
+                            <span>ENVIANDO...</span>
+                        }
+                        else
+                        {
+                            <span>ENVIAR CÓDIGO</span>
+                        }
+                    </button>
+
+                    <div class="rec-help-toggle" @onclick="() => _showHelp = !_showHelp">
+                        @(_showHelp ? "▼" : "▶") Ver pasos requeridos
+                    </div>
+                    @if (_showHelp)
+                    {
+                        <div class="rec-help">
+                            @if (_recMethod == "email")
+                            {
+                                <strong>Recuperación por Email:</strong>
+                                <ol>
+                                    <li>Introduce tu nombre de usuario.</li>
+                                    <li>Tu administrador debió haber registrado tu email en el sistema. Si no lo tienes, contáctalo.</li>
+                                    <li>Recibirás un código de 6 dígitos en tu bandeja de entrada (revisa también la carpeta de spam).</li>
+                                    <li>El código es válido por <strong>10 minutos</strong>.</li>
+                                </ol>
+                            }
+                            else
+                            {
+                                <strong>Recuperación por Telegram:</strong>
+                                <ol>
+                                    <li>Debes tener una cuenta de Telegram instalada en tu teléfono o PC.</li>
+                                    <li>Tu Chat ID de Telegram debe estar registrado por el administrador. Para obtener tu Chat ID, busca el bot <strong>@@userinfobot</strong> en Telegram y envíale <code>/start</code>.</li>
+                                    <li>Inicia conversación con el bot de CloudRadioLogger (envía <code>/start</code>) para que pueda escribirte.</li>
+                                    <li>Recibirás el código en tu chat privado con el bot.</li>
+                                </ol>
+                            }
+                        </div>
+                    }
                 }
                 else
                 {
@@ -110,21 +183,61 @@
         background: #10d98a; color: #060810; border: none; border-radius: 6px;
         padding: 12px; font-size: 12px; font-weight: 700; letter-spacing: 2px;
         cursor: pointer; font-family: inherit; margin-top: 8px;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
     }
     .login-btn:hover { opacity: 0.85; }
-    .login-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+    .login-spinner {
+        width: 14px; height: 14px; border-radius: 50%;
+        border: 2px solid rgba(6,8,16,0.25); border-top-color: #060810;
+        animation: login-spin 0.7s linear infinite;
+    }
+    @@keyframes login-spin { to { transform: rotate(360deg); } }
     .login-error {
-        color: #ff4757; font-size: 11px; text-align: center; padding: 8px;
+        color: #ff4757; font-size: 11px; text-align: center; padding: 10px;
         background: rgba(255,71,87,0.1); border-radius: 4px;
+        border: 1px solid rgba(255,71,87,0.25);
     }
+    .login-error-action {
+        margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,71,87,0.2);
+        color: #ffb340; font-weight: 700; cursor: pointer; letter-spacing: 0.5px;
+    }
+    .login-error-action:hover { color: #ffd070; text-decoration: underline; }
     .login-forgot {
-        color: #45536a; font-size: 10px; text-align: center; cursor: pointer;
-        margin-top: 4px;
+        color: #6b7a94; font-size: 11px; text-align: center; cursor: pointer;
+        margin-top: 4px; text-decoration: underline; text-decoration-color: #2a3447;
+        text-underline-offset: 3px;
     }
-    .login-forgot:hover { color: #4d9eff; }
+    .login-forgot:hover { color: #4d9eff; text-decoration-color: #4d9eff; }
     .login-status { font-size: 11px; text-align: center; padding: 8px; border-radius: 4px; }
     .login-status.ok { color: #10d98a; background: rgba(16,217,138,0.1); }
     .login-status.err { color: #ff4757; background: rgba(255,71,87,0.1); }
+
+    .rec-methods { display: flex; gap: 8px; }
+    .rec-method {
+        flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+        padding: 12px; background: #080a0f; border: 1px solid #1e2535; border-radius: 6px;
+        cursor: pointer; transition: all 0.15s; color: #6b7a94;
+    }
+    .rec-method input { display: none; }
+    .rec-method:hover { border-color: #2a3447; color: #dce4f0; }
+    .rec-method.active { border-color: #10d98a; color: #10d98a; background: rgba(16,217,138,0.05); }
+    .rec-icon { font-size: 16px; }
+    .rec-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+
+    .rec-help-toggle {
+        font-size: 10px; color: #6b7a94; cursor: pointer; text-align: center;
+        padding: 4px; letter-spacing: 0.5px;
+    }
+    .rec-help-toggle:hover { color: #4d9eff; }
+    .rec-help {
+        background: rgba(77,158,255,0.05); border: 1px solid rgba(77,158,255,0.15);
+        border-radius: 6px; padding: 12px 14px; font-size: 11px; color: #a0aec0; line-height: 1.6;
+    }
+    .rec-help strong { color: #dce4f0; display: block; margin-bottom: 6px; font-size: 11px; }
+    .rec-help ol { margin: 0; padding-left: 18px; }
+    .rec-help li { margin-bottom: 4px; }
+    .rec-help code { background: #080a0f; padding: 1px 6px; border-radius: 3px; color: #10d98a; font-size: 10px; }
 </style>
 
 @code {
@@ -132,6 +245,11 @@
     private string _password = "";
     private string _error = "";
     private bool _isLoading;
+
+    private bool IsLockoutError =>
+        !string.IsNullOrEmpty(_error) &&
+        (_error.Contains("bloqueada", StringComparison.OrdinalIgnoreCase) ||
+         _error.Contains("Demasiados intentos", StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -143,9 +261,12 @@
                 if (authState.User.Identity?.IsAuthenticated == true)
                 {
                     Nav.NavigateTo("/dashboard", true);
+                    return;
                 }
             }
             catch { }
+
+            await JS.InvokeVoidAsync("eval", "setTimeout(()=>{let e=document.querySelector('.login-field input');if(e)e.focus();},50)");
         }
     }
 
@@ -157,6 +278,9 @@
     private string _recNewPassword = "";
     private string _recStatus = "";
     private bool _recOk;
+    private string _recMethod = "email";
+    private bool _recLoading;
+    private bool _showHelp;
 
     private async Task OnKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
     {
@@ -201,10 +325,15 @@
             return;
         }
 
-        var (success, message) = await Auth.SendRecoveryCodeAsync(_recUsername.Trim());
+        _recLoading = true;
+        StateHasChanged();
+
+        var (success, message) = await Auth.SendRecoveryCodeAsync(_recUsername.Trim(), _recMethod);
         _recStatus = message;
         _recOk = success;
         if (success) _codeSent = true;
+
+        _recLoading = false;
     }
 
     private async Task ResetPassword()
@@ -216,7 +345,7 @@
 
         if (success)
         {
-            await Auth.LogActionAsync(_recUsername, "PASSWORD_RESET", "Contraseña restablecida vía Telegram");
+            await Auth.LogActionAsync(_recUsername, "PASSWORD_RESET", $"Contraseña restablecida vía {_recMethod}");
             await Task.Delay(2000);
             BackToLogin();
         }
@@ -230,5 +359,7 @@
         _recCode = "";
         _recNewPassword = "";
         _recStatus = "";
+        _recMethod = "email";
+        _showHelp = false;
     }
 }

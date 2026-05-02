@@ -1,8 +1,11 @@
 @page "/licencias"
 @using RadioLogger.Shared.Models
 @using RadioLogger.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
 @inject LicenseManager LicenseMgr
 @inject MonitoringService Monitoring
+@inject AuthenticationStateProvider AuthStateProvider
+@inject AuthService Auth
 
 <div class="lic-page">
     <div class="lic-header">
@@ -94,7 +97,7 @@
                         <button class="btn-lic btn-renew" @onclick="() => ShowRenewModal(lic)">RENOVAR</button>
                         <button class="btn-lic btn-convert" @onclick="() => ShowConvertModal(lic)">CONVERTIR</button>
                         <button class="btn-lic btn-code" @onclick="() => ShowOfflineCode(lic)" title="Generar código temporal offline">CÓDIGO</button>
-                        <button class="btn-lic btn-revoke" @onclick="() => RevokeLicense(lic.Id)">REVOCAR</button>
+                        <button class="btn-lic btn-revoke" @onclick="() => RevokeLicense(lic.Id, lic.MachineId)">REVOCAR</button>
                     }
                     else
                     {
@@ -322,8 +325,17 @@
     private int? _offlineCodeLicenseId;
     private string _offlineCode = "";
 
+    private string _userName = "";
+
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _userName = authState.User.Identity?.Name ?? "";
+        }
+        catch { }
+
         await LoadData();
     }
 
@@ -376,12 +388,15 @@
         _showModal = true;
     }
 
+    private string _convertOldType = "";
+
     private void ShowConvertModal(License lic)
     {
         _modalMode = "convert";
         _modalTitle = $"CONVERTIR — {lic.MachineId}";
         _modalAction = "CONVERTIR";
         _editLicenseId = lic.Id;
+        _convertOldType = lic.LicenseType;
         _formType = "PLAZA";
         _formSlots = 4;
         _formDays = 365;
@@ -410,20 +425,38 @@
                     await LicenseMgr.CreateAsync(_formType, _formMachineId, hwId, _formClientName, _formSlots, _formDays);
                     _formStatus = "Licencia creada y enviada al equipo";
                     _formStatusOk = true;
+                    await Auth.LogActionAsync(_userName, "LICENSE_CREATE",
+                        $"Machine={_formMachineId}, Tipo={_formType}, Slots={_formSlots}, Duración={_formDays} días, Cliente={(string.IsNullOrEmpty(_formClientName) ? "—" : _formClientName)}");
                     break;
 
                 case "renew":
                     if (_editLicenseId == null) return;
-                    await LicenseMgr.RenewAsync(_editLicenseId.Value, _formDays);
+                    var renewOk = await LicenseMgr.RenewAsync(_editLicenseId.Value, _formDays);
+                    if (!renewOk)
+                    {
+                        _formStatus = "No se pudo renovar (licencia no encontrada)";
+                        _formStatusOk = false;
+                        return;
+                    }
                     _formStatus = $"Renovada por {_formDays} días";
                     _formStatusOk = true;
+                    await Auth.LogActionAsync(_userName, "LICENSE_RENEW",
+                        $"LicenseId={_editLicenseId.Value}, Extendida {_formDays} días");
                     break;
 
                 case "convert":
                     if (_editLicenseId == null) return;
-                    await LicenseMgr.ConvertAsync(_editLicenseId.Value, _formType, _formSlots, _formDays);
+                    var convertOk = await LicenseMgr.ConvertAsync(_editLicenseId.Value, _formType, _formSlots, _formDays);
+                    if (!convertOk)
+                    {
+                        _formStatus = "No se pudo convertir (licencia no encontrada)";
+                        _formStatusOk = false;
+                        return;
+                    }
                     _formStatus = $"Convertida a {_formType}";
                     _formStatusOk = true;
+                    await Auth.LogActionAsync(_userName, "LICENSE_CONVERT",
+                        $"LicenseId={_editLicenseId.Value}, {_convertOldType} → {_formType}, Slots={_formSlots}, Duración={_formDays} días");
                     break;
             }
 
@@ -436,13 +469,16 @@
         }
     }
 
-    private async Task RevokeLicense(int id)
+    private async Task RevokeLicense(int id, string machineId)
     {
-        await LicenseMgr.RevokeAsync(id);
+        var revokeOk = await LicenseMgr.RevokeAsync(id);
+        if (!revokeOk) return; // licencia no encontrada — no loguear
+        await Auth.LogActionAsync(_userName, "LICENSE_REVOKE",
+            $"LicenseId={id}, Machine={machineId}");
         await LoadData();
     }
 
-    private void ShowOfflineCode(License lic)
+    private async Task ShowOfflineCode(License lic)
     {
         if (_offlineCodeLicenseId == lic.Id)
         {
@@ -453,5 +489,7 @@
 
         _offlineCodeLicenseId = lic.Id;
         _offlineCode = LicenseManager.GenerateOfflineCode(lic.HardwareId);
+        await Auth.LogActionAsync(_userName, "LICENSE_OFFLINE_CODE",
+            $"LicenseId={lic.Id}, Machine={lic.MachineId}, HardwareId={lic.HardwareId}");
     }
 }

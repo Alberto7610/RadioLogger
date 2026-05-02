@@ -1,0 +1,13 @@
+@inject NavigationManager Nav
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Only redirect if not already on the login page (prevents infinite loop)
+        var path = Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
+        if (path != "/" && path != "/login")
+        {
+            Nav.NavigateTo("/", true);
+        }
+    }
+}

@@ -17,11 +17,8 @@
 
 <div class="sidebar">
     <div class="logo">
-        <div class="logo-bars">
-            <span></span><span></span><span></span><span></span><span></span>
-        </div>
         <div class="logo-info">
-            <div class="logo-name">RADIO<span style="color:var(--blue)">LOGGER</span></div>
+            <div class="logo-name">CLOUD<span style="color:var(--blue)">RADIOLOGGER</span></div>
             <div class="logo-ver">ENTERPRISE V2.0</div>
         </div>
     </div>
@@ -74,7 +71,7 @@
     </div>
 
     <div class="sidebar-footer">
-        <div class="user-card" @onclick="DoLogout" style="cursor:pointer" title="Cerrar sesión">
+        <div class="user-card" @onclick="ToggleUserMenu" style="cursor:pointer" title="Abrir menú de usuario">
             <div class="avatar">@_userInitials</div>
             <div class="user-info">
                 <div class="u-name">@_userDisplay</div>
@@ -82,8 +79,108 @@
             </div>
             <div class="u-dot"></div>
         </div>
+        @if (_showUserMenu)
+        {
+            <div class="user-menu-bg" @onclick="() => _showUserMenu = false">
+                <div class="user-menu" @onclick:stopPropagation="true">
+                    <div class="user-menu-header">
+                        <div class="avatar" style="width:42px;height:42px;font-size:14px;">@_userInitials</div>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--text);">@_userDisplay</div>
+                            <div style="font-size:10px;color:var(--text3);">@_userRole</div>
+                        </div>
+                    </div>
+                    <div class="user-menu-divider"></div>
+                    <div class="user-menu-item" @onclick="ShowProfile">
+                        <span class="umi-ico">👤</span> Mi perfil
+                    </div>
+                    <div class="user-menu-item" @onclick="ShowChangeMyPassword">
+                        <span class="umi-ico">🔑</span> Cambiar mi contraseña
+                    </div>
+                    <div class="user-menu-item" @onclick="ShowAbout">
+                        <span class="umi-ico">ℹ️</span> Acerca de
+                    </div>
+                    <div class="user-menu-divider"></div>
+                    <div class="user-menu-item danger" @onclick="DoLogout">
+                        <span class="umi-ico">🚪</span> Cerrar sesión
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 </div>
+
+@if (_showProfileModal)
+{
+    <div class="modal-bg-um" @onclick="() => _showProfileModal = false">
+        <div class="modal-um" @onclick:stopPropagation="true">
+            <div class="modal-um-hdr">
+                <span>MI PERFIL</span>
+                <button class="modal-um-x" @onclick="() => _showProfileModal = false">&times;</button>
+            </div>
+            <div class="modal-um-body">
+                <div class="profile-row"><span class="profile-lbl">Usuario:</span> <span class="profile-val mono">@_userDisplay</span></div>
+                <div class="profile-row"><span class="profile-lbl">Email:</span> <span class="profile-val mono">@_userEmail</span></div>
+                <div class="profile-row"><span class="profile-lbl">Rol:</span> <span class="profile-val">@_userRole</span></div>
+                <div class="profile-note">Para cambiar tu email, contacta a un administrador.</div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showPwdSelfModal)
+{
+    <div class="modal-bg-um" @onclick="() => _showPwdSelfModal = false">
+        <div class="modal-um" @onclick:stopPropagation="true">
+            <div class="modal-um-hdr">
+                <span>CAMBIAR MI CONTRASEÑA</span>
+                <button class="modal-um-x" @onclick="() => _showPwdSelfModal = false">&times;</button>
+            </div>
+            <div class="modal-um-body">
+                <div class="profile-field">
+                    <label>Contraseña actual</label>
+                    <input type="password" @bind="_pwdCurrent" placeholder="••••••" />
+                </div>
+                <div class="profile-field">
+                    <label>Nueva contraseña</label>
+                    <input type="password" @bind="_pwdNew" placeholder="Mínimo 6 caracteres" />
+                </div>
+                <div class="profile-field">
+                    <label>Confirmar nueva contraseña</label>
+                    <input type="password" @bind="_pwdConfirm" placeholder="Repite la nueva contraseña" />
+                </div>
+                @if (!string.IsNullOrEmpty(_pwdSelfStatus))
+                {
+                    <div class="profile-status @(_pwdSelfOk ? "ok" : "err")">@_pwdSelfStatus</div>
+                }
+            </div>
+            <div class="modal-um-footer">
+                <button class="btn-um warn" @onclick="() => _showPwdSelfModal = false">CANCELAR</button>
+                <button class="btn-um ok" @onclick="DoChangeMyPassword">CAMBIAR</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showAboutModal)
+{
+    <div class="modal-bg-um" @onclick="() => _showAboutModal = false">
+        <div class="modal-um" @onclick:stopPropagation="true">
+            <div class="modal-um-hdr">
+                <span>ACERCA DE</span>
+                <button class="modal-um-x" @onclick="() => _showAboutModal = false">&times;</button>
+            </div>
+            <div class="modal-um-body" style="text-align:center;">
+                <div style="font-size:20px;font-weight:700;letter-spacing:2px;color:var(--text);">CLOUD<span style="color:var(--blue)">RADIOLOGGER</span></div>
+                <div style="font-size:10px;color:var(--text3);letter-spacing:3px;margin-top:4px;">ENTERPRISE V2.0</div>
+                <div class="profile-note" style="margin-top:18px;">Sistema de monitoreo y grabación de estaciones de radio.</div>
+                <div class="profile-row" style="justify-content:center;margin-top:14px;">
+                    <span class="profile-lbl">Versión:</span> <span class="profile-val mono">2.0.0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 <main class="main">
     <header class="topbar">
@@ -121,7 +218,23 @@
     private string _userDisplay = "";
     private string _userRole = "";
     private string _userInitials = "";
+    private string _userEmail = "";
+    private string _userName = "";
+    private int _userId;
     private bool _authChecked;
+
+    // User menu state
+    private bool _showUserMenu;
+    private bool _showProfileModal;
+    private bool _showPwdSelfModal;
+    private bool _showAboutModal;
+
+    // Change password form
+    private string _pwdCurrent = "";
+    private string _pwdNew = "";
+    private string _pwdConfirm = "";
+    private string _pwdSelfStatus = "";
+    private bool _pwdSelfOk;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -139,7 +252,24 @@
                 }
 
                 _userDisplay = user.FindFirst("DisplayName")?.Value ?? user.Identity.Name ?? "";
+                _userName = user.Identity.Name ?? "";
                 _userRole = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Operador";
+
+                // Cargar email y ID desde BD para el menú de perfil
+                var dbUser = (await AuthSvc.GetAllUsersAsync()).FirstOrDefault(u => u.Username == _userName);
+                if (dbUser != null)
+                {
+                    _userEmail = dbUser.Email;
+                    _userId = dbUser.Id;
+                }
+
+                // Role-based route protection
+                if (!IsRouteAllowed(_userRole))
+                {
+                    Nav.NavigateTo("/dashboard", true);
+                    return;
+                }
+
                 var initials = _userDisplay.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                     .Where(w => w.Length > 0).Take(2).Select(w => w[0]);
                 _userInitials = string.Join("", initials).ToUpperInvariant();
@@ -164,11 +294,79 @@
 
     private async Task DoLogout()
     {
-        var username = _userDisplay;
-        await AuthSvc.LogActionAsync(username, "LOGOUT", "Cierre de sesión");
+        await AuthSvc.LogActionAsync(_userName, "LOGOUT", "Cierre de sesión");
         var customAuth = (CustomAuthStateProvider)AuthStateProvider;
         await customAuth.LogoutAsync();
         Nav.NavigateTo("/", true);
+    }
+
+    private void ToggleUserMenu() => _showUserMenu = !_showUserMenu;
+
+    private void ShowProfile()
+    {
+        _showUserMenu = false;
+        _showProfileModal = true;
+    }
+
+    private void ShowChangeMyPassword()
+    {
+        _showUserMenu = false;
+        _pwdCurrent = ""; _pwdNew = ""; _pwdConfirm = "";
+        _pwdSelfStatus = ""; _pwdSelfOk = false;
+        _showPwdSelfModal = true;
+    }
+
+    private void ShowAbout()
+    {
+        _showUserMenu = false;
+        _showAboutModal = true;
+    }
+
+    private async Task DoChangeMyPassword()
+    {
+        _pwdSelfStatus = "";
+        if (string.IsNullOrEmpty(_pwdCurrent) || string.IsNullOrEmpty(_pwdNew))
+        {
+            _pwdSelfStatus = "Todos los campos son requeridos";
+            _pwdSelfOk = false;
+            return;
+        }
+        if (_pwdNew != _pwdConfirm)
+        {
+            _pwdSelfStatus = "Las contraseñas nuevas no coinciden";
+            _pwdSelfOk = false;
+            return;
+        }
+
+        var (ok, msg) = await AuthSvc.ChangePasswordAsync(_userId, _pwdCurrent, _pwdNew);
+        _pwdSelfStatus = msg;
+        _pwdSelfOk = ok;
+
+        if (ok)
+        {
+            await AuthSvc.LogActionAsync(_userName, "PASSWORD_CHANGE_SELF", "Usuario cambió su propia contraseña");
+            await Task.Delay(1500);
+            _showPwdSelfModal = false;
+        }
+    }
+
+    /// <summary>
+    /// Server-side route protection by role.
+    /// Admin: all pages. Supervisor: all except /usuarios, /auditoria, /configuracion.
+    /// Operador: dashboard, history, logs only.
+    /// </summary>
+    private bool IsRouteAllowed(string role)
+    {
+        var path = Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath.TrimEnd('/').ToLower();
+
+        return path switch
+        {
+            "/configuracion" => role == "Administrador",
+            "/usuarios" => role == "Administrador",
+            "/auditoria" => role == "Administrador",
+            "/licencias" => role is "Administrador" or "Supervisor",
+            _ => true // dashboard, history, logs — any authenticated user
+        };
     }
 
     public void Dispose()

@@ -221,6 +221,7 @@
         });
 
         await _hubConnection.StartAsync();
+        await _hubConnection.InvokeAsync("JoinDashboard");
     }
 
     private async Task OnFiltersChanged()

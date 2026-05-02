@@ -5,11 +5,25 @@
 @inject AuthService Auth
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="lic-page">
     <div class="lic-header">
         <h2>GESTIÓN DE USUARIOS</h2>
         <button class="btn-create" @onclick="ShowCreateModal">+ NUEVO USUARIO</button>
+    </div>
+
+    <div class="filter-bar">
+        <span class="filter-label">FILTRO:</span>
+        <button class="filter-btn @(_filter == "active" ? "active" : "")" @onclick='() => _filter = "active"'>
+            ACTIVOS @(_users != null ? $"({_users.Count(u => u.IsActive)})" : "")
+        </button>
+        <button class="filter-btn @(_filter == "inactive" ? "active" : "")" @onclick='() => _filter = "inactive"'>
+            INACTIVOS @(_users != null ? $"({_users.Count(u => !u.IsActive)})" : "")
+        </button>
+        <button class="filter-btn @(_filter == "all" ? "active" : "")" @onclick='() => _filter = "all"'>
+            TODOS @(_users != null ? $"({_users.Count})" : "")
+        </button>
     </div>
 
     @if (_users == null)
@@ -23,6 +37,7 @@
                 <tr>
                     <th>USUARIO</th>
                     <th>NOMBRE</th>
+                    <th>EMAIL</th>
                     <th>ROL</th>
                     <th>TELEGRAM</th>
                     <th>ÚLTIMO LOGIN</th>
@@ -31,11 +46,12 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var user in _users)
+                @foreach (var user in FilteredUsers)
                 {
                     <tr class="@(!user.IsActive ? "row-inactive" : "")">
                         <td class="mono">@user.Username</td>
                         <td>@user.DisplayName</td>
+                        <td class="mono">@user.Email</td>
                         <td>
                             <span class="role-badge @user.Role.ToLower()">@user.Role</span>
                         </td>
@@ -46,7 +62,16 @@
                         </td>
                         <td>
                             <button class="btn-lic btn-convert" @onclick="() => ShowEditModal(user)">EDITAR</button>
-                            <button class="btn-lic btn-code" @onclick="() => ShowChangePassword(user)">CLAVE</button>
+                            <button class="btn-lic btn-code" @onclick="() => ShowChangePassword(user)">CONTRASEÑA</button>
+                            <button class="btn-lic btn-history" @onclick="() => ViewUserHistory(user)" title="Ver historial de auditoría de este usuario">HISTORIAL</button>
+                            @if (user.IsActive)
+                            {
+                                <button class="btn-lic btn-revoke" @onclick="() => ToggleStatus(user)" disabled="@IsCurrentUser(user)" title="@(IsCurrentUser(user) ? "No puedes desactivarte a ti mismo" : "Desactivar usuario")">DESACTIVAR</button>
+                            }
+                            else
+                            {
+                                <button class="btn-lic btn-renew" @onclick="() => ToggleStatus(user)" title="Activar usuario">ACTIVAR</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -81,6 +106,10 @@
                     <input type="text" @bind="_formDisplayName" placeholder="Juan Pérez" />
                 </div>
                 <div class="edit-field">
+                    <label>Email <span class="req">*</span></label>
+                    <input type="email" @bind="_formEmail" placeholder="usuario@dominio.com" />
+                </div>
+                <div class="edit-field">
                     <label>Rol <span class="req">*</span></label>
                     <select @bind="_formRole">
                         <option value="Administrador">Administrador — Todo</option>
@@ -89,7 +118,7 @@
                     </select>
                 </div>
                 <div class="edit-field">
-                    <label>Telegram Chat ID (para recuperación)</label>
+                    <label>Telegram Chat ID (opcional, recuperación alterna)</label>
                     <input type="text" @bind="_formTelegram" placeholder="123456789" />
                 </div>
                 @if (_modalMode == "edit")
@@ -122,7 +151,7 @@
     <div class="modal-bg" @onclick="() => _showPwdModal = false">
         <div class="edit-modal" @onclick:stopPropagation="true" style="max-width:380px;">
             <div class="edit-hdr">
-                <span>CAMBIAR CLAVE — @_pwdUsername</span>
+                <span>CAMBIAR CONTRASEÑA — @_pwdUsername</span>
                 <button class="modal-x" @onclick="() => _showPwdModal = false">&times;</button>
             </div>
             <div class="edit-body">
@@ -144,6 +173,56 @@
 }
 
 <style>
+    /* Page layout (mismo estilo que Licencias) */
+    .lic-page { padding: 20px; overflow-y: auto; height: 100%; }
+    .lic-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .lic-header h2 { color: var(--green); font-size: 16px; margin: 0; letter-spacing: 2px; }
+    .lic-loading { color: var(--text3); padding: 20px; text-align: center; }
+
+    /* Botón crear (verde, principal) */
+    .btn-create {
+        background: var(--green); color: var(--bg); border: none; padding: 8px 16px;
+        border-radius: 4px; font-weight: 700; font-size: 11px; cursor: pointer; font-family: var(--mono);
+        letter-spacing: 0.5px;
+    }
+    .btn-create:hover { opacity: 0.8; }
+
+    /* Botones de acción en filas */
+    .btn-lic {
+        font-size: 10px; font-weight: 700; padding: 5px 12px; border-radius: 4px;
+        border: 1px solid var(--border); cursor: pointer; font-family: var(--mono); letter-spacing: 0.5px;
+        margin-right: 4px;
+    }
+    .btn-convert { background: rgba(77,158,255,0.1); color: var(--blue); border-color: var(--blue); }
+    .btn-convert:hover { background: rgba(77,158,255,0.25); }
+    .btn-code { background: rgba(255,179,71,0.1); color: var(--amber); border-color: var(--amber); }
+    .btn-code:hover { background: rgba(255,179,71,0.25); }
+    .btn-revoke { background: rgba(255,71,87,0.1); color: var(--red); border-color: var(--red); }
+    .btn-revoke:hover { background: rgba(255,71,87,0.25); }
+    .btn-revoke:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-renew { background: rgba(16,217,138,0.1); color: var(--green); border-color: var(--green); }
+    .btn-renew:hover { background: rgba(16,217,138,0.25); }
+    .btn-history { background: rgba(160,120,255,0.1); color: #a078ff; border-color: #a078ff; }
+    .btn-history:hover { background: rgba(160,120,255,0.25); }
+
+    /* Filtro de estado */
+    .filter-bar {
+        display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+        padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    }
+    .filter-label { color: var(--text3); font-size: 10px; font-weight: 700; letter-spacing: 1px; margin-right: 4px; }
+    .filter-btn {
+        background: transparent; color: var(--text3); border: 1px solid var(--border);
+        padding: 5px 14px; border-radius: 4px; font-size: 10px; font-weight: 700;
+        font-family: var(--mono); letter-spacing: 0.5px; cursor: pointer;
+    }
+    .filter-btn:hover { color: var(--text); border-color: var(--text3); }
+    .filter-btn.active { background: var(--green); color: var(--bg); border-color: var(--green); }
+
+    /* Indicadores de estado */
+    .val-green { color: var(--green); font-weight: 700; font-size: 11px; }
+    .val-red { color: var(--red); font-weight: 700; font-size: 11px; }
+
     .user-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .user-table th {
         text-align: left; padding: 10px 12px; color: var(--text3);
@@ -186,6 +265,17 @@
 @code {
     private List<AppUser>? _users;
     private string _currentUsername = "";
+    private string _filter = "active";
+
+    private IEnumerable<AppUser> FilteredUsers => _filter switch
+    {
+        "active" => _users?.Where(u => u.IsActive) ?? Enumerable.Empty<AppUser>(),
+        "inactive" => _users?.Where(u => !u.IsActive) ?? Enumerable.Empty<AppUser>(),
+        _ => _users ?? Enumerable.Empty<AppUser>()
+    };
+
+    private bool IsCurrentUser(AppUser u) =>
+        string.Equals(u.Username, _currentUsername, StringComparison.OrdinalIgnoreCase);
 
     // Modal state
     private bool _showModal;
@@ -196,6 +286,7 @@
     private string _formUsername = "";
     private string _formPassword = "";
     private string _formDisplayName = "";
+    private string _formEmail = "";
     private string _formRole = "Operador";
     private string _formTelegram = "";
     private string _formActive = "true";
@@ -233,7 +324,7 @@
     {
         _modalMode = "create";
         _modalTitle = "NUEVO USUARIO";
-        _formUsername = ""; _formPassword = ""; _formDisplayName = "";
+        _formUsername = ""; _formPassword = ""; _formDisplayName = ""; _formEmail = "";
         _formRole = "Operador"; _formTelegram = ""; _formStatus = "";
         _showModal = true;
     }
@@ -244,6 +335,7 @@
         _modalTitle = $"EDITAR — {user.Username}";
         _editUserId = user.Id;
         _formDisplayName = user.DisplayName;
+        _formEmail = user.Email;
         _formRole = user.Role;
         _formTelegram = user.TelegramChatId ?? "";
         _formActive = user.IsActive.ToString().ToLower();
@@ -269,8 +361,15 @@
                 _formOk = false;
                 return;
             }
+            if (string.IsNullOrWhiteSpace(_formEmail))
+            {
+                _formStatus = "El email es obligatorio";
+                _formOk = false;
+                return;
+            }
             var (ok, msg) = await Auth.CreateUserAsync(_formUsername.Trim(), _formPassword,
-                _formDisplayName, _formRole, string.IsNullOrWhiteSpace(_formTelegram) ? null : _formTelegram.Trim());
+                _formDisplayName, _formEmail.Trim(), _formRole,
+                string.IsNullOrWhiteSpace(_formTelegram) ? null : _formTelegram.Trim());
             _formStatus = msg; _formOk = ok;
 
             if (ok)
@@ -282,8 +381,15 @@
         else
         {
             if (_editUserId == null) return;
-            var (ok, msg) = await Auth.UpdateUserAsync(_editUserId.Value, _formDisplayName, _formRole,
-                _formActive == "true", string.IsNullOrWhiteSpace(_formTelegram) ? null : _formTelegram.Trim());
+            if (string.IsNullOrWhiteSpace(_formEmail))
+            {
+                _formStatus = "El email es obligatorio";
+                _formOk = false;
+                return;
+            }
+            var (ok, msg) = await Auth.UpdateUserAsync(_editUserId.Value, _formDisplayName,
+                _formEmail.Trim(), _formRole, _formActive == "true",
+                string.IsNullOrWhiteSpace(_formTelegram) ? null : _formTelegram.Trim());
             _formStatus = msg; _formOk = ok;
 
             if (ok)
@@ -301,5 +407,30 @@
 
         if (ok)
             await Auth.LogActionAsync(_currentUsername, "PASSWORD_CHANGE", $"Cambió contraseña de: {_pwdUsername}");
+    }
+
+    private void ViewUserHistory(AppUser user)
+    {
+        Nav.NavigateTo($"/auditoria?usuario={Uri.EscapeDataString(user.Username)}");
+    }
+
+    private async Task ToggleStatus(AppUser user)
+    {
+        var action = user.IsActive ? "desactivar" : "activar";
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"¿Estás seguro de {action} al usuario \"{user.Username}\"?");
+        if (!confirmed) return;
+
+        var (ok, msg) = await Auth.ToggleUserStatusAsync(user.Id, _currentUsername);
+        if (ok)
+        {
+            await Auth.LogActionAsync(_currentUsername, "USER_TOGGLE",
+                $"{(user.IsActive ? "Desactivó" : "Activó")} usuario: {user.Username}");
+            _users = await Auth.GetAllUsersAsync();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", msg);
+        }
     }
 }

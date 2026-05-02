@@ -1,7 +1,10 @@
 @using RadioLogger.Shared.Models
 @using RadioLogger.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
 @inject MonitoringService Monitoring
 @inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+@inject AuthService Auth
 
 @if (IsVisible && Station != null)
 {
@@ -114,8 +117,8 @@
                 </div>
             </div>
 
-            <!-- Controls -->
-            @if (isLive)
+            <!-- Controls (only for Administrador and Supervisor) -->
+            @if (isLive && _canControl)
             {
                 <div class="modal-controls">
                     @if (s.IsRecordingEnabled)
@@ -174,12 +177,15 @@
                     <div class="modal-cmd-status">@CommandStatus</div>
                 }
 
-                <!-- Desactivar estación -->
-                <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
-                    <button class="modal-btn btn-deact" @onclick="DeactivateStation" disabled="@IsSending">
-                        DESACTIVAR ESTACIÓN
-                    </button>
-                </div>
+                <!-- Desactivar estación (solo Admin) -->
+                @if (_userRole == "Administrador")
+                {
+                    <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
+                        <button class="modal-btn btn-deact" @onclick="DeactivateStation" disabled="@IsSending">
+                            DESACTIVAR ESTACIÓN
+                        </button>
+                    </div>
+                }
             }
             else
             {
@@ -204,13 +210,17 @@
                 {
                     <div class="modal-stream-url">@s.StreamUrl</div>
                     <div class="modal-stream-player">
-                        <audio id="streamAudio" preload="none" crossorigin="anonymous">
-                            <source src="@s.StreamUrl" />
+                        <audio id="streamAudio" preload="none">
+                            <source src="/api/stream?url=@(Uri.EscapeDataString(s.StreamUrl))" type="audio/mpeg" />
                         </audio>
                         <button class="modal-stream-btn @(IsStreamPlaying ? "playing" : "")" @onclick="ToggleStreamPlay">
                             <span class="stream-btn-icon">@(IsStreamPlaying ? "⏸" : "▶")</span>
                             <span class="stream-btn-text">@(IsStreamPlaying ? "PAUSAR" : "ESCUCHAR")</span>
                         </button>
+                        @if (!string.IsNullOrEmpty(_streamError))
+                        {
+                            <div style="color: #ff4444; font-size: 0.75em; margin-top: 4px;">@_streamError</div>
+                        }
                         <div class="modal-stream-eq @(IsStreamPlaying ? "eq-active" : "")">
                             <span></span><span></span><span></span><span></span><span></span>
                         </div>
@@ -361,6 +371,22 @@
     private string CommandStatus = "";
     private bool IsStreamPlaying = false;
     private bool _showMachineInfo = false;
+    private string _userRole = "Operador";
+    private string _userName = "";
+    private bool _canControl = false;
+    private string _streamError = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _userRole = authState.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Operador";
+            _userName = authState.User.Identity?.Name ?? "";
+            _canControl = _userRole == "Administrador" || _userRole == "Supervisor";
+        }
+        catch { }
+    }
 
     private async Task SendCommand(string command)
     {
@@ -375,6 +401,11 @@
             HardwareName = Station.HardwareName,
             Command = command
         });
+
+        // Auditoría: registrar quién envió el comando, a qué estación y cuál
+        var stationLabel = !string.IsNullOrEmpty(Station.StationName) ? Station.StationName : Station.HardwareName;
+        await Auth.LogActionAsync(_userName, "REMOTE_COMMAND",
+            $"{command} en \"{stationLabel}\" (Machine: {Station.MachineId}, Hardware: {Station.HardwareName})");
 
         CommandStatus = "Comando enviado. Esperando respuesta...";
         IsSending = false;
@@ -401,6 +432,11 @@
         if (registered != null)
         {
             await Monitoring.SetStationActive(registered.Id, false);
+
+            var stationLabel = !string.IsNullOrEmpty(Station.StationName) ? Station.StationName : Station.HardwareName;
+            await Auth.LogActionAsync(_userName, "STATION_DEACTIVATE",
+                $"Desactivó estación \"{stationLabel}\" (Machine: {Station.MachineId}, Hardware: {Station.HardwareName})");
+
             CommandStatus = "Estación desactivada";
             StateHasChanged();
         }
@@ -408,11 +444,21 @@
 
     private async Task ToggleStreamPlay()
     {
+        _streamError = "";
         IsStreamPlaying = !IsStreamPlaying;
         if (IsStreamPlaying)
-            await JS.InvokeVoidAsync("audioPlayer.play");
+        {
+            var error = await JS.InvokeAsync<string?>("audioPlayer.play");
+            if (!string.IsNullOrEmpty(error))
+            {
+                _streamError = error;
+                IsStreamPlaying = false;
+            }
+        }
         else
+        {
             await JS.InvokeVoidAsync("audioPlayer.stop");
+        }
     }
 
     private async Task Close()
