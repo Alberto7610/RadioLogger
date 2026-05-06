@@ -1,5 +1,6 @@
 using ManagedBass;
 using ManagedBass.Enc;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -60,6 +61,8 @@ namespace RadioLogger.Services
 
     public static class AudioConcatenator
     {
+        private static readonly ILogger _log = AppLog.For(typeof(AudioConcatenator).FullName!);
+
         /// <summary>
         /// Concatenates multiple audio files into a single PCM buffer.
         /// Files are decoded to float PCM at the sample rate of the first file.
@@ -146,7 +149,9 @@ namespace RadioLogger.Services
         }
 
         /// <summary>
-        /// Exports concatenated audio to MP3 using LAME via ManagedBass.Enc.
+        /// Exports concatenated audio to MP3.
+        /// Uses bassenc_mp3.dll (libmp3lame in-process) — no temporary WAV, no external process.
+        /// Falls back to lame.exe via stdin pipe if the native DLL is not available (still no temp WAV).
         /// </summary>
         public static Task<bool> ExportToMp3Async(ConcatenatedAudio audio, string outputPath)
         {
@@ -155,78 +160,122 @@ namespace RadioLogger.Services
 
         private static bool ExportToMp3(ConcatenatedAudio audio, string outputPath)
         {
-            // Convert float PCM [-1,1] to 16-bit PCM for LAME compatibility
-            int totalSamples = audio.PcmData.Length;
-            short[] pcm16 = new short[totalSamples];
-            for (int i = 0; i < totalSamples; i++)
-            {
-                float v = Math.Clamp(audio.PcmData[i], -1f, 1f);
-                pcm16[i] = (short)(v * 32767);
-            }
-
-            // Write a temporary WAV file, then encode with LAME
-            string tempWav = Path.Combine(Path.GetTempPath(), $"radiologger_concat_{Guid.NewGuid():N}.wav");
+            const string options = "-b 192";
+            int stream = 0;
+            int encoder = 0;
 
             try
             {
-                // Write WAV
-                using (var fs = new FileStream(tempWav, FileMode.Create))
-                using (var bw = new BinaryWriter(fs))
+                // 1. Create a push decode stream backed by the in-memory float PCM
+                stream = Bass.CreateStream(
+                    audio.SampleRate,
+                    audio.Channels,
+                    BassFlags.Float | BassFlags.Decode,
+                    StreamProcedureType.Push);
+
+                if (stream == 0)
                 {
-                    int dataBytes = pcm16.Length * 2;
-                    int bitsPerSample = 16;
-                    int blockAlign = audio.Channels * (bitsPerSample / 8);
-                    int byteRate = audio.SampleRate * blockAlign;
-
-                    // RIFF header
-                    bw.Write(new[] { 'R', 'I', 'F', 'F' });
-                    bw.Write(36 + dataBytes);
-                    bw.Write(new[] { 'W', 'A', 'V', 'E' });
-
-                    // fmt chunk
-                    bw.Write(new[] { 'f', 'm', 't', ' ' });
-                    bw.Write(16); // chunk size
-                    bw.Write((short)1); // PCM format
-                    bw.Write((short)audio.Channels);
-                    bw.Write(audio.SampleRate);
-                    bw.Write(byteRate);
-                    bw.Write((short)blockAlign);
-                    bw.Write((short)bitsPerSample);
-
-                    // data chunk
-                    bw.Write(new[] { 'd', 'a', 't', 'a' });
-                    bw.Write(dataBytes);
-
-                    byte[] buf = new byte[pcm16.Length * 2];
-                    Buffer.BlockCopy(pcm16, 0, buf, 0, buf.Length);
-                    bw.Write(buf);
+                    _log.Error("ExportToMp3: no se pudo crear stream push ({Error}) para {Path}",
+                        Bass.LastError, outputPath);
+                    return false;
                 }
 
-                // Encode WAV → MP3 with LAME
-                string lameExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
-                var psi = new System.Diagnostics.ProcessStartInfo
+                // 2. Push the entire PCM buffer and signal end-of-stream
+                var bytes = new byte[audio.PcmData.Length * sizeof(float)];
+                Buffer.BlockCopy(audio.PcmData, 0, bytes, 0, bytes.Length);
+
+                if (Bass.StreamPutData(stream, bytes, bytes.Length) < 0)
                 {
-                    FileName = lameExe,
-                    Arguments = $"-b 192 \"{tempWav}\" \"{outputPath}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
+                    _log.Error("ExportToMp3: StreamPutData falló ({Error}) para {Path}",
+                        Bass.LastError, outputPath);
+                    return false;
+                }
+                Bass.StreamPutData(stream, IntPtr.Zero, (int)StreamProcedureType.End);
 
-                using var proc = System.Diagnostics.Process.Start(psi);
-                if (proc == null) return false;
+                // 3. Try in-process MP3 encoder first (bassenc_mp3.dll)
+                bool usedFallback = false;
+                try
+                {
+                    encoder = BassEnc_Mp3.Start(stream, options, EncodeFlags.Default, outputPath);
+                }
+                catch (DllNotFoundException)
+                {
+                    encoder = 0;
+                }
 
-                // Read stdout/stderr to avoid deadlock, then wait
-                proc.StandardOutput.ReadToEnd();
-                proc.StandardError.ReadToEnd();
-                proc.WaitForExit();
+                // 4. Fallback: external lame.exe via stdin pipe (no temp WAV)
+                if (encoder == 0)
+                {
+                    _log.Warning("ExportToMp3: BassEnc_Mp3 no disponible ({Error}), usando lame.exe fallback",
+                        Bass.LastError);
 
-                return proc.ExitCode == 0 && File.Exists(outputPath);
+                    string lamePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lame.exe");
+                    if (!File.Exists(lamePath))
+                    {
+                        _log.Error("ExportToMp3: lame.exe no encontrado en {Path} — exportación abortada", lamePath);
+                        return false;
+                    }
+
+                    string command = $"\"{lamePath}\" {options} - \"{outputPath}\"";
+                    encoder = BassEnc.EncodeStart(stream, command, EncodeFlags.Default, null, IntPtr.Zero);
+
+                    if (encoder == 0)
+                    {
+                        _log.Error("ExportToMp3: lame.exe fallback también falló ({Error}) para {Path}",
+                            Bass.LastError, outputPath);
+                        return false;
+                    }
+                    usedFallback = true;
+                }
+
+                // 5. Drain the decode stream to feed the encoder
+                byte[] drainBuf = new byte[65536];
+                long totalDrained = 0;
+                while (true)
+                {
+                    int got = Bass.ChannelGetData(stream, drainBuf, drainBuf.Length);
+                    if (got <= 0) break;
+                    totalDrained += got;
+                }
+
+                // 6. Stop encoder cleanly so the MP3 file gets finalized (especially the lame.exe fallback)
+                BassEnc.EncodeStop(encoder);
+                encoder = 0;
+
+                if (!File.Exists(outputPath))
+                {
+                    _log.Error("ExportToMp3: encoder finalizó pero el archivo no existe: {Path}", outputPath);
+                    return false;
+                }
+
+                long fileBytes = new FileInfo(outputPath).Length;
+                if (fileBytes == 0)
+                {
+                    _log.Error("ExportToMp3: archivo de salida vacío (0 bytes): {Path}", outputPath);
+                    File.Delete(outputPath);
+                    return false;
+                }
+
+                _log.Information(
+                    "ExportToMp3: MP3 exportado a {Path} ({FileBytes:N0} B, {DrainedBytes:N0} B PCM, {Encoder})",
+                    outputPath, fileBytes, totalDrained, usedFallback ? "lame.exe fallback" : "bassenc_mp3 nativo");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex, "ExportToMp3: excepción durante exportación a {Path}", outputPath);
+                return false;
             }
             finally
             {
-                try { File.Delete(tempWav); } catch { }
+                if (encoder != 0)
+                {
+                    try { BassEnc.EncodeStop(encoder); } catch { }
+                }
+                if (stream != 0)
+                {
+                    try { Bass.StreamFree(stream); } catch { }
+                }
             }
         }
     }
