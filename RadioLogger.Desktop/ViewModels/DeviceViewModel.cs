@@ -108,7 +108,7 @@ namespace RadioLogger.ViewModels
         {
             if (IsSelected)
             {
-                _activeChannel = _audioEngine.StartRecording(_device, _stationName, IsRecordingEnabled);
+                _activeChannel = _audioEngine.StartRecording(_device, StationName, IsRecordingEnabled);
                 IsRecording = _activeChannel != null;
                 if (IsRecording) RecordingStartTime = DateTime.Now;
             }
@@ -151,7 +151,7 @@ namespace RadioLogger.ViewModels
             // Auto-link channel if recording but reference is null
             if (IsRecording && _activeChannel == null)
             {
-                _activeChannel = _audioEngine.StartRecording(_device, _stationName, IsRecordingEnabled);
+                _activeChannel = _audioEngine.StartRecording(_device, StationName, IsRecordingEnabled);
             }
 
             // Sync States

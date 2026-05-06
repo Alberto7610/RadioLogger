@@ -38,7 +38,7 @@ namespace RadioLogger.ViewModels
         public ObservableCollection<AudioDevice> OutputDevices { get; } = new ObservableCollection<AudioDevice>();
         
         [ObservableProperty]
-        private AudioDevice _selectedOutputDevice;
+        private AudioDevice _selectedOutputDevice = null!;
 
         [ObservableProperty]
         private bool _isMasterVolumeControl;
@@ -131,7 +131,7 @@ namespace RadioLogger.ViewModels
             new LruCache<string, RadioLogger.Services.WaveformData>(5);
 
         [ObservableProperty]
-        private RecordingFile _selectedRecording;
+        private RecordingFile _selectedRecording = null!;
 
         public ObservableCollection<double> WaveformData { get; } = new ObservableCollection<double>();
         public ObservableCollection<RecordingFile> RecordingsList { get; } = new ObservableCollection<RecordingFile>();
@@ -139,10 +139,10 @@ namespace RadioLogger.ViewModels
         public ObservableCollection<string> AvailableDates { get; } = new ObservableCollection<string>();
 
         [ObservableProperty]
-        private string _selectedStation;
+        private string _selectedStation = string.Empty;
 
         [ObservableProperty]
-        private string _selectedDate;
+        private string _selectedDate = string.Empty;
 
         [ObservableProperty]
         private bool _isSortAscending;
@@ -477,7 +477,7 @@ namespace RadioLogger.ViewModels
                 {
                     _waveformRawData = cached;
                     var data = cached;
-                    App.Current.Dispatcher.BeginInvoke(() =>
+                    _ = App.Current.Dispatcher.BeginInvoke(() =>
                     {
                         WaveformBitmap = RadioLogger.Services.WaveformRenderer.RenderRegion(data, 0, 1, 800, 200);
                     });
@@ -488,7 +488,7 @@ namespace RadioLogger.ViewModels
                 _waveformRawData = generated;
                 if (generated != null) _waveformCache.Set(path, generated);
 
-                App.Current.Dispatcher.BeginInvoke(() =>
+                _ = App.Current.Dispatcher.BeginInvoke(() =>
                 {
                     if (generated != null)
                         WaveformBitmap = RadioLogger.Services.WaveformRenderer.RenderRegion(generated, 0, 1, 800, 200);
@@ -792,7 +792,7 @@ namespace RadioLogger.ViewModels
                 if (wfData != null)
                 {
                     _waveformRawData = wfData;
-                    App.Current.Dispatcher.BeginInvoke(() =>
+                    _ = App.Current.Dispatcher.BeginInvoke(() =>
                     {
                         WaveformBitmap = Services.WaveformRenderer.RenderRegion(wfData, 0, 1, 800, 200);
                     });

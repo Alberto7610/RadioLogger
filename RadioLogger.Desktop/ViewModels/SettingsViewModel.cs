@@ -246,11 +246,15 @@ namespace RadioLogger.ViewModels
             var currentDateEnd = SelectedLogDateEnd;
             LoadLogDates();
 
-            // Restaurar selección sin depender del evento Changed
+            // Restaurar selección sin depender del evento Changed (evita disparar el
+            // partial method OnSelectedLogDateChanged que recargaría logs en loop).
+            // Se notifica el cambio manualmente despues con OnPropertyChanged.
+#pragma warning disable MVVMTK0034
             if (currentDate != null && LogDates.Contains(currentDate))
                 _selectedLogDate = currentDate;
             if (currentDateEnd != null && LogDates.Contains(currentDateEnd))
                 _selectedLogDateEnd = currentDateEnd;
+#pragma warning restore MVVMTK0034
 
             OnPropertyChanged(nameof(SelectedLogDate));
             OnPropertyChanged(nameof(SelectedLogDateEnd));
