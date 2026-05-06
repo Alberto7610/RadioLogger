@@ -152,13 +152,14 @@ namespace RadioLogger.Services
         /// Exports concatenated audio to MP3.
         /// Uses bassenc_mp3.dll (libmp3lame in-process) — no temporary WAV, no external process.
         /// Falls back to lame.exe via stdin pipe if the native DLL is not available (still no temp WAV).
+        /// El progress reporta porcentaje 0.0–100.0 sobre los bytes drenados al encoder.
         /// </summary>
-        public static Task<bool> ExportToMp3Async(ConcatenatedAudio audio, string outputPath)
+        public static Task<bool> ExportToMp3Async(ConcatenatedAudio audio, string outputPath, IProgress<double>? progress = null)
         {
-            return Task.Run(() => ExportToMp3(audio, outputPath));
+            return Task.Run(() => ExportToMp3(audio, outputPath, progress));
         }
 
-        private static bool ExportToMp3(ConcatenatedAudio audio, string outputPath)
+        private static bool ExportToMp3(ConcatenatedAudio audio, string outputPath, IProgress<double>? progress = null)
         {
             const string options = "-b 192";
             int stream = 0;
@@ -228,15 +229,29 @@ namespace RadioLogger.Services
                     usedFallback = true;
                 }
 
-                // 5. Drain the decode stream to feed the encoder
+                // 5. Drain the decode stream to feed the encoder, reporting progress
                 byte[] drainBuf = new byte[65536];
                 long totalDrained = 0;
+                long expectedBytes = (long)audio.PcmData.Length * sizeof(float);
+                double lastReported = -1;
+                progress?.Report(0);
                 while (true)
                 {
                     int got = Bass.ChannelGetData(stream, drainBuf, drainBuf.Length);
                     if (got <= 0) break;
                     totalDrained += got;
+
+                    if (progress != null && expectedBytes > 0)
+                    {
+                        double pct = Math.Min(100.0, totalDrained * 100.0 / expectedBytes);
+                        if (pct - lastReported >= 1.0)
+                        {
+                            progress.Report(pct);
+                            lastReported = pct;
+                        }
+                    }
                 }
+                progress?.Report(100);
 
                 // 6. Stop encoder cleanly so the MP3 file gets finalized (especially the lame.exe fallback)
                 BassEnc.EncodeStop(encoder);

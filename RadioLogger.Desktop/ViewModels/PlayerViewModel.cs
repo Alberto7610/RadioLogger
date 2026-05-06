@@ -125,6 +125,11 @@ namespace RadioLogger.ViewModels
         // Raw waveform data for SkiaSharp zoom rendering
         private RadioLogger.Services.WaveformData? _waveformRawData;
 
+        // LRU cache: evita regenerar waveforms al navegar entre archivos recientes.
+        // Capacidad 5 ≈ <100 MB con grabaciones tipicas; un MP3 mono de 1h pesa ~158 MB en float[].
+        private readonly LruCache<string, RadioLogger.Services.WaveformData> _waveformCache =
+            new LruCache<string, RadioLogger.Services.WaveformData>(5);
+
         [ObservableProperty]
         private RecordingFile _selectedRecording;
 
@@ -307,6 +312,7 @@ namespace RadioLogger.ViewModels
                 if (_nextWaveformData != null)
                 {
                     _waveformRawData = _nextWaveformData;
+                    _waveformCache.Set(nextRec.FullPath, _nextWaveformData);
                     _nextWaveformData = null;
                     WaveformBitmap = WaveformRenderer.RenderRegion(_waveformRawData, 0, 1, 800, 200);
                 }
@@ -467,14 +473,31 @@ namespace RadioLogger.ViewModels
             IsGeneratingVisualization = true;
             try
             {
-                _waveformRawData = await RadioLogger.Services.WaveformRenderer.ExtractDataAsync(path);
+                if (_waveformCache.TryGet(path, out var cached))
+                {
+                    _waveformRawData = cached;
+                    var data = cached;
+                    App.Current.Dispatcher.BeginInvoke(() =>
+                    {
+                        WaveformBitmap = RadioLogger.Services.WaveformRenderer.RenderRegion(data, 0, 1, 800, 200);
+                    });
+                    return;
+                }
+
+                var generated = await RadioLogger.Services.WaveformRenderer.ExtractDataAsync(path);
+                _waveformRawData = generated;
+                if (generated != null) _waveformCache.Set(path, generated);
 
                 App.Current.Dispatcher.BeginInvoke(() =>
                 {
-                    WaveformBitmap = RadioLogger.Services.WaveformRenderer.RenderRegion(_waveformRawData, 0, 1, 800, 200);
+                    if (generated != null)
+                        WaveformBitmap = RadioLogger.Services.WaveformRenderer.RenderRegion(generated, 0, 1, 800, 200);
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _log.Warning(ex, "No se pudo generar waveform de {Path}", path);
+            }
             finally
             {
                 IsGeneratingVisualization = false;
@@ -866,12 +889,19 @@ namespace RadioLogger.ViewModels
 
         private async System.Threading.Tasks.Task DoExportAsync(ConcatenatedAudio audio, string outputPath)
         {
-            ConcatenateStatus = "Exportando MP3...";
+            ConcatenateStatus = "Exportando MP3... 0%";
             IsConcatenating = true;
+
+            // Progress<T> captura el SynchronizationContext actual (UI), por lo que
+            // ConcatenateStatus se actualiza en el hilo correcto sin Dispatcher manual.
+            var progress = new Progress<double>(pct =>
+            {
+                ConcatenateStatus = $"Exportando MP3... {pct:F0}%";
+            });
 
             try
             {
-                bool ok = await AudioConcatenator.ExportToMp3Async(audio, outputPath);
+                bool ok = await AudioConcatenator.ExportToMp3Async(audio, outputPath, progress);
                 ConcatenateStatus = ok
                     ? $"Exportado: {Path.GetFileName(outputPath)}"
                     : "Error al exportar MP3";
